@@ -1046,51 +1046,167 @@ await navigator.clipboard.readText();
 alert('請長按文字框後選「貼上」');
 }
 }
-function lineVal(t,k){
-const m=
-t.match(
-new RegExp(
-'^'+k+'\\s*[:：]\\s*(.+)$',
-'im'
-)
-);
-return m?m[1].trim():'';
+function cleanAIRows(t){
+  return (t || '')
+    .replace(/\r/g,'')
+    .split('\n')
+    .map(s => s
+      .replace(/\*\*/g,'')
+      .replace(/^\s*[-•●▪◦>*#]+\s*/,'')
+      .trim()
+    )
+    .filter(Boolean);
 }
-function numVal(t,k){
-const v=lineVal(t,k);
-const m=v.match(/[0-9]+(?:\\.[0-9]+)?/);
-return m?m[0]:'';
+
+function escRe(s){
+  return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 }
+
+function fieldVal(t,keys){
+  const rows = cleanAIRows(t);
+
+  const knownKeys = [
+    '品牌','品牌名稱',
+    '品名','商品名稱',
+    '條碼',
+    '每份','每份量','每一份量',
+    '每份重量/容量','每份重量','份量',
+    '熱量',
+    '蛋白質','蛋白',
+    '碳水','碳水化合物',
+    '糖',
+    '脂肪',
+    '纖維','膳食纖維',
+    '鈉'
+  ];
+
+  for(const key of keys){
+    const k = escRe(key);
+
+    for(let i=0;i<rows.length;i++){
+
+      const sameLine = rows[i].match(
+        new RegExp(
+          '^'+k+'(?:\\s*[:：]\\s*|\\s+)(.+)$',
+          'i'
+        )
+      );
+
+      if(sameLine && sameLine[1].trim()){
+        return sameLine[1].trim();
+      }
+
+      const labelOnly = new RegExp(
+        '^'+k+'\\s*[:：]?\\s*$',
+        'i'
+      );
+
+      if(labelOnly.test(rows[i]) && rows[i+1]){
+        const next = rows[i+1].trim();
+
+        const isAnotherLabel = knownKeys.some(x =>
+          new RegExp(
+            '^'+escRe(x)+'\\s*[:：]?\\s*$',
+            'i'
+          ).test(next)
+        );
+
+        if(!isAnotherLabel){
+          return next;
+        }
+      }
+    }
+  }
+
+  return '';
+}
+
+function numVal(t,keys){
+  const v = fieldVal(
+    t,
+    Array.isArray(keys) ? keys : [keys]
+  );
+
+  const m = v
+    .replace(/,/g,'')
+    .match(/[0-9]+(?:\.[0-9]+)?/);
+
+  return m ? m[0] : '';
+}
+
 function applyMasterAI(){
-const t=masterAIText.value;
-mBrand.value=
-lineVal(t,'品牌');
-mName.value=
-lineVal(t,'品名')||
-lineVal(t,'商品名稱');
-mBarcode.value=
-lineVal(t,'條碼');
-mServing.value=
-lineVal(t,'每份');
-mKcal.value=
-numVal(t,'熱量');
-mProtein.value=
-numVal(t,'蛋白質');
-mCarb.value=
-numVal(t,'碳水')||
-numVal(t,'碳水化合物');
-mSugar.value=
-numVal(t,'糖');
-mFat.value=
-numVal(t,'脂肪');
-mFiber.value=
-numVal(t,'纖維')||
-numVal(t,'膳食纖維');
-mSodium.value=
-numVal(t,'鈉');
-mSource.value='AI 辨識';
-mConfirmed.value=dn();
-alert('已帶入可辨識欄位，請對照包裝確認後再儲存。');
+  const t = masterAIText.value.trim();
+
+  if(!t){
+    alert('請先貼上 ChatGPT 辨識結果');
+    return;
+  }
+
+  mBrand.value =
+    fieldVal(t,['品牌','品牌名稱']);
+
+  mName.value =
+    fieldVal(t,['品名','商品名稱']);
+
+  mBarcode.value =
+    fieldVal(t,['條碼']);
+
+  mServing.value =
+    fieldVal(t,[
+      '每份',
+      '每份量',
+      '每一份量',
+      '每份重量/容量',
+      '每份重量',
+      '份量'
+    ]);
+
+  mKcal.value =
+    numVal(t,['熱量']);
+
+  mProtein.value =
+    numVal(t,['蛋白質','蛋白']);
+
+  mCarb.value =
+    numVal(t,['碳水化合物','碳水']);
+
+  mSugar.value =
+    numVal(t,['糖']);
+
+  mFat.value =
+    numVal(t,['脂肪']);
+
+  mFiber.value =
+    numVal(t,['膳食纖維','纖維']);
+
+  mSodium.value =
+    numVal(t,['鈉']);
+
+  mSource.value = 'AI 辨識';
+  mConfirmed.value = dn();
+
+  const filled = [
+    mBrand,
+    mName,
+    mBarcode,
+    mServing,
+    mKcal,
+    mProtein,
+    mCarb,
+    mSugar,
+    mFat,
+    mFiber,
+    mSodium
+  ].filter(x => String(x.value).trim() !== '').length;
+
+  if(filled === 0){
+    alert('沒有找到可帶入的欄位，請確認貼上的辨識結果。');
+  }else{
+    alert(
+      '已成功帶入 '+filled+
+      ' 個欄位，請對照包裝確認後再儲存。'
+    );
+  }
 }
 async function scanBarcodePhoto(e){
 const f=e.target.files[0];
