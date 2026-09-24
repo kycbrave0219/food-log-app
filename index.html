@@ -1878,6 +1878,288 @@ err
 }
 });
 }
+
+/* ==========================================
+   Face ID / iPhone 裝置驗證
+   保留原本 PIN 當備用
+========================================== */
+
+const FACE_ID_CRED_KEY='foodlog_faceid_credential_v1';
+
+function faceIdBase64Url(buffer){
+  return btoa(
+    String.fromCharCode(...new Uint8Array(buffer))
+  )
+  .replace(/\+/g,'-')
+  .replace(/\//g,'_')
+  .replace(/=+$/,'');
+}
+
+function faceIdFromBase64Url(value){
+  value=value.replace(/-/g,'+').replace(/_/g,'/');
+  while(value.length%4)value+='=';
+  const binary=atob(value);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++){
+    bytes[i]=binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function faceIdChallenge(){
+  return crypto.getRandomValues(new Uint8Array(32));
+}
+
+function faceIdEnabled(){
+  return !!localStorage.getItem(FACE_ID_CRED_KEY);
+}
+
+async function enableFaceId(){
+  if(!db.settings.pinHash){
+    alert('請先設定 4～6 位 PIN，PIN 會作為 Face ID 無法使用時的備用解鎖方式。');
+    return;
+  }
+
+  if(
+    !window.PublicKeyCredential ||
+    !navigator.credentials
+  ){
+    alert('目前瀏覽器不支援 Face ID／Passkey 驗證。');
+    return;
+  }
+
+  try{
+    if(
+      PublicKeyCredential
+        .isUserVerifyingPlatformAuthenticatorAvailable
+    ){
+      const available=
+        await PublicKeyCredential
+          .isUserVerifyingPlatformAuthenticatorAvailable();
+
+      if(!available){
+        alert('這台裝置目前沒有可使用的 Face ID／裝置驗證。');
+        return;
+      }
+    }
+
+    const userId=
+      crypto.getRandomValues(new Uint8Array(32));
+
+    const credential=
+      await navigator.credentials.create({
+        publicKey:{
+          challenge:faceIdChallenge(),
+          rp:{
+            name:'我的飲食與運動紀錄'
+          },
+          user:{
+            id:userId,
+            name:'foodlog-local-user',
+            displayName:'飲食紀錄'
+          },
+          pubKeyCredParams:[
+            {
+              type:'public-key',
+              alg:-7
+            },
+            {
+              type:'public-key',
+              alg:-257
+            }
+          ],
+          authenticatorSelection:{
+            authenticatorAttachment:'platform',
+            residentKey:'preferred',
+            userVerification:'required'
+          },
+          timeout:60000,
+          attestation:'none'
+        }
+      });
+
+    if(!credential)return;
+
+    localStorage.setItem(
+      FACE_ID_CRED_KEY,
+      faceIdBase64Url(credential.rawId)
+    );
+
+    refreshFaceIdUI();
+
+    alert('Face ID 已啟用！之後鎖定時可以直接使用 Face ID 解鎖。');
+
+  }catch(err){
+    console.log('Face ID 啟用失敗',err);
+
+    if(err.name!=='NotAllowedError'){
+      alert('Face ID 啟用失敗，請再試一次。');
+    }
+  }
+}
+
+async function unlockWithFaceId(){
+  const saved=
+    localStorage.getItem(FACE_ID_CRED_KEY);
+
+  if(!saved){
+    alert('尚未啟用 Face ID。');
+    return;
+  }
+
+  try{
+    const assertion=
+      await navigator.credentials.get({
+        publicKey:{
+          challenge:faceIdChallenge(),
+          allowCredentials:[
+            {
+              type:'public-key',
+              id:faceIdFromBase64Url(saved),
+              transports:['internal']
+            }
+          ],
+          userVerification:'required',
+          timeout:60000
+        }
+      });
+
+    if(assertion){
+      lock.classList.remove('show');
+      unlockPin.value='';
+    }
+
+  }catch(err){
+    console.log('Face ID 解鎖失敗',err);
+
+    if(err.name!=='NotAllowedError'){
+      alert('Face ID 無法解鎖，請改用 PIN。');
+    }
+  }
+}
+
+function disableFaceId(){
+  if(!faceIdEnabled())return;
+
+  if(confirm('確定停用 Face ID 解鎖嗎？PIN 不會被刪除。')){
+    localStorage.removeItem(FACE_ID_CRED_KEY);
+    refreshFaceIdUI();
+    alert('Face ID 已停用');
+  }
+}
+
+function refreshFaceIdUI(){
+  const enabled=faceIdEnabled();
+
+  const unlockButton=
+    document.getElementById('faceIdUnlockButton');
+
+  if(unlockButton){
+    unlockButton.style.display=
+      enabled?'block':'none';
+  }
+
+  const status=
+    document.getElementById('faceIdStatus');
+
+  if(status){
+    status.textContent=
+      enabled
+      ?'✅ Face ID 已啟用'
+      :'尚未啟用 Face ID';
+  }
+}
+
+function setupFaceIdUI(){
+
+  /* 鎖定畫面增加 Face ID 按鈕 */
+  const lockBox=
+    document.querySelector('#lock .lockbox');
+
+  if(
+    lockBox &&
+    !document.getElementById('faceIdUnlockButton')
+  ){
+    const button=
+      document.createElement('button');
+
+    button.id='faceIdUnlockButton';
+    button.className='primary';
+    button.style.width='100%';
+    button.style.marginBottom='12px';
+    button.textContent='🔐 使用 Face ID 解鎖';
+    button.onclick=unlockWithFaceId;
+
+    const pinInput=
+      document.getElementById('unlockPin');
+
+    lockBox.insertBefore(
+      button,
+      pinInput
+    );
+  }
+
+  /* 設定頁增加 Face ID 設定 */
+  const settingsPage=
+    document.getElementById('settings');
+
+  if(
+    settingsPage &&
+    !document.getElementById('faceIdSettingsCard')
+  ){
+    const card=
+      document.createElement('div');
+
+    card.className='card';
+    card.id='faceIdSettingsCard';
+
+    card.innerHTML=`
+      <div class="itemtitle">
+        🔐 Face ID／裝置驗證
+      </div>
+
+      <div
+        id="faceIdStatus"
+        class="note"
+        style="margin-top:8px">
+      </div>
+
+      <div class="note" style="margin-top:6px">
+        啟用後，iPhone 可使用 Face ID 解鎖。
+        PIN 仍保留作為備用。
+      </div>
+
+      <div class="btnrow" style="margin-top:10px">
+        <button
+          id="enableFaceIdButton"
+          class="primary">
+          啟用 Face ID
+        </button>
+
+        <button
+          id="disableFaceIdButton"
+          class="danger">
+          停用 Face ID
+        </button>
+      </div>
+    `;
+
+    settingsPage.appendChild(card);
+
+    document
+      .getElementById('enableFaceIdButton')
+      .onclick=enableFaceId;
+
+    document
+      .getElementById('disableFaceIdButton')
+      .onclick=disableFaceId;
+  }
+
+  refreshFaceIdUI();
+}
+
+setupFaceIdUI();
+  
 init();
 </script>
 </body>
