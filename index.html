@@ -12,7 +12,31 @@
 
 <section id="exercise" class="section"><div class="card"><div class="itemtitle">新增運動</div><div class="grid" style="margin-top:10px"><div><label>日期</label><input id="eDate" type="date"></div><div><label>類型</label><select id="eType" onchange="autoClass()"><option>快走</option><option>跑步</option><option>單車</option><option>橢圓機</option><option>游泳</option><option>傳統重量訓練</option><option>功能性肌力訓練</option><option>HIIT</option><option>其他</option></select></div><div><label>分類</label><select id="eClass"><option>有氧</option><option>無氧</option><option>混合</option></select></div><div><label>開始</label><input id="eStart" type="time"></div><div><label>結束</label><input id="eEnd" type="time" onchange="calcMin()"></div><div><label>分鐘</label><input id="eMinutes"></div><div><label>消耗 kcal</label><input id="eKcal"></div><div class="full"><label>備註</label><textarea id="eNote"></textarea></div></div><button class="primary" style="margin-top:10px" onclick="saveExercise()">儲存運動</button><div class="note" style="margin-top:10px">目前 PWA 不能直接讀 Apple Health / Apple Watch；未來原生 iPhone App 可用 HealthKit 匯入。</div></div><div class="card"><div class="itemtitle">運動紀錄</div><div id="exerciseList"></div></div></section>
 
-<section id="fooddb" class="section"><div class="card"><div class="itemtitle">食品主檔</div><div class="note">第一次建立後，下次直接選商品就能帶入營養素。包裝標示優先於網路資料。</div><div class="btnrow" style="margin-top:10px"><button class="secondary" onclick="document.getElementById('barcodePhotoInput').click()">▥ 拍條碼辨識</button><button class="secondary" onclick="document.getElementById('pkgPhotoInput').click()">📦 拍商品外包裝</button><button class="secondary" onclick="document.getElementById('nutritionPhotoInput').click()">🧾 拍營養標示</button></div><input id="barcodePhotoInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="scanBarcodePhoto(event)"><input id="pkgPhotoInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleMasterPhoto(event,'package')"><input id="nutritionPhotoInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleMasterPhoto(event,'nutrition')"><img id="masterPhotoPreview" class="photoPreview"><div class="btnrow" style="margin-top:10px"><button class="secondary" onclick="shareMasterPhotoToAI()">傳給 ChatGPT 辨識</button><button class="secondary" onclick="pasteMasterAI()">貼上辨識結果</button></div><textarea id="masterAIText" placeholder="品牌：
+<section id="fooddb" class="section"><div class="card"><div class="itemtitle">食品主檔</div><div class="note">第一次建立後，下次直接選商品就能帶入營養素。包裝標示優先於網路資料。</div>
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary" onclick="document.getElementById('barcodePhotoInput').click()">📷 拍條碼辨識</button>
+  <button class="secondary" onclick="document.getElementById('barcodePhotoLibraryInput').click()">🖼️ 從圖庫選條碼</button>
+</div>
+
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary" onclick="document.getElementById('pkgPhotoInput').click()">📷 拍商品外包裝</button>
+  <button class="secondary" onclick="document.getElementById('pkgPhotoLibraryInput').click()">🖼️ 從圖庫選外包裝</button>
+</div>
+
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary" onclick="document.getElementById('nutritionPhotoInput').click()">📷 拍營養標示</button>
+  <button class="secondary" onclick="document.getElementById('nutritionPhotoLibraryInput').click()">🖼️ 從圖庫選營養標示</button>
+</div>
+
+<input id="barcodePhotoInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="scanBarcodePhoto(event)">
+<input id="barcodePhotoLibraryInput" type="file" accept="image/*" style="display:none" onchange="scanBarcodePhoto(event)">
+
+<input id="pkgPhotoInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleMasterPhoto(event,'package')">
+<input id="pkgPhotoLibraryInput" type="file" accept="image/*" style="display:none" onchange="handleMasterPhoto(event,'package')">
+
+<input id="nutritionPhotoInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleMasterPhoto(event,'nutrition')">
+<input id="nutritionPhotoLibraryInput" type="file" accept="image/*" style="display:none" onchange="handleMasterPhoto(event,'nutrition')">  
+<img id="masterPhotoPreview" class="photoPreview"><div class="btnrow" style="margin-top:10px"><button class="secondary" onclick="shareMasterPhotoToAI()">傳給 ChatGPT 辨識</button><button class="secondary" onclick="pasteMasterAI()">貼上辨識結果</button></div><textarea id="masterAIText" placeholder="品牌：
 品名：
 條碼：
 每份：
