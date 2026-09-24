@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<title>我的飲食與運動紀錄 v6</title>
+<title>我的飲食與運動紀錄 v7</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -958,13 +958,40 @@ masterPhotoURL=URL.createObjectURL(f);
 masterPhotoPreview.src=masterPhotoURL;
 masterPhotoPreview.style.display='block';
 }
+async function copyAIFormat(text){
+try{
+if(navigator.clipboard && navigator.clipboard.writeText){
+await navigator.clipboard.writeText(text);
+return true;
+}
+}catch(e){}
+
+try{
+const ta=document.createElement('textarea');
+ta.value=text;
+ta.setAttribute('readonly','');
+ta.style.position='fixed';
+ta.style.opacity='0';
+ta.style.pointerEvents='none';
+document.body.appendChild(ta);
+ta.select();
+ta.setSelectionRange(0,ta.value.length);
+const ok=document.execCommand('copy');
+document.body.removeChild(ta);
+return ok;
+}catch(e){
+return false;
+}
+}
+
 async function shareMasterPhotoToAI(){
 if(!masterPhoto){
 alert('請先拍商品外包裝或營養標示');
 return;
 }
+
 const text=
-`請辨識這張${masterPhotoKind==='nutrition'?'營養標示':'商品外包裝'}照片，請只用以下格式回覆，不確定留白：
+`請辨識這張${masterPhotoKind==='nutrition'?'營養標示':masterPhotoKind==='barcode'?'條碼':'商品外包裝'}照片，請只用以下格式回覆，不確定留白：
 品牌：
 品名：
 條碼：
@@ -976,22 +1003,40 @@ const text=
 脂肪： g
 纖維： g
 鈉： mg`;
-try{
+
+/*
+先複製辨識格式，再開啟 iPhone 分享清單。
+網頁無法知道分享清單裡是否有 ChatGPT，
+因此若使用者關閉分享清單，就提醒直接開 ChatGPT 上傳照片並貼上格式。
+*/
+const copied=await copyAIFormat(text);
+
+const fallbackMessage=
+copied
+?'✅ 辨識格式已複製。\n\n如果分享清單沒有 ChatGPT，請直接開啟 ChatGPT，上傳剛剛選的照片，再貼上已複製的辨識格式。'
+:'如果分享清單沒有 ChatGPT，請直接開啟 ChatGPT，上傳剛剛選的照片，再手動貼上／輸入辨識格式。';
+
 if(
 navigator.share &&
 navigator.canShare &&
 navigator.canShare({files:[masterPhoto]})
 ){
+try{
 await navigator.share({
 files:[masterPhoto],
 text,
 title:'食品營養辨識'
 });
+}catch(e){
+if(e && e.name==='AbortError'){
+alert(fallbackMessage);
 }else{
-await navigator.clipboard.writeText(text);
-alert('此瀏覽器無法直接分享照片，已複製辨識格式；請把照片和文字一起傳給 ChatGPT。');
+alert('照片分享未完成。\n\n'+fallbackMessage);
 }
-}catch(e){}
+}
+}else{
+alert('這個瀏覽器無法直接分享照片。\n\n'+fallbackMessage);
+}
 }
 async function pasteMasterAI(){
 try{
