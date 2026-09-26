@@ -88,7 +88,9 @@ button{font:inherit}
 .master-photo-wrap.one .master-thumb{width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important}
 .master-photo-wrap.two .master-thumb{width:52px!important;height:52px!important;max-width:52px!important;max-height:52px!important}
 .master-thumb{position:static!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
-.master-photo-mini{border:0;background:transparent;color:var(--muted);padding:1px 4px;font-size:9px;line-height:1.2;cursor:pointer}
+.master-photo-actions{display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+.master-photo-mini{border:0;background:transparent;color:var(--muted);padding:1px 3px;font-size:9px;line-height:1.2;cursor:pointer}
+.master-photo-mini.delete{color:#d33}
 .master-photo-swap{align-self:center;border:0;background:var(--soft);color:var(--text);border-radius:999px;width:26px;height:26px;padding:0;font-size:15px;line-height:26px;cursor:pointer}
 .record-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
 .record-actions button{padding:7px 11px;border-radius:10px;font-size:12px}
@@ -930,6 +932,16 @@ r.onsuccess=()=>a(r.result||null);
 r.onerror=()=>c(r.error);
 })
 }
+async function delP(id){
+if(!id)return;
+let d=await pdb();
+return new Promise((a,c)=>{
+let t=d.transaction('p','readwrite');
+t.objectStore('p').delete(id);
+t.oncomplete=a;
+t.onerror=()=>c(t.error);
+})
+}
 
 /* ==================================================
    PHOTO_STORAGE_V3
@@ -975,7 +987,7 @@ headers:{
 'Authorization':'Bearer '+cloudSession.access_token,
 'Content-Type':'image/jpeg',
 'x-upsert':'true',
-'cache-control':'3600'
+'cache-control':'0'
 },
 body:blob
 });
@@ -985,12 +997,32 @@ markPhotoUploaded(path);return true;
 async function downloadPhotoBlob(path){
 if(!cloudSession?.user||cloudPhotoMisses.has(path))return null;
 ensureCloudConfig();await refreshCloudSession();
-const r=await fetch(`${cloudConfig.url}/storage/v1/object/authenticated/${PHOTO_BUCKET}/${path}`,{
-headers:{'apikey':cloudConfig.key,'Authorization':'Bearer '+cloudSession.access_token}
+const bust=Date.now();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/authenticated/${PHOTO_BUCKET}/${path}?v=${bust}`,{
+cache:'no-store',
+headers:{'apikey':cloudConfig.key,'Authorization':'Bearer '+cloudSession.access_token,'Cache-Control':'no-cache'}
 });
 if(r.status===404){cloudPhotoMisses.add(path);return null;}
 if(!r.ok)throw new Error(await photoStorageError(r));
 return await r.blob();
+}
+async function deletePhotoBlob(path){
+if(!cloudSession?.user||!path)return false;
+ensureCloudConfig();await refreshCloudSession();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}`,{
+method:'DELETE',
+headers:{
+'apikey':cloudConfig.key,
+'Authorization':'Bearer '+cloudSession.access_token,
+'Content-Type':'application/json'
+},
+body:JSON.stringify({prefixes:[path]})
+});
+if(!r.ok)throw new Error(await photoStorageError(r));
+const state=getPhotoUploadState();delete state[path];
+try{localStorage.setItem(PHOTO_UPLOAD_STATE_KEY,JSON.stringify(state))}catch{}
+cloudPhotoMisses.add(path);
+return true;
 }
 async function compressPhotoBlob(file,maxSide=1200,quality=.82){
 if(!file)return null;
@@ -1485,19 +1517,64 @@ if(!f){input.remove();return;}
 let cloudWarning='';
 try{
 const b=await compressPhotoBlob(f);
-const pid=`m_${safePhotoPart(x.id)}_${index+1}`;
+const p=normalizeMasterPhotos(x);
+const oldId=p.ids[index]||'';
+// 每次更換都使用新的本機照片 ID，避免 iPhone / IndexedDB 顯示舊快取。
+const pid=`m_${safePhotoPart(x.id)}_${index+1}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
 await putP(pid,b);
-const p=normalizeMasterPhotos(x);p.ids[index]=pid;
+p.ids[index]=pid;
 x.photoIds=p.ids.slice(0,2);x.photoId=x.photoIds[0]||'';
 persistLocalOnly();
+if(oldId&&oldId!==pid){try{await delP(oldId)}catch{}}
+try{await delP(localPhotoCacheId('master',x.id,index+1))}catch{}
 masterPhotoKeyCache=null;
 if(cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('master',x.id,index+1),b,true)}catch(e){cloudWarning=e?.message||String(e)}}
 await renderMasters();
-if(cloudWarning)alert('照片已存本機，但雲端照片尚未完成：'+cloudWarning);
+if(cloudWarning)alert('照片已更新在本機，但雲端照片尚未完成：'+cloudWarning);
 }catch(e){alert('照片儲存失敗：'+(e?.message||e));}
 input.remove();
 };
 input.click();
+}
+async function deleteMasterPhoto(id,index=0){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+index=Math.max(0,Math.min(1,Number(index)||0));
+if(!confirm(`確定刪除第 ${index+1} 張照片？`))return;
+const p=normalizeMasterPhotos(x);
+const oldIds=[...p.ids];
+let cloudWarning='';
+try{
+if(index===0 && oldIds[1]){
+// 刪除第一張時，第二張自動前移成第一張，避免留下空洞。
+const b2=await getMasterPhotoBlob(x,1);
+const newId=`m_${safePhotoPart(x.id)}_1_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+if(b2)await putP(newId,b2);
+x.photoIds=b2?[newId]:[];
+x.photoId=x.photoIds[0]||'';
+for(const k of oldIds){if(k&&k!==newId){try{await delP(k)}catch{}}}
+try{await delP(localPhotoCacheId('master',x.id,1))}catch{}
+try{await delP(localPhotoCacheId('master',x.id,2))}catch{}
+persistLocalOnly();masterPhotoKeyCache=null;
+if(cloudSession?.user){
+try{
+const p1=photoStoragePath('master',x.id,1),p2=photoStoragePath('master',x.id,2);
+if(b2)await uploadPhotoBlob(p1,b2,true);
+await deletePhotoBlob(p2);
+}catch(e){cloudWarning=e?.message||String(e)}
+}
+}else{
+const oldId=oldIds[index]||'';
+if(oldId){try{await delP(oldId)}catch{}}
+const kept=oldIds.filter((_,i)=>i!==index).filter(Boolean);
+x.photoIds=kept.slice(0,2);x.photoId=x.photoIds[0]||'';
+try{await delP(localPhotoCacheId('master',x.id,index+1))}catch{}
+persistLocalOnly();masterPhotoKeyCache=null;
+if(cloudSession?.user){try{await deletePhotoBlob(photoStoragePath('master',x.id,index+1))}catch(e){cloudWarning=e?.message||String(e)}}
+}
+await renderMasters();
+if(cloudWarning)alert('照片已從本機刪除，但雲端刪除尚未完成：'+cloudWarning+'\n若之後又看到舊照片，請先確認 Supabase Storage 有 DELETE 權限。');
+}catch(e){alert('刪除照片失敗：'+(e?.message||e));}
 }
 async function swapMasterPhotos(id){
 const x=db.masters.find(v=>String(v.id)===String(id));if(!x)return;
@@ -1665,7 +1742,7 @@ for(let i=0;i<2;i++){
 const b=await getMasterPhotoBlob(x,i);
 if(b)srcs.push({src:URL.createObjectURL(b),index:i});
 }
-const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`${n===1?`<button class="master-photo-swap" type="button" title="左右交換" onclick="event.stopPropagation();swapMasterPhotos('${x.id}')">↔</button>`:''}<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button></div>`).join('')}</div>`:'';
+const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`${n===1?`<button class="master-photo-swap" type="button" title="左右交換" onclick="event.stopPropagation();swapMasterPhotos('${x.id}')">↔</button>`:''}<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><div class="master-photo-actions"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button><button class="master-photo-mini delete" type="button" onclick="event.stopPropagation();deleteMasterPhoto('${x.id}',${v.index})">刪除</button></div></div>`).join('')}</div>`:'';
 const addPhotoButton=srcs.length===0
 ?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',0)">📷 補照片</button>`
 :srcs.length===1
@@ -1692,7 +1769,7 @@ ${photoHtml}
 <div class="btnrow" style="margin-top:8px">
 <button class="secondary" onclick="useMaster('${x.id}')">加入飲食</button>
 ${addPhotoButton}
-<button class="danger" onclick="deleteMaster('${x.id}')">刪除</button>
+<button class="danger" onclick="deleteMaster('${x.id}')">刪除食品</button>
 </div>
 </div>`;
 }
