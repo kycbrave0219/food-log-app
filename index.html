@@ -88,6 +88,11 @@ button{font:inherit}
 .master-photo-wrap.two .master-thumb{width:52px!important;height:52px!important;max-width:52px!important;max-height:52px!important}
 .master-thumb{position:static!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
 .master-photo-mini{border:0;background:transparent;color:var(--muted);padding:1px 4px;font-size:9px;line-height:1.2;cursor:pointer}
+.master-photo-swap{align-self:center;border:0;background:var(--soft);color:var(--text);border-radius:999px;width:26px;height:26px;padding:0;font-size:15px;line-height:26px;cursor:pointer}
+.record-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.record-actions button{padding:7px 11px;border-radius:10px;font-size:12px}
+.history-food{margin-top:8px;padding:10px 0 2px;border-top:1px dashed var(--line)}
+.editing-note{display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:12px}
 .master-photo-action{border:0;background:var(--soft);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--text);cursor:pointer}
 .zoom-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:120;display:none;align-items:center;justify-content:center;padding:24px}
 .zoom-backdrop.show{display:flex}
@@ -276,9 +281,11 @@ button{font:inherit}
 <textarea id="fNote"></textarea>
 </div>
 </div>
-<button class="primary" style="margin-top:10px" onclick="saveFood()">
-儲存這一餐
-</button>
+<div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若不重新選照片，會保留原照片。</div>
+<div class="btnrow" style="margin-top:10px">
+<button id="saveFoodBtn" class="primary" onclick="saveFood()">儲存這一餐</button>
+<button id="cancelFoodEditBtn" class="secondary" style="display:none" onclick="cancelFoodEdit()">取消修改</button>
+</div>
 </div>
 <div class="card">
 <div class="itemtitle">體重／體脂</div>
@@ -636,6 +643,7 @@ foods:[],
 body:[],
 exercise:[],
 masters:[],
+deletedFoods:[],
 settings:{
 goalKcal:'',
 goalProtein:'',
@@ -650,6 +658,7 @@ let db=load(),
 photo=null,
 photoURL=null,
 selectedMasterId='',
+editingFoodId='',
 masterPhoto=null,
 masterPhotoKind='',
 masterPhotoURL=null;
@@ -671,7 +680,7 @@ function save(){
 localStorage.setItem(K,JSON.stringify(db));
 if(!cloudSuppress && cloudSession && localStorage.getItem(cloudReadyKey())){
 clearTimeout(cloudSyncTimer);
-cloudSyncTimer=setTimeout(()=>uploadLocalCloud().catch(e=>setCloudStatus('雲端自動同步失敗：'+e.message)),1200)
+cloudSyncTimer=setTimeout(()=>syncCloud(),1200)
 }
 }
 const DEFAULT_CLOUD_URL='https://tfyffsondjlvxbezsckr.supabase.co';
@@ -719,10 +728,41 @@ function cloudRows(){const u=cloudSession.user.id;return [
 ['food_masters',db.masters,x=>({brand:x.brand,name:x.name,barcode:x.barcode,serving:x.serving,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,source:x.source,confirmed:!!x.confirmed,note:x.note})]
 ].map(([table,items,convert])=>({table,rows:items.map(x=>({user_id:u,legacy_id:String(x.id||uid()),...convert(x)}))}))}
 async function localRowsWithIds(){const u=cloudSession.user.id,out=cloudRows();for(const group of out){const local=group.table==='food_logs'?db.foods:group.table==='body_logs'?db.body:group.table==='exercise_logs'?db.exercise:db.masters;for(let i=0;i<group.rows.length;i++)group.rows[i].id=await stableCloudId(u,group.table,group.rows[i].legacy_id)}return out}
+const FOOD_DELETE_MARK='__KYC_DELETED_V1__';
+function deletedFoodIds(){return new Set((db.deletedFoods||[]).map(x=>String(x.id)))}
+async function pullCloudFoodDeletions(){
+if(!cloudSession?.user)return;
+const rows=await cloudFetch(`/rest/v1/food_logs?select=legacy_id,note&note=eq.${encodeURIComponent(FOOD_DELETE_MARK)}`);
+if(!Array.isArray(db.deletedFoods))db.deletedFoods=[];
+for(const r of rows||[]){
+const id=String(r.legacy_id||'');
+if(!id)continue;
+if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});
+db.foods=db.foods.filter(x=>String(x.id)!==id);
+}
+}
+async function uploadFoodDeleteTombstones(){
+if(!cloudSession?.user || !Array.isArray(db.deletedFoods) || !db.deletedFoods.length)return;
+const u=cloudSession.user.id;
+const rows=[];
+for(const x of db.deletedFoods){
+if(x.remote)continue;
+const legacy=String(x.id||'');
+if(!legacy)continue;
+rows.push({
+id:await stableCloudId(u,'food_logs',legacy),user_id:u,legacy_id:legacy,
+log_date:x.date||null,meal_time:x.time||null,meal:x.meal||null,master_legacy_id:x.masterId||null,
+food:x.food||'',qty:x.qty||null,unit:x.unit||null,kcal:x.kcal||null,protein:x.protein||null,
+carb:x.carb||null,sugar:x.sugar||null,fat:x.fat||null,fiber:x.fiber||null,sodium:x.sodium||null,
+note:FOOD_DELETE_MARK
+});
+}
+if(rows.length)await cloudFetch('/rest/v1/food_logs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
+}
 async function uploadLocalCloud(){if(!cloudSession?.user)throw new Error('請先登入。');for(const g of await localRowsWithIds()){if(!g.rows.length)continue;await cloudFetch(`/rest/v1/${g.table}?on_conflict=id`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(g.rows)})}const s=db.settings;await cloudFetch('/rest/v1/user_settings?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:cloudSession.user.id,goal_kcal:s.goalKcal||null,goal_protein:s.goalProtein||null,warn_percent:s.warnPercent||80,summary_time:s.summaryTime||'20:30'})})}
 function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,weight:r.weight,fat:r.fat,waist:r.waist};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,note:r.note};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoData:''}}
-async function pullCloudTable(table,key){const rows=await cloudFetch(`/rest/v1/${table}?select=*`);const local=db[key];for(const r of rows){const x=cloudLocalRow(table,r);const i=local.findIndex(v=>String(v.id)===String(x.id));if(i<0)local.push(x)} }
-async function syncCloud(){try{if(!cloudSession?.user)throw new Error('請先登入，再執行同步。');setCloudStatus('同步中…本機資料會合併到雲端，不會清空任何一邊。');await uploadLocalCloud();cloudSuppress=true;await pullCloudTable('food_logs','foods');await pullCloudTable('body_logs','body');await pullCloudTable('exercise_logs','exercise');await pullCloudTable('food_masters','masters');const settings=await cloudFetch('/rest/v1/user_settings?select=*&limit=1');if(settings?.[0])db.settings={...db.settings,goalKcal:settings[0].goal_kcal??db.settings.goalKcal,goalProtein:settings[0].goal_protein??db.settings.goalProtein,warnPercent:settings[0].warn_percent??db.settings.warnPercent,summaryTime:settings[0].summary_time??db.settings.summaryTime};save();localStorage.setItem(cloudReadyKey(),'1');cloudSuppress=false;renderToday();renderMasters();setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆。本機照片尚未上傳。`)}catch(e){cloudSuppress=false;setCloudStatus('同步失敗：'+e.message)}}
+async function pullCloudTable(table,key){const rows=await cloudFetch(`/rest/v1/${table}?select=*`);const local=db[key];const deleted=deletedFoodIds();for(const r of rows){if(table==='food_logs' && r.note===FOOD_DELETE_MARK){const id=String(r.legacy_id||r.id||'');if(id){if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}continue;}const x=cloudLocalRow(table,r);if(table==='food_logs' && deleted.has(String(x.id)))continue;const i=local.findIndex(v=>String(v.id)===String(x.id));if(i<0)local.push(x)} }
+async function syncCloud(){try{if(!cloudSession?.user)throw new Error('請先登入，再執行同步。');setCloudStatus('同步中…本機資料會合併到雲端，不會清空任何一邊。');await pullCloudFoodDeletions();await uploadFoodDeleteTombstones();await uploadLocalCloud();cloudSuppress=true;await pullCloudTable('food_logs','foods');await pullCloudTable('body_logs','body');await pullCloudTable('exercise_logs','exercise');await pullCloudTable('food_masters','masters');const settings=await cloudFetch('/rest/v1/user_settings?select=*&limit=1');if(settings?.[0])db.settings={...db.settings,goalKcal:settings[0].goal_kcal??db.settings.goalKcal,goalProtein:settings[0].goal_protein??db.settings.goalProtein,warnPercent:settings[0].warn_percent??db.settings.warnPercent,summaryTime:settings[0].summary_time??db.settings.summaryTime};save();localStorage.setItem(cloudReadyKey(),'1');cloudSuppress=false;renderToday();renderMasters();renderHistory();setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆。本機照片尚未上傳。`)}catch(e){cloudSuppress=false;setCloudStatus('同步失敗：'+e.message)}}
 
 let cloudAutoSyncRunning=false;
 async function autoRestoreAndSyncCloud(reason='自動'){
@@ -819,84 +859,67 @@ photoURL=URL.createObjectURL(photo);
 photoPreview.src=photoURL;
 photoPreview.style.display='block';
 }
-async function saveFood(){
-if(!fFood.value.trim()){
-alert('請輸入食物／餐點');
-return;
-}
-let photoId='';
-if(photo){
-photoId='p_'+uid();
-await putP(photoId,photo);
-}
-db.foods.push({
-id:uid(),
-date:fDate.value,
-time:fTime.value,
-meal:fMeal.value,
-masterId:selectedMasterId,
-food:fFood.value.trim(),
-qty:fQty.value,
-unit:fUnit.value,
-kcal:fKcal.value,
-protein:fProtein.value,
-carb:fCarb.value,
-sugar:fSugar.value,
-fat:fFat.value,
-fiber:fFiber.value,
-sodium:fSodium.value,
-note:fNote.value,
-photoId
-});
-save();
+function clearFoodEntryForm(){
 selectedMasterId='';
+editingFoodId='';
 fMasterName.value='';
 fFood.value='';
 fQty.value='1';
-fKcal.value=
-fProtein.value=
-fCarb.value=
-fSugar.value=
-fFat.value=
-fFiber.value=
-fSodium.value=
-fNote.value='';
+fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value=fNote.value='';
 photo=null;
-/* 修正：原本 photoInput 已不存在 */
-photoCameraInput.value='';
-photoLibraryInput.value='';
-if(photoURL){
-URL.revokeObjectURL(photoURL);
-photoURL=null;
+photoCameraInput.value='';photoLibraryInput.value='';
+if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
+photoPreview.removeAttribute('src');photoPreview.style.display='none';
+if(saveFoodBtn)saveFoodBtn.textContent='儲存這一餐';
+if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='none';
+if(foodEditNotice)foodEditNotice.style.display='none';
 }
-photoPreview.removeAttribute('src');
-photoPreview.style.display='none';
-renderToday();
-alert('已儲存這一餐');
+function cancelFoodEdit(){clearFoodEntryForm();fDate.value=dn();fTime.value=tn();}
+async function saveFood(){
+if(!fFood.value.trim()){alert('請輸入食物／餐點');return;}
+let existing=editingFoodId?db.foods.find(x=>String(x.id)===String(editingFoodId)):null;
+let photoId=existing?.photoId||'';
+if(photo){photoId='p_'+uid();await putP(photoId,photo);}
+const values={date:fDate.value,time:fTime.value,meal:fMeal.value,masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
+if(existing){Object.assign(existing,values);}else{db.foods.push({id:uid(),...values});}
+save();
+const wasEdit=!!existing;
+clearFoodEntryForm();
+fDate.value=dn();fTime.value=tn();
+await renderToday();renderHistory();renderStats();
+alert(wasEdit?'飲食紀錄已更新':'已儲存這一餐');
+}
+async function editFood(id){
+const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
+editingFoodId=String(x.id);selectedMasterId=x.masterId||'';
+fDate.value=x.date||dn();fTime.value=x.time||tn();fMeal.value=x.meal||'早餐';
+const m=db.masters.find(v=>String(v.id)===String(x.masterId||''));
+fMasterName.value=m?((m.brand?m.brand+' ':'')+m.name):'';
+fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';
+fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
+photo=null;
+if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
+if(x.photoId){const b=await getP(x.photoId);if(b){photoURL=URL.createObjectURL(b);photoPreview.src=photoURL;photoPreview.style.display='block';}else{photoPreview.style.display='none';}}else{photoPreview.style.display='none';}
+if(saveFoodBtn)saveFoodBtn.textContent='更新這一餐';
+if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='';
+if(foodEditNotice)foodEditNotice.style.display='block';
+goTab('add');
+setTimeout(()=>document.getElementById('add')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+async function deleteFood(id){
+const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
+if(!confirm(`確定刪除「${x.food||'這筆飲食'}」？`))return;
+if(!Array.isArray(db.deletedFoods))db.deletedFoods=[];
+if(!db.deletedFoods.some(v=>String(v.id)===String(x.id)))db.deletedFoods.push({...x});
+db.foods=db.foods.filter(v=>String(v.id)!==String(id));
+if(String(editingFoodId)===String(id))clearFoodEntryForm();
+save();
+await renderToday();renderHistory();renderStats();
 }
 async function foodHtml(x){
 let pic='';
-if(x.photoId){
-let b=await getP(x.photoId);
-if(b)
-pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;
-}
-return `<div class="item">
-<b>${esc(x.food)}</b>
-<div class="small">
-${esc(x.meal)}・${esc(x.time)}
-${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}
-</div>
-${pic}
-<div class="small">
-${esc(x.kcal||'—')} kcal・
-蛋白質 ${esc(x.protein||'—')} g・
-碳水 ${esc(x.carb||'—')} g・
-脂肪 ${esc(x.fat||'—')} g・
-糖 ${esc(x.sugar||'—')} g・
-鈉 ${esc(x.sodium||'—')} mg
-</div>
-</div>`;
+if(x.photoId){let b=await getP(x.photoId);if(b)pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;}
+return `<div class="item"><b>${esc(x.food)}</b><div class="small">${esc(x.meal)}・${esc(x.time)}${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}</div>${pic}<div class="small">${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g・碳水 ${esc(x.carb||'—')} g・脂肪 ${esc(x.fat||'—')} g・糖 ${esc(x.sugar||'—')} g・鈉 ${esc(x.sodium||'—')} mg</div><div class="record-actions"><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
 }
 async function renderToday(){
 let d=dn();
@@ -1257,6 +1280,16 @@ input.remove();
 };
 input.click();
 }
+function swapMasterPhotos(id){
+const x=db.masters.find(v=>String(v.id)===String(id));if(!x)return;
+const p=normalizeMasterPhotos(x);
+if((p.ids.filter(Boolean).length<2) && (p.datas.filter(Boolean).length<2))return;
+[p.ids[0],p.ids[1]]=[p.ids[1],p.ids[0]];
+[p.datas[0],p.datas[1]]=[p.datas[1],p.datas[0]];
+x.photoIds=p.ids.slice(0,2);x.photoDatas=p.datas.slice(0,2);
+x.photoId=x.photoIds[0]||'';x.photoData=x.photoDatas[0]||'';
+save();renderMasters();
+}
 async function saveMaster(){
 if(!mName.value.trim()){
 alert('請輸入商品名稱');
@@ -1424,7 +1457,7 @@ x.photoDatas=p.datas.filter(Boolean).slice(0,2);
 x.photoData=x.photoDatas[0]||'';
 localStorage.setItem(K,JSON.stringify(db));
 }
-const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button></div>`).join('')}</div>`:'';
+const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`${n===1?`<button class="master-photo-swap" type="button" title="左右交換" onclick="event.stopPropagation();swapMasterPhotos('${x.id}')">↔</button>`:''}<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button></div>`).join('')}</div>`:'';
 const addPhotoButton=srcs.length===0
 ?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',0)">📷 補照片</button>`
 :srcs.length===1
@@ -1601,39 +1634,15 @@ save();
 alert('已儲存');
 }
 function renderHistory(){
-let s=hStart.value;
-let e=hEnd.value;
-let f=
-db.foods.filter(x=>
-x.date>=s &&
-x.date<=e
-);
-let x=
-db.exercise.filter(x=>
-x.date>=s &&
-x.date<=e
-);
-let days=[
-...new Set([
-...f.map(x=>x.date),
-...x.map(x=>x.date)
-])
-]
-.sort()
-.reverse();
-historyList.innerHTML=
-days.length
-?days.map(d=>`
-<div class="item">
-<b>${d}</b>
-<div class="small">
-飲食 ${f.filter(x=>x.date===d).length} 筆・
-運動 ${x.filter(x=>x.date===d)
-.reduce((a,b)=>a+num(b.minutes),0)} 分鐘
-</div>
-</div>
-`).join('')
-:'<div class="empty">無資料</div>';
+let s=hStart.value,e=hEnd.value;
+let f=db.foods.filter(x=>x.date>=s&&x.date<=e);
+let ex=db.exercise.filter(x=>x.date>=s&&x.date<=e);
+let days=[...new Set([...f.map(x=>x.date),...ex.map(x=>x.date)])].sort().reverse();
+historyList.innerHTML=days.length?days.map(d=>{
+const foods=f.filter(v=>v.date===d).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
+const mins=ex.filter(v=>v.date===d).reduce((a,b)=>a+num(b.minutes),0);
+return `<div class="item"><b>${d}</b><div class="small">飲食 ${foods.length} 筆・運動 ${mins} 分鐘</div>${foods.map(v=>`<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.meal)}・${esc(v.time||'')}・${esc(v.qty||'')} ${esc(v.unit||'')}・${esc(v.kcal||'—')} kcal</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`).join('')}</div>`;
+}).join(''):'<div class="empty">無資料</div>';
 }
 function printHistory(){
 let s=hStart.value;
