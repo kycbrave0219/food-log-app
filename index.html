@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 2026.09.26 photo-v2</title>
+<title>KYC 飲食與運動紀錄 2026.09.26 unit-calc-v1</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -232,12 +232,12 @@ button{font:inherit}
 <input id="fFood">
 </div>
 <div>
-<label>吃了幾份</label>
+<label id="fQtyLabel">吃了幾份</label>
 <input id="fQty" value="1" inputmode="decimal" oninput="recalcMaster()">
 </div>
 <div>
 <label>單位</label>
-<select id="fUnit">
+<select id="fUnit" onchange="updateFoodQtyLabel();recalcMaster()">
 <option>份</option>
 <option>g</option>
 <option>ml</option>
@@ -246,7 +246,11 @@ button{font:inherit}
 <option>碗</option>
 <option>杯</option>
 <option>個</option>
+<option>包</option>
 </select>
+</div>
+<div class="full">
+<div id="fCalcHint" class="note">選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算。</div>
 </div>
 <div>
 <label>熱量 kcal</label>
@@ -865,6 +869,9 @@ editingFoodId='';
 fMasterName.value='';
 fFood.value='';
 fQty.value='1';
+fUnit.value='份';
+updateFoodQtyLabel();
+if(document.getElementById('fCalcHint'))fCalcHint.textContent='選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算。';
 fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value=fNote.value='';
 photo=null;
 photoCameraInput.value='';photoLibraryInput.value='';
@@ -895,7 +902,7 @@ editingFoodId=String(x.id);selectedMasterId=x.masterId||'';
 fDate.value=x.date||dn();fTime.value=x.time||tn();fMeal.value=x.meal||'早餐';
 const m=db.masters.find(v=>String(v.id)===String(x.masterId||''));
 fMasterName.value=m?((m.brand?m.brand+' ':'')+m.name):'';
-fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';
+fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';updateFoodQtyLabel();
 fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
 photo=null;
 if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
@@ -1567,44 +1574,78 @@ fFood.value=
 fMasterName.value;
 fQty.value='1';
 fUnit.value='份';
+updateFoodQtyLabel();
 recalcMaster();
 closePicker();
 goTab('add');
+}
+function normalizeFoodUnit(u){
+const raw=String(u||'').trim();
+const s=raw.toLowerCase().replace(/\s+/g,'');
+if(['g','公克','克'].includes(s))return 'g';
+if(['kg','公斤'].includes(s))return 'kg';
+if(['ml','毫升','cc','c.c.','c.c'].includes(s))return 'ml';
+if(['份','顆','片','碗','杯','個','包'].includes(raw))return raw;
+return raw;
+}
+function servingCandidates(serving){
+const s=String(serving||'');
+const out=[];
+const re=/([0-9]+(?:\.[0-9]+)?)\s*(公斤|kg|公克|克|g|毫升|ml|mL|ML|cc|c\.c\.|c\.c|份|顆|片|碗|杯|個|包)/gi;
+let m;
+while((m=re.exec(s))){
+let amount=parseFloat(m[1]);
+let unit=normalizeFoodUnit(m[2]);
+if(unit==='kg'){amount*=1000;unit='g';}
+if(isFinite(amount)&&amount>0)out.push({amount,unit});
+}
+return out;
+}
+function updateFoodQtyLabel(){
+const el=document.getElementById('fQtyLabel');
+if(!el)return;
+const u=fUnit?.value||'份';
+el.textContent=u==='份'?'吃了幾份':`實際食用量（${u}）`;
+}
+function setMasterNutritionByFactor(x,factor){
+const fmt=v=>(num(v)*factor).toFixed(1).replace('.0','');
+fKcal.value=fmt(x.kcal);
+fProtein.value=fmt(x.protein);
+fCarb.value=fmt(x.carb);
+fSugar.value=fmt(x.sugar);
+fFat.value=fmt(x.fat);
+fFiber.value=fmt(x.fiber);
+fSodium.value=fmt(x.sodium);
+}
+function clearCalculatedNutrition(){
+fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value='';
 }
 function recalcMaster(){
 const x=
 db.masters.find(v=>v.id===selectedMasterId);
 if(!x)return;
-const q=
-num(fQty.value);
-fKcal.value=
-(num(x.kcal)*q)
-.toFixed(1)
-.replace('.0','');
-fProtein.value=
-(num(x.protein)*q)
-.toFixed(1)
-.replace('.0','');
-fCarb.value=
-(num(x.carb)*q)
-.toFixed(1)
-.replace('.0','');
-fSugar.value=
-(num(x.sugar)*q)
-.toFixed(1)
-.replace('.0','');
-fFat.value=
-(num(x.fat)*q)
-.toFixed(1)
-.replace('.0','');
-fFiber.value=
-(num(x.fiber)*q)
-.toFixed(1)
-.replace('.0','');
-fSodium.value=
-(num(x.sodium)*q)
-.toFixed(1)
-.replace('.0','');
+const q=num(fQty.value);
+const unit=normalizeFoodUnit(fUnit.value);
+const hint=document.getElementById('fCalcHint');
+let factor=null;
+if(unit==='份'){
+factor=q;
+if(hint)hint.textContent=`以「份」計算：主檔每份營養 × ${q || 0}。${x.serving?`（主檔每份：${x.serving}）`:''}`;
+}else{
+const candidates=servingCandidates(x.serving);
+const match=candidates.find(v=>v.unit===unit);
+if(match){
+factor=q/match.amount;
+if(hint)hint.textContent=`依主檔每份 ${match.amount} ${unit} 換算：${q || 0} ${unit} = ${factor.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')} 份。`;
+}else{
+clearCalculatedNutrition();
+if(hint)hint.textContent=x.serving
+?`主檔每份為「${x.serving}」，沒有可直接換算成 ${unit} 的資料；請改用相符單位或補充主檔的每份重量／容量。`
+:`主檔尚未填「每份重量／容量」，目前無法用 ${unit} 自動換算。`;
+return;
+}
+}
+setMasterNutritionByFactor(x,factor);
 }
 function saveBody(){
 if(
@@ -1921,6 +1962,7 @@ d;
 fTime.value=
 eStart.value=
 tn();
+updateFoodQtyLabel();
 autoClass();
 renderToday();
 renderExercise();
