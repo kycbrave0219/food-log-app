@@ -1274,16 +1274,68 @@ imageZoom.classList.remove('show');
 imageZoomImg.removeAttribute('src');
 }
 
+let masterPhotoKeyCache=null;
+function photoKeyTime(v){
+const s=String(v||'').replace(/^[pm]_/, '');
+if(s.length<8)return NaN;
+const n=parseInt(s.slice(0,8),36);
+return Number.isFinite(n)?n:NaN;
+}
+async function getMasterPhotoKeys(){
+if(masterPhotoKeyCache)return masterPhotoKeyCache;
+masterPhotoKeyCache=(async()=>{
+const d=await pdb();
+return await new Promise((resolve,reject)=>{
+const store=d.transaction('p','readonly').objectStore('p');
+if(store.getAllKeys){
+const r=store.getAllKeys();
+r.onsuccess=()=>resolve((r.result||[]).map(String).filter(k=>k.startsWith('m_')));
+r.onerror=()=>reject(r.error);
+}else{
+const keys=[];
+const r=store.openCursor();
+r.onsuccess=()=>{const c=r.result;if(!c){resolve(keys);return;}const k=String(c.key);if(k.startsWith('m_'))keys.push(k);c.continue();};
+r.onerror=()=>reject(r.error);
+}
+});
+})().catch(()=>[]);
+return masterPhotoKeyCache;
+}
+async function recoverMasterPhotoId(x){
+const xt=photoKeyTime(x?.id);
+if(!Number.isFinite(xt))return '';
+const keys=await getMasterPhotoKeys();
+if(!keys.length)return '';
+const used=new Set(db.masters.map(v=>v.photoId).filter(Boolean));
+let best='',bestDiff=Infinity;
+for(const k of keys){
+if(used.has(k))continue;
+const kt=photoKeyTime(k);
+if(!Number.isFinite(kt))continue;
+const diff=Math.abs(kt-xt);
+if(diff<bestDiff){bestDiff=diff;best=k;}
+}
+/* photoId 與 master id 是儲存時前後建立，通常只差幾毫秒；10 秒內才自動認回，避免配錯照片。 */
+if(best && bestDiff<=10000){
+x.photoId=best;
+localStorage.setItem(K,JSON.stringify(db));
+return best;
+}
+return '';
+}
 async function masterCard(x){
 let pic='';
-if(x.photoId){
-const b=await getP(x.photoId);
+let photoId=x.photoId||'';
+let b=photoId?await getP(photoId):null;
+if(!b){
+const recovered=await recoverMasterPhotoId(x);
+if(recovered){photoId=recovered;b=await getP(recovered);}
+}
 if(b){
 const src=URL.createObjectURL(b);
 pic=`<img class="master-thumb" src="${src}" alt="食品照片" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)">`;
-}else{
+}else if(photoId){
 pic=`<div class="master-thumb-missing" title="這台裝置找不到原照片">照片<br>未找到</div>`;
-}
 }
 return `
 <div class="master-card ${pic?'has-photo':''}">
