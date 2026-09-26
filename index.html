@@ -79,8 +79,11 @@ button{font:inherit}
 .fold-body{padding:14px}
 .master-count{font-size:13px;color:var(--muted);font-weight:600;margin-left:8px}
 .master-card{position:relative}
-.master-card.has-photo{padding-right:108px;min-height:102px}
-.master-thumb{position:absolute!important;right:14px!important;top:14px!important;width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
+.master-card.has-photo{padding-right:12px;min-height:0}
+.master-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.master-head-info{min-width:0;flex:1 1 auto}
+.master-thumb{position:static!important;flex:0 0 72px!important;width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
+.master-thumb-missing{flex:0 0 72px;width:72px;height:72px;border-radius:12px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;color:var(--muted);background:var(--soft)}
 .zoom-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:120;display:none;align-items:center;justify-content:center;padding:24px}
 .zoom-backdrop.show{display:flex}
 .zoom-backdrop img{max-width:min(94vw,900px);max-height:88vh;border-radius:16px;background:#fff}
@@ -1274,14 +1277,18 @@ imageZoomImg.removeAttribute('src');
 async function masterCard(x){
 let pic='';
 if(x.photoId){
-const b=
-await getP(x.photoId);
-if(b)
-pic=`<img class="master-thumb" style="position:absolute;right:14px;top:14px;width:72px;height:72px;max-width:72px;max-height:72px;object-fit:cover;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0;display:block" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;
+const b=await getP(x.photoId);
+if(b){
+const src=URL.createObjectURL(b);
+pic=`<img class="master-thumb" src="${src}" alt="食品照片" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)">`;
+}else{
+pic=`<div class="master-thumb-missing" title="這台裝置找不到原照片">照片<br>未找到</div>`;
+}
 }
 return `
 <div class="master-card ${pic?'has-photo':''}">
-${pic}
+<div class="master-head-row">
+<div class="master-head-info">
 <div class="master-title">
 ${esc(x.brand?x.brand+' ':'')}${esc(x.name)}
 </div>
@@ -1289,6 +1296,9 @@ ${esc(x.brand?x.brand+' ':'')}${esc(x.name)}
 ${x.barcode?'條碼 '+esc(x.barcode)+'・':''}
 ${esc(x.serving||'每份未填')}・
 ${esc(x.source||'')}
+</div>
+</div>
+${pic}
 </div>
 <div class="nutrition">
 <div>
@@ -1331,6 +1341,7 @@ ${esc(x.source||'')}
 </div>
 `;
 }
+
 async function renderMasters(){
 const q=
 (masterSearch?.value||'')
@@ -1347,14 +1358,14 @@ db.masters.filter(x=>
 );
 const countEl=document.getElementById('masterCount');
 if(countEl){
-const total=db.masters.length;
-countEl.textContent=q?`共 ${a.length} / ${total} 筆`:`共 ${total} 筆`;
+countEl.textContent=q?`共 ${a.length} / ${db.masters.length} 筆`:`共 ${db.masters.length} 筆`;
 }
 masterList.innerHTML=
 a.length
 ?(await Promise.all(a.map(masterCard))).join('')
 :'<div class="empty">尚未建立食品主檔</div>';
 }
+
 function deleteMaster(id){
 if(!confirm('確定刪除這個食品主檔？'))
 return;
