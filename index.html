@@ -1276,7 +1276,7 @@ if(x.photoId){
 const b=
 await getP(x.photoId);
 if(b)
-pic=`<img class="photo" src="${URL.createObjectURL(b)}">`;
+pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;
 }
 return `
 <div class="master-card ${pic?'has-photo':''}">
