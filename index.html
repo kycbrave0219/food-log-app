@@ -59,6 +59,8 @@ button{font:inherit}
 @media(max-width:700px){
 .grid{grid-template-columns:1fr}
 .kpis{grid-template-columns:repeat(2,1fr)}
+/* 2026-09-26 iPhone Safari: prevent automatic zoom when focusing form fields */
+input,select,textarea{font-size:16px}
 }
 @media print{
 .tabs,.no-print,.lock{display:none!important}
