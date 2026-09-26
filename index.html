@@ -123,7 +123,7 @@ button{font:inherit}
 <div id="lock" class="lock">
   <div class="lockbox">
     <h2>🔒 已鎖定</h2>
-    <input id="unlockPin" class="pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••">
+    <input id="unlockPin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="••••">
     <div class="btnrow" style="justify-content:center;margin-top:10px">
       <button class="primary" onclick="unlockApp()">解鎖</button>
       <button class="danger" onclick="forgotPin()">忘記 PIN</button>
@@ -587,7 +587,7 @@ style="margin-top:10px">
 <div class="grid" style="margin-top:10px">
 <div>
 <label>4～6 位 PIN</label>
-<input id="newPin" type="password" inputmode="numeric" maxlength="6">
+<input id="newPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false">
 </div>
 <div>
 <label>離開幾分鐘後鎖定</label>
@@ -618,11 +618,12 @@ style="margin-top:10px">
 <div class="card">
 <div class="itemtitle">☁️ 跨裝置雲端同步</div>
 <div class="note" style="margin-top:6px">首次登入成功後會記住登入狀態；之後開啟網頁、回到網頁及新增／修改資料時會自動雙向同步。既有資料不會被清空；照片仍保留在原裝置。</div>
+<!-- 2026-09-26 iPhone/Safari AUTOFILL: email + current-password; PIN/key stay out of autofill -->
 <div class="grid" style="margin-top:10px">
-<div class="full"><label>Supabase Project URL</label><input id="cloudUrl" type="url" placeholder="https://你的專案.supabase.co"></div>
-<div class="full"><label>Publishable / anon key</label><input id="cloudKey" type="password" autocomplete="off" placeholder="貼上 Supabase 的公開用戶端金鑰"></div>
-<div><label>登入 Email</label><input id="cloudEmail" type="email" autocomplete="username"></div>
-<div><label>密碼</label><input id="cloudPassword" type="password" autocomplete="current-password"></div>
+<div class="full"><label for="cloudUrl">Supabase Project URL</label><input id="cloudUrl" name="cloud-url" type="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://你的專案.supabase.co"></div>
+<div class="full"><label for="cloudKey">Publishable / anon key</label><input id="cloudKey" name="supabase-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="貼上 Supabase 的公開用戶端金鑰"></div>
+<div><label for="cloudEmail">登入 Email</label><input id="cloudEmail" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+<div><label for="cloudPassword">密碼</label><input id="cloudPassword" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
 </div>
 <div class="btnrow" style="margin-top:10px">
 <button class="secondary" onclick="saveCloudConfig()">儲存連線設定</button>
