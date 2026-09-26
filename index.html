@@ -82,8 +82,12 @@ button{font:inherit}
 .master-card.has-photo{padding-right:12px;min-height:0}
 .master-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .master-head-info{min-width:0;flex:1 1 auto}
-.master-thumb{position:static!important;flex:0 0 72px!important;width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
-.master-thumb-missing{flex:0 0 72px;width:72px;height:72px;border-radius:12px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;color:var(--muted);background:var(--soft)}
+.master-photo-wrap{display:flex;align-items:flex-start;gap:6px;flex:0 0 auto}
+.master-photo-slot{display:flex;flex-direction:column;align-items:center;gap:2px}
+.master-photo-wrap.one .master-thumb{width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important}
+.master-photo-wrap.two .master-thumb{width:52px!important;height:52px!important;max-width:52px!important;max-height:52px!important}
+.master-thumb{position:static!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
+.master-photo-mini{border:0;background:transparent;color:var(--muted);padding:1px 4px;font-size:9px;line-height:1.2;cursor:pointer}
 .master-photo-action{border:0;background:var(--soft);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--text);cursor:pointer}
 .zoom-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:120;display:none;align-items:center;justify-content:center;padding:24px}
 .zoom-backdrop.show{display:flex}
@@ -1211,9 +1215,23 @@ const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
 return c.toDataURL('image/jpeg',0.82);
 }catch(_){return ''}
 }
-async function attachMasterPhoto(id){
+function normalizeMasterPhotos(x){
+let ids=Array.isArray(x.photoIds)?x.photoIds.filter(Boolean):[];
+let datas=Array.isArray(x.photoDatas)?x.photoDatas.filter(Boolean):[];
+if(!ids.length && x.photoId)ids=[x.photoId];
+if(!datas.length && x.photoData)datas=[x.photoData];
+ids=ids.slice(0,2);
+datas=datas.slice(0,2);
+x.photoIds=ids;
+x.photoDatas=datas;
+x.photoId=ids[0]||'';
+x.photoData=datas[0]||'';
+return {ids,datas};
+}
+async function attachMasterPhoto(id,index=0){
 const x=db.masters.find(v=>String(v.id)===String(id));
 if(!x)return;
+index=Math.max(0,Math.min(1,Number(index)||0));
 const input=document.createElement('input');
 input.type='file';input.accept='image/*';input.style.display='none';
 document.body.appendChild(input);
@@ -1223,8 +1241,14 @@ if(!f){input.remove();return;}
 try{
 const pid='m_'+uid();
 await putP(pid,f);
-x.photoId=pid;
-x.photoData=await makeMasterPhotoData(f);
+const pd=await makeMasterPhotoData(f);
+const p=normalizeMasterPhotos(x);
+p.ids[index]=pid;
+p.datas[index]=pd;
+x.photoIds=p.ids.filter(Boolean).slice(0,2);
+x.photoDatas=p.datas.filter(Boolean).slice(0,2);
+x.photoId=x.photoIds[0]||'';
+x.photoData=x.photoDatas[0]||'';
 save();
 masterPhotoKeyCache=null;
 await renderMasters();
@@ -1248,9 +1272,11 @@ alert('這個條碼已存在食品主檔');
 return;
 }
 let photoId='';
+let photoData='';
 if(masterPhoto){
 photoId='m_'+uid();
 await putP(photoId,masterPhoto);
+photoData=await makeMasterPhotoData(masterPhoto);
 }
 db.masters.push({
 id:uid(),
@@ -1269,7 +1295,9 @@ source:mSource.value,
 confirmed:mConfirmed.value,
 note:mNote.value.trim(),
 photoId,
-photoData: masterPhoto ? await makeMasterPhotoData(masterPhoto) : ''
+photoData,
+photoIds: photoId ? [photoId] : [],
+photoDatas: photoData ? [photoData] : []
 });
 save();
 clearMaster();
@@ -1348,7 +1376,7 @@ const xt=photoKeyTime(x?.id);
 if(!Number.isFinite(xt))return '';
 const keys=await getMasterPhotoKeys();
 if(!keys.length)return '';
-const used=new Set(db.masters.map(v=>v.photoId).filter(Boolean));
+const used=new Set(db.masters.flatMap(v=>[v.photoId,...(Array.isArray(v.photoIds)?v.photoIds:[])]).filter(Boolean));
 let best='',bestDiff=Infinity;
 for(const k of keys){
 if(used.has(k))continue;
@@ -1360,40 +1388,56 @@ if(diff<bestDiff){bestDiff=diff;best=k;}
 /* photoId 與 master id 是儲存時前後建立，通常只差幾毫秒；10 秒內才自動認回，避免配錯照片。 */
 if(best && bestDiff<=10000){
 x.photoId=best;
+const p=normalizeMasterPhotos(x);
+if(!p.ids[0])p.ids[0]=best;
+x.photoIds=p.ids.filter(Boolean).slice(0,2);
 localStorage.setItem(K,JSON.stringify(db));
 return best;
 }
 return '';
 }
 async function masterCard(x){
-let pic='';
-let photoId=x.photoId||'';
-let b=photoId?await getP(photoId):null;
-if(!b && !x.photoData){
+let p=normalizeMasterPhotos(x);
+if(!p.ids[0] && !p.datas[0]){
 const recovered=await recoverMasterPhotoId(x);
-if(recovered){photoId=recovered;b=await getP(recovered);}
+if(recovered)p=normalizeMasterPhotos(x);
 }
+const srcs=[];
+let changed=false;
+for(let i=0;i<2;i++){
+const pid=p.ids[i]||'';
+let b=pid?await getP(pid):null;
 let src='';
 if(b){
 src=URL.createObjectURL(b);
-if(!x.photoData){
+if(!p.datas[i]){
 const pd=await makeMasterPhotoData(b);
-if(pd){x.photoData=pd;localStorage.setItem(K,JSON.stringify(db));}
+if(pd){p.datas[i]=pd;changed=true;}
 }
-}else if(x.photoData){
-src=x.photoData;
+}else if(p.datas[i]){
+src=p.datas[i];
 }
-if(src){
-pic=`<img class="master-thumb" src="${src}" alt="食品照片" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)">`;
+if(src)srcs.push({src,index:i});
 }
+if(changed){
+x.photoDatas=p.datas.filter(Boolean).slice(0,2);
+x.photoData=x.photoDatas[0]||'';
+localStorage.setItem(K,JSON.stringify(db));
+}
+const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button></div>`).join('')}</div>`:'';
+const addPhotoButton=srcs.length===0
+?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',0)">📷 補照片</button>`
+:srcs.length===1
+?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',1)">＋第2張</button>`
+:'';
 return `
-<div class="master-card ${pic?'has-photo':''}">
+<div class="master-card ${srcs.length?'has-photo':''}">
 <div class="master-head-row">
 <div class="master-head-info">
 <div class="master-title">${esc(x.brand?x.brand+' ':'')}${esc(x.name)}</div>
 <div class="master-meta">${x.barcode?'條碼 '+esc(x.barcode)+'・':''}${esc(x.serving||'每份未填')}・${esc(x.source||'')}</div>
 </div>
-${pic}
+${photoHtml}
 </div>
 <div class="nutrition">
 <div><b>${esc(x.kcal||'—')}</b><span>kcal</span></div>
@@ -1406,7 +1450,7 @@ ${pic}
 </div>
 <div class="btnrow" style="margin-top:8px">
 <button class="secondary" onclick="useMaster('${x.id}')">加入飲食</button>
-<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}')">${src?'更換照片':'📷 補照片'}</button>
+${addPhotoButton}
 <button class="danger" onclick="deleteMaster('${x.id}')">刪除</button>
 </div>
 </div>`;
