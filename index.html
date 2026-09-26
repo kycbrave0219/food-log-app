@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 2026.09.26 unit-calc-v1</title>
+<title>KYC 飲食與運動紀錄 2026.09.26 master-dropdown-v1</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -102,6 +102,21 @@ button{font:inherit}
 .picker-head{position:sticky;top:-18px;z-index:3;background:#fff;padding:18px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}
 .picker-close{border:0;background:var(--soft);border-radius:999px;width:40px;height:40px;font-size:22px;line-height:1;flex:0 0 auto}
 
+/* 2026-09-26 MASTER_DROPDOWN_V1: searchable food-master dropdown in add-food form */
+.master-combobox{position:relative;z-index:12}
+.master-combobox-row{display:flex;align-items:stretch;gap:6px}
+.master-combobox-row input{flex:1 1 auto;min-width:0}
+.master-drop-toggle{flex:0 0 44px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--muted);font-size:22px;line-height:1;padding:0;cursor:pointer}
+.master-dropdown{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:70;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(17,24,39,.14);max-height:310px;overflow:auto;-webkit-overflow-scrolling:touch}
+.master-dropdown.show{display:block}
+.master-dropdown-head{padding:9px 12px;background:var(--soft);font-size:11px;color:var(--muted);position:sticky;top:0;z-index:1}
+.master-option{padding:11px 12px;border-top:1px solid var(--line);cursor:pointer;background:#fff}
+.master-option:first-of-type{border-top:0}
+.master-option-title{font-weight:750;font-size:14px}
+.master-option-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.master-option-add{padding:12px;border-top:1px solid var(--line);font-weight:750;color:#0a84ff;background:#f8fbff;cursor:pointer;position:sticky;bottom:0}
+.master-option-empty{padding:14px 12px;color:var(--muted);font-size:12px;text-align:center}
+
 </style>
 </head>
 <body>
@@ -171,8 +186,7 @@ button{font:inherit}
 <div class="card">
 <div class="itemtitle">新增飲食</div>
 <div class="btnrow" style="margin-top:10px">
-  <button class="secondary" onclick="openPicker()">📚 從食品主檔選擇</button>
-  <button class="secondary" onclick="goTab('fooddb')">＋ 建立新食品</button>
+  <button class="secondary" type="button" onclick="startNewMasterFromFood()">＋ 建立新食品</button>
 </div>
 <label style="margin-top:10px">餐點照片</label>
 <div class="btnrow" style="margin-top:10px">
@@ -223,9 +237,17 @@ button{font:inherit}
 <option>其他</option>
 </select>
 </div>
-<div>
+<div class="master-combobox">
 <label>食品主檔</label>
-<input id="fMasterName" placeholder="未選擇" readonly>
+<div class="master-combobox-row">
+<input id="fMasterName" placeholder="搜尋或選擇食品" autocomplete="off"
+  onfocus="openMasterDropdown()"
+  oninput="onMasterSearchInput()"
+  onkeydown="handleMasterSearchKey(event)"
+  onblur="setTimeout(closeMasterDropdown,180)">
+<button class="master-drop-toggle" type="button" aria-label="展開食品主檔" onclick="toggleMasterDropdown()">⌄</button>
+</div>
+<div id="masterDropdown" class="master-dropdown"></div>
 </div>
 <div>
 <label>食物／餐點</label>
@@ -665,7 +687,8 @@ selectedMasterId='',
 editingFoodId='',
 masterPhoto=null,
 masterPhotoKind='',
-masterPhotoURL=null;
+masterPhotoURL=null,
+returnToFoodAfterMasterCreate=false;
 function load(){
 try{
 return {
@@ -814,6 +837,7 @@ return String(s??'').replace(/[&<>"']/g,m=>({
 }[m]))
 }
 function goTab(id){
+if(returnToFoodAfterMasterCreate && id!=='fooddb' && id!=='add')returnToFoodAfterMasterCreate=false;
 document.querySelectorAll('.section')
 .forEach(x=>x.classList.remove('active'));
 document.querySelectorAll('.tabbtn')
@@ -866,6 +890,7 @@ photoPreview.style.display='block';
 function clearFoodEntryForm(){
 selectedMasterId='';
 editingFoodId='';
+closeMasterDropdown();
 fMasterName.value='';
 fFood.value='';
 fQty.value='1';
@@ -1318,8 +1343,9 @@ photoId='m_'+uid();
 await putP(photoId,masterPhoto);
 photoData=await makeMasterPhotoData(masterPhoto);
 }
+const newMasterId=uid();
 db.masters.push({
-id:uid(),
+id:newMasterId,
 brand:mBrand.value.trim(),
 name:mName.value.trim(),
 barcode:bc,
@@ -1339,10 +1365,13 @@ photoData,
 photoIds: photoId ? [photoId] : [],
 photoDatas: photoData ? [photoData] : []
 });
+const shouldReturnToFood=returnToFoodAfterMasterCreate;
+returnToFoodAfterMasterCreate=false;
 save();
 clearMaster();
 renderMasters();
 alert('食品主檔已儲存');
+if(shouldReturnToFood)useMaster(newMasterId);
 }
 function clearMaster(){
 [
@@ -1365,13 +1394,13 @@ mSource.value=
 mConfirmed.value=
 dn();
 masterPhoto=null;
+masterPhotoKind='';
+if(masterPhotoURL){URL.revokeObjectURL(masterPhotoURL);masterPhotoURL=null;}
+masterPhotoPreview.removeAttribute('src');
 masterPhotoPreview.style.display='none';
-barcodePhotoInput.value='';
-barcodePhotoLibraryInput.value='';
-pkgPhotoInput.value='';
-pkgPhotoLibraryInput.value='';
-nutritionPhotoInput.value='';
-nutritionPhotoLibraryInput.value='';
+['smartPhotoCameraInput','smartPhotoLibraryInput','barcodePhotoInput','barcodePhotoLibraryInput','pkgPhotoInput','pkgPhotoLibraryInput','nutritionPhotoInput','nutritionPhotoLibraryInput'].forEach(id=>{
+const el=document.getElementById(id);if(el)el.value='';
+});
 }
 
 function openImageZoom(src){
@@ -1528,6 +1557,88 @@ db.masters.filter(x=>x.id!==id);
 save();
 renderMasters();
 }
+function masterDisplayName(x){
+return ((x?.brand?x.brand+' ':'')+(x?.name||'')).trim();
+}
+function masterMatches(q){
+const needle=String(q||'').trim().toLowerCase();
+return db.masters.filter(x=>
+!needle ||
+`${x.brand||''} ${x.name||''} ${x.barcode||''}`.toLowerCase().includes(needle)
+);
+}
+function openMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+renderMasterDropdown();
+el.classList.add('show');
+}
+function closeMasterDropdown(){
+document.getElementById('masterDropdown')?.classList.remove('show');
+}
+function toggleMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+if(el.classList.contains('show')){
+closeMasterDropdown();
+}else{
+renderMasterDropdown();
+el.classList.add('show');
+fMasterName.focus({preventScroll:true});
+}
+}
+function onMasterSearchInput(){
+const current=db.masters.find(v=>String(v.id)===String(selectedMasterId));
+if(current && fMasterName.value.trim()!==masterDisplayName(current)){
+const oldName=masterDisplayName(current);
+selectedMasterId='';
+if(fFood.value.trim()===oldName)fFood.value='';
+clearCalculatedNutrition();
+const hint=document.getElementById('fCalcHint');
+if(hint)hint.textContent='請從下拉選擇食品主檔；找不到時可直接建立新食品。';
+}
+openMasterDropdown();
+}
+function renderMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+const raw=(fMasterName.value||'').trim();
+const a=masterMatches(raw);
+const shown=a.slice(0,60);
+const rows=shown.map(x=>`<div class="master-option" onmousedown="event.preventDefault()" onclick="useMaster('${x.id}')"><div class="master-option-title">${esc(masterDisplayName(x))}</div><div class="master-option-meta">${esc(x.serving||'未填每份量')}・${esc(x.kcal||'—')} kcal/份${x.barcode?`・${esc(x.barcode)}`:''}</div></div>`).join('');
+const empty=!shown.length?'<div class="master-option-empty">找不到符合的食品主檔</div>':'';
+const addText=raw?`＋ 建立「${esc(raw)}」為新食品`:'＋ 建立新食品';
+el.innerHTML=`<div class="master-dropdown-head">食品主檔共 ${db.masters.length} 筆${raw?`・找到 ${a.length} 筆`:''}</div>${rows}${empty}<div class="master-option-add" onmousedown="event.preventDefault()" onclick="startNewMasterFromFood()">${addText}</div>`;
+}
+function handleMasterSearchKey(e){
+if(e.key==='Escape'){
+closeMasterDropdown();
+fMasterName.blur();
+return;
+}
+if(e.key!=='Enter')return;
+e.preventDefault();
+const raw=(fMasterName.value||'').trim();
+const exact=db.masters.find(x=>masterDisplayName(x).toLowerCase()===raw.toLowerCase() || String(x.barcode||'')===raw);
+if(exact){useMaster(exact.id);return;}
+const a=masterMatches(raw);
+if(a.length===1){useMaster(a[0].id);return;}
+if(a.length===0)startNewMasterFromFood();
+}
+function startNewMasterFromFood(prefill){
+const typed=String(prefill??fMasterName.value??'').trim();
+returnToFoodAfterMasterCreate=true;
+closeMasterDropdown();
+clearMaster();
+if(typed)mName.value=typed;
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+goTab('fooddb');
+setTimeout(()=>{
+(detail||document.getElementById('fooddb'))?.scrollIntoView({behavior:'smooth',block:'start'});
+if(typed)mName.focus({preventScroll:true});
+},80);
+}
 function openPicker(){
 pickerSearch.value='';
 foodPicker.classList.add('show');
@@ -1565,17 +1676,16 @@ ${esc(x.kcal||'—')} kcal/份
 }
 function useMaster(id){
 const x=
-db.masters.find(v=>v.id===id);
+db.masters.find(v=>String(v.id)===String(id));
 if(!x)return;
-selectedMasterId=id;
-fMasterName.value=
-(x.brand?x.brand+' ':'')+x.name;
-fFood.value=
-fMasterName.value;
+selectedMasterId=String(id);
+fMasterName.value=masterDisplayName(x);
+fFood.value=fMasterName.value;
 fQty.value='1';
 fUnit.value='份';
 updateFoodQtyLabel();
 recalcMaster();
+closeMasterDropdown();
 closePicker();
 goTab('add');
 }
