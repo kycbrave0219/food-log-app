@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 2026.09.26</title>
+<title>KYC 飲食與運動紀錄 2026.09.26 photo-v2</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -66,6 +66,7 @@ button{font:inherit}
 #printArea{display:block!important}
 }
 
+/* 2026-09-26 PHOTO_THUMB_V2: food master photos fixed small on right + tap to zoom */
 /* 2026-09-26 UI restore: long KYC banner + collapsible food-library sections */
 .kyc-banner-wrap{margin:0 0 14px;text-align:center}
 .kyc-banner{display:block;width:100%;max-width:620px;height:auto;margin:0 auto;object-fit:contain}
@@ -78,8 +79,8 @@ button{font:inherit}
 .fold-body{padding:14px}
 .master-count{font-size:13px;color:var(--muted);font-weight:600;margin-left:8px}
 .master-card{position:relative}
-.master-card.has-photo{padding-right:94px}
-.master-thumb{position:absolute;right:12px;top:12px;width:68px;height:68px;object-fit:cover;border-radius:12px;border:1px solid var(--line);cursor:pointer}
+.master-card.has-photo{padding-right:108px;min-height:102px}
+.master-thumb{position:absolute!important;right:14px!important;top:14px!important;width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
 .zoom-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:120;display:none;align-items:center;justify-content:center;padding:24px}
 .zoom-backdrop.show{display:flex}
 .zoom-backdrop img{max-width:min(94vw,900px);max-height:88vh;border-radius:16px;background:#fff}
@@ -1276,7 +1277,7 @@ if(x.photoId){
 const b=
 await getP(x.photoId);
 if(b)
-pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;
+pic=`<img class="master-thumb" style="position:absolute;right:14px;top:14px;width:72px;height:72px;max-width:72px;max-height:72px;object-fit:cover;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0;display:block" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;
 }
 return `
 <div class="master-card ${pic?'has-photo':''}">
