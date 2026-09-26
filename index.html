@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- PHOTO_STORAGE_V3 2026-09-26: IndexedDB cache + Supabase Storage; no base64 in localStorage -->
 <meta name="theme-color" content="#f5f6f8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
@@ -617,7 +618,7 @@ style="margin-top:10px">
 </div>
 <div class="card">
 <div class="itemtitle">☁️ 跨裝置雲端同步</div>
-<div class="note" style="margin-top:6px">首次登入成功後會記住登入狀態；之後開啟網頁、回到網頁及新增／修改資料時會自動雙向同步。既有資料不會被清空；照片仍保留在原裝置。</div>
+<div class="note" style="margin-top:6px">首次登入成功後會記住登入狀態；之後開啟網頁、回到網頁及新增／修改資料時會自動雙向同步。既有資料不會被清空；照片會壓縮後保存在本機快取，並同步到 Supabase Storage（food-photos）。</div>
 <!-- 2026-09-26 iPhone/Safari AUTOFILL: email + current-password; PIN/key stay out of autofill -->
 <div class="grid" style="margin-top:10px">
 <div class="full"><label for="cloudUrl">Supabase Project URL</label><input id="cloudUrl" name="cloud-url" type="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://你的專案.supabase.co"></div>
@@ -633,6 +634,7 @@ style="margin-top:10px">
 <button class="primary" onclick="syncCloud()">立即雙向同步</button>
 </div>
 <div id="cloudStatus" class="note" role="status" aria-live="polite" style="margin-top:10px">尚未登入 Supabase。</div>
+<div class="note" style="margin-top:6px">照片雲端需建立私人 Storage bucket：<b>food-photos</b>。照片會自動縮至最長邊 1200px 後上傳，本機只保留 IndexedDB 快取，不再把 Base64 圖片塞進 localStorage。</div>
 </div>
 </section>
 <section id="printArea" class="section">
@@ -704,8 +706,26 @@ settings:{
 return JSON.parse(JSON.stringify(D))
 }
 }
+function localStoragePayload(){
+return JSON.stringify(db,(key,value)=>
+(key==='photoData'||key==='photoDatas')?undefined:value
+);
+}
+function persistLocalOnly(){
+try{
+localStorage.setItem(K,localStoragePayload());
+return true;
+}catch(e){
+console.error('本機資料儲存失敗',e);
+return false;
+}
+}
 function save(){
-localStorage.setItem(K,JSON.stringify(db));
+const ok=persistLocalOnly();
+if(!ok){
+alert('本機資料儲存空間不足。照片已改用 IndexedDB／Supabase Storage，請重新整理後再試一次。');
+return;
+}
 if(!cloudSuppress && cloudSession && localStorage.getItem(cloudReadyKey())){
 clearTimeout(cloudSyncTimer);
 cloudSyncTimer=setTimeout(()=>syncCloud(),1200)
@@ -788,9 +808,40 @@ note:FOOD_DELETE_MARK
 if(rows.length)await cloudFetch('/rest/v1/food_logs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
 }
 async function uploadLocalCloud(){if(!cloudSession?.user)throw new Error('請先登入。');for(const g of await localRowsWithIds()){if(!g.rows.length)continue;await cloudFetch(`/rest/v1/${g.table}?on_conflict=id`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(g.rows)})}const s=db.settings;await cloudFetch('/rest/v1/user_settings?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:cloudSession.user.id,goal_kcal:s.goalKcal||null,goal_protein:s.goalProtein||null,warn_percent:s.warnPercent||80,summary_time:s.summaryTime||'20:30'})})}
-function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,weight:r.weight,fat:r.fat,waist:r.waist};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,note:r.note};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoData:''}}
+function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,weight:r.weight,fat:r.fat,waist:r.waist};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,note:r.note};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
 async function pullCloudTable(table,key){const rows=await cloudFetch(`/rest/v1/${table}?select=*`);const local=db[key];const deleted=deletedFoodIds();for(const r of rows){if(table==='food_logs' && r.note===FOOD_DELETE_MARK){const id=String(r.legacy_id||r.id||'');if(id){if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}continue;}const x=cloudLocalRow(table,r);if(table==='food_logs' && deleted.has(String(x.id)))continue;const i=local.findIndex(v=>String(v.id)===String(x.id));if(i<0)local.push(x)} }
-async function syncCloud(){try{if(!cloudSession?.user)throw new Error('請先登入，再執行同步。');setCloudStatus('同步中…本機資料會合併到雲端，不會清空任何一邊。');await pullCloudFoodDeletions();await uploadFoodDeleteTombstones();await uploadLocalCloud();cloudSuppress=true;await pullCloudTable('food_logs','foods');await pullCloudTable('body_logs','body');await pullCloudTable('exercise_logs','exercise');await pullCloudTable('food_masters','masters');const settings=await cloudFetch('/rest/v1/user_settings?select=*&limit=1');if(settings?.[0])db.settings={...db.settings,goalKcal:settings[0].goal_kcal??db.settings.goalKcal,goalProtein:settings[0].goal_protein??db.settings.goalProtein,warnPercent:settings[0].warn_percent??db.settings.warnPercent,summaryTime:settings[0].summary_time??db.settings.summaryTime};save();localStorage.setItem(cloudReadyKey(),'1');cloudSuppress=false;renderToday();renderMasters();renderHistory();setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆。本機照片尚未上傳。`)}catch(e){cloudSuppress=false;setCloudStatus('同步失敗：'+e.message)}}
+async function syncCloud(){
+try{
+if(!cloudSession?.user)throw new Error('請先登入，再執行同步。');
+setCloudStatus('同步中…本機資料會合併到雲端，不會清空任何一邊。');
+await pullCloudFoodDeletions();
+await uploadFoodDeleteTombstones();
+await uploadLocalCloud();
+let photoResult={uploaded:0,failed:0,message:''};
+try{photoResult=await uploadAllLocalPhotos();}
+catch(e){photoResult={uploaded:0,failed:1,message:e?.message||String(e)}}
+cloudSuppress=true;
+await pullCloudTable('food_logs','foods');
+await pullCloudTable('body_logs','body');
+await pullCloudTable('exercise_logs','exercise');
+await pullCloudTable('food_masters','masters');
+const settings=await cloudFetch('/rest/v1/user_settings?select=*&limit=1');
+if(settings?.[0])db.settings={...db.settings,goalKcal:settings[0].goal_kcal??db.settings.goalKcal,goalProtein:settings[0].goal_protein??db.settings.goalProtein,warnPercent:settings[0].warn_percent??db.settings.warnPercent,summaryTime:settings[0].summary_time??db.settings.summaryTime};
+persistLocalOnly();
+localStorage.setItem(cloudReadyKey(),'1');
+cloudSuppress=false;
+await renderToday();
+await renderMasters();
+renderHistory();
+const photoMsg=photoResult.failed
+?`；照片雲端尚未完成：${photoResult.message||photoResult.failed+' 筆失敗'}`
+:`、照片已同步 ${photoResult.uploaded||0} 筆`;
+setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆${photoMsg}。`);
+}catch(e){
+cloudSuppress=false;
+setCloudStatus('同步失敗：'+e.message);
+}
+}
 
 let cloudAutoSyncRunning=false;
 async function autoRestoreAndSyncCloud(reason='自動'){
@@ -879,6 +930,157 @@ r.onsuccess=()=>a(r.result||null);
 r.onerror=()=>c(r.error);
 })
 }
+
+/* ==================================================
+   PHOTO_STORAGE_V3
+   - localStorage 只存文字與照片索引，不再存 Base64 圖片
+   - 圖片本機快取：IndexedDB
+   - 圖片雲端：Supabase Storage / food-photos
+   ================================================== */
+const PHOTO_BUCKET='food-photos';
+const PHOTO_UPLOAD_STATE_KEY='foodlog_photo_upload_state_v1';
+const cloudPhotoMisses=new Set();
+function safePhotoPart(v){return String(v??'').replace(/[^A-Za-z0-9._-]/g,'_')}
+function photoStoragePath(kind,recordId,slot=1){
+if(!cloudSession?.user?.id)throw new Error('尚未登入 Supabase');
+const folder=kind==='master'?'masters':'foods';
+return `${safePhotoPart(cloudSession.user.id)}/${folder}/${safePhotoPart(recordId)}/${Number(slot)||1}.jpg`;
+}
+function localPhotoCacheId(kind,recordId,slot=1){
+return `cloud_${kind}_${safePhotoPart(recordId)}_${Number(slot)||1}`;
+}
+function getPhotoUploadState(){
+try{return JSON.parse(localStorage.getItem(PHOTO_UPLOAD_STATE_KEY)||'{}')||{}}catch{return {}}
+}
+function photoAlreadyUploaded(path){return !!getPhotoUploadState()[path]}
+function markPhotoUploaded(path){
+const s=getPhotoUploadState();s[path]=Date.now();
+try{localStorage.setItem(PHOTO_UPLOAD_STATE_KEY,JSON.stringify(s))}catch{}
+cloudPhotoMisses.delete(path);
+}
+async function photoStorageError(r){
+let msg='';try{const t=await r.text();try{const j=JSON.parse(t);msg=j.message||j.error||j.msg||t}catch{msg=t}}catch{}
+if(r.status===404)return '找不到 food-photos 儲存桶或照片檔案';
+if(r.status===403)return 'Supabase Storage 權限不足，請建立 food-photos 的 RLS 權限';
+return msg||`HTTP ${r.status}`;
+}
+async function uploadPhotoBlob(path,blob,force=false){
+if(!cloudSession?.user||!blob)return false;
+if(!force && photoAlreadyUploaded(path))return false;
+ensureCloudConfig();await refreshCloudSession();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}/${path}`,{
+method:'POST',
+headers:{
+'apikey':cloudConfig.key,
+'Authorization':'Bearer '+cloudSession.access_token,
+'Content-Type':'image/jpeg',
+'x-upsert':'true',
+'cache-control':'3600'
+},
+body:blob
+});
+if(!r.ok)throw new Error(await photoStorageError(r));
+markPhotoUploaded(path);return true;
+}
+async function downloadPhotoBlob(path){
+if(!cloudSession?.user||cloudPhotoMisses.has(path))return null;
+ensureCloudConfig();await refreshCloudSession();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/authenticated/${PHOTO_BUCKET}/${path}`,{
+headers:{'apikey':cloudConfig.key,'Authorization':'Bearer '+cloudSession.access_token}
+});
+if(r.status===404){cloudPhotoMisses.add(path);return null;}
+if(!r.ok)throw new Error(await photoStorageError(r));
+return await r.blob();
+}
+async function compressPhotoBlob(file,maxSide=1200,quality=.82){
+if(!file)return null;
+try{
+const img=await new Promise((resolve,reject)=>{
+const u=URL.createObjectURL(file),im=new Image();
+im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};
+im.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('圖片讀取失敗'))};
+im.src=u;
+});
+let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+const scale=Math.min(1,maxSide/Math.max(w,h));
+w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+const c=document.createElement('canvas');c.width=w;c.height=h;
+const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
+const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg',quality));
+return blob||file;
+}catch(e){console.warn('照片壓縮失敗，改存原圖',e);return file}
+}
+function dataUrlToBlob(dataUrl){
+try{
+const [meta,data]=String(dataUrl||'').split(',');if(!data)return null;
+const mime=(meta.match(/data:([^;]+)/)||[])[1]||'image/jpeg';
+const bin=atob(data),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+return new Blob([arr],{type:mime});
+}catch{return null}
+}
+async function migrateLegacyPhotoData(){
+let changed=false;
+for(const x of db.masters||[]){
+let ids=Array.isArray(x.photoIds)?x.photoIds.filter(Boolean):[];
+if(!ids.length&&x.photoId)ids=[x.photoId];
+let datas=Array.isArray(x.photoDatas)?x.photoDatas.filter(Boolean):[];
+if(!datas.length&&x.photoData)datas=[x.photoData];
+for(let i=0;i<Math.min(2,datas.length);i++){
+const b=dataUrlToBlob(datas[i]);if(!b)continue;
+const pid=ids[i]||`m_${safePhotoPart(x.id)}_${i+1}`;
+try{await putP(pid,b);ids[i]=pid}catch(e){console.warn('舊照片搬移失敗',e)}
+}
+x.photoIds=ids.slice(0,2);x.photoId=x.photoIds[0]||'';
+if('photoData'in x){delete x.photoData;changed=true}
+if('photoDatas'in x){delete x.photoDatas;changed=true}
+}
+if(changed)persistLocalOnly();
+}
+async function getMasterPhotoBlob(x,index){
+const p=normalizeMasterPhotos(x),localId=p.ids[index]||'';
+if(localId){const b=await getP(localId);if(b)return b;}
+const cacheId=localPhotoCacheId('master',x.id,index+1);
+const cached=await getP(cacheId);if(cached)return cached;
+if(!cloudSession?.user)return null;
+try{
+const path=photoStoragePath('master',x.id,index+1),b=await downloadPhotoBlob(path);
+if(b){await putP(cacheId,b);return b;}
+}catch(e){console.warn('主檔照片下載失敗',e)}
+return null;
+}
+async function getFoodPhotoBlob(x){
+if(x.photoId){const b=await getP(x.photoId);if(b)return b;}
+const cacheId=localPhotoCacheId('food',x.id,1);
+const cached=await getP(cacheId);if(cached)return cached;
+if(!cloudSession?.user)return null;
+try{
+const path=photoStoragePath('food',x.id,1),b=await downloadPhotoBlob(path);
+if(b){await putP(cacheId,b);return b;}
+}catch(e){console.warn('飲食照片下載失敗',e)}
+return null;
+}
+async function uploadAllLocalPhotos(){
+if(!cloudSession?.user)return {uploaded:0,failed:0,message:''};
+let uploaded=0,failed=0,last='';
+for(const x of db.foods||[]){
+try{
+let b=x.photoId?await getP(x.photoId):null;
+if(!b)b=await getP(localPhotoCacheId('food',x.id,1));
+if(b && await uploadPhotoBlob(photoStoragePath('food',x.id,1),b,false))uploaded++;
+}catch(e){failed++;last=e?.message||String(e)}
+}
+for(const x of db.masters||[]){
+const p=normalizeMasterPhotos(x);
+for(let i=0;i<2;i++){
+try{
+let b=p.ids[i]?await getP(p.ids[i]):null;
+if(!b)b=await getP(localPhotoCacheId('master',x.id,i+1));
+if(b && await uploadPhotoBlob(photoStoragePath('master',x.id,i+1),b,false))uploaded++;
+}catch(e){failed++;last=e?.message||String(e)}
+}
+}
+return {uploaded,failed,message:last};
+}
 async function handlePhoto(e){
 photo=e.target.files[0];
 if(!photo)return;
@@ -911,16 +1113,25 @@ function cancelFoodEdit(){clearFoodEntryForm();fDate.value=dn();fTime.value=tn()
 async function saveFood(){
 if(!fFood.value.trim()){alert('請輸入食物／餐點');return;}
 let existing=editingFoodId?db.foods.find(x=>String(x.id)===String(editingFoodId)):null;
+const recordId=existing?.id||uid();
 let photoId=existing?.photoId||'';
-if(photo){photoId='p_'+uid();await putP(photoId,photo);}
+let compressed=null,photoCloudWarning='';
+if(photo){
+compressed=await compressPhotoBlob(photo);
+photoId=`p_${safePhotoPart(recordId)}_1`;
+await putP(photoId,compressed);
+}
 const values={date:fDate.value,time:fTime.value,meal:fMeal.value,masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
-if(existing){Object.assign(existing,values);}else{db.foods.push({id:uid(),...values});}
+if(existing){Object.assign(existing,values);}else{db.foods.push({id:recordId,...values});}
 save();
+if(compressed&&cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('food',recordId,1),compressed,true)}catch(e){photoCloudWarning=e?.message||String(e)}
+}
 const wasEdit=!!existing;
 clearFoodEntryForm();
 fDate.value=dn();fTime.value=tn();
 await renderToday();renderHistory();renderStats();
-alert(wasEdit?'飲食紀錄已更新':'已儲存這一餐');
+alert((wasEdit?'飲食紀錄已更新':'已儲存這一餐')+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
 }
 async function editFood(id){
 const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
@@ -932,7 +1143,7 @@ fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';updateFoo
 fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
 photo=null;
 if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
-if(x.photoId){const b=await getP(x.photoId);if(b){photoURL=URL.createObjectURL(b);photoPreview.src=photoURL;photoPreview.style.display='block';}else{photoPreview.style.display='none';}}else{photoPreview.style.display='none';}
+{const b=await getFoodPhotoBlob(x);if(b){photoURL=URL.createObjectURL(b);photoPreview.src=photoURL;photoPreview.style.display='block';}else{photoPreview.style.display='none';}}
 if(saveFoodBtn)saveFoodBtn.textContent='更新這一餐';
 if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='';
 if(foodEditNotice)foodEditNotice.style.display='block';
@@ -951,7 +1162,7 @@ await renderToday();renderHistory();renderStats();
 }
 async function foodHtml(x){
 let pic='';
-if(x.photoId){let b=await getP(x.photoId);if(b)pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;}
+{let b=await getFoodPhotoBlob(x);if(b)pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;}
 return `<div class="item"><b>${esc(x.food)}</b><div class="small">${esc(x.meal)}・${esc(x.time)}${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}</div>${pic}<div class="small">${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g・碳水 ${esc(x.carb||'—')} g・脂肪 ${esc(x.fat||'—')} g・糖 ${esc(x.sugar||'—')} g・鈉 ${esc(x.sodium||'—')} mg</div><div class="record-actions"><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
 }
 async function renderToday(){
@@ -1253,36 +1464,13 @@ alert('沒有辨識到條碼，請拍近一點或改手動輸入。');
 alert('條碼辨識失敗，可改傳給 ChatGPT 辨識。');
 }
 }
-async function makeMasterPhotoData(file){
-try{
-const img=await new Promise((resolve,reject)=>{
-const u=URL.createObjectURL(file);
-const im=new Image();
-im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};
-im.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('圖片讀取失敗'))};
-im.src=u;
-});
-const maxSide=1200;
-let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
-const scale=Math.min(1,maxSide/Math.max(w,h));
-w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
-const c=document.createElement('canvas');c.width=w;c.height=h;
-const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
-return c.toDataURL('image/jpeg',0.82);
-}catch(_){return ''}
-}
 function normalizeMasterPhotos(x){
 let ids=Array.isArray(x.photoIds)?x.photoIds.filter(Boolean):[];
-let datas=Array.isArray(x.photoDatas)?x.photoDatas.filter(Boolean):[];
-if(!ids.length && x.photoId)ids=[x.photoId];
-if(!datas.length && x.photoData)datas=[x.photoData];
+if(!ids.length&&x.photoId)ids=[x.photoId];
 ids=ids.slice(0,2);
-datas=datas.slice(0,2);
 x.photoIds=ids;
-x.photoDatas=datas;
 x.photoId=ids[0]||'';
-x.photoData=datas[0]||'';
-return {ids,datas};
+return {ids};
 }
 async function attachMasterPhoto(id,index=0){
 const x=db.masters.find(v=>String(v.id)===String(id));
@@ -1294,34 +1482,36 @@ document.body.appendChild(input);
 input.onchange=async()=>{
 const f=input.files&&input.files[0];
 if(!f){input.remove();return;}
+let cloudWarning='';
 try{
-const pid='m_'+uid();
-await putP(pid,f);
-const pd=await makeMasterPhotoData(f);
-const p=normalizeMasterPhotos(x);
-p.ids[index]=pid;
-p.datas[index]=pd;
-x.photoIds=p.ids.filter(Boolean).slice(0,2);
-x.photoDatas=p.datas.filter(Boolean).slice(0,2);
-x.photoId=x.photoIds[0]||'';
-x.photoData=x.photoDatas[0]||'';
-save();
+const b=await compressPhotoBlob(f);
+const pid=`m_${safePhotoPart(x.id)}_${index+1}`;
+await putP(pid,b);
+const p=normalizeMasterPhotos(x);p.ids[index]=pid;
+x.photoIds=p.ids.slice(0,2);x.photoId=x.photoIds[0]||'';
+persistLocalOnly();
 masterPhotoKeyCache=null;
+if(cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('master',x.id,index+1),b,true)}catch(e){cloudWarning=e?.message||String(e)}}
 await renderMasters();
+if(cloudWarning)alert('照片已存本機，但雲端照片尚未完成：'+cloudWarning);
 }catch(e){alert('照片儲存失敗：'+(e?.message||e));}
 input.remove();
 };
 input.click();
 }
-function swapMasterPhotos(id){
+async function swapMasterPhotos(id){
 const x=db.masters.find(v=>String(v.id)===String(id));if(!x)return;
-const p=normalizeMasterPhotos(x);
-if((p.ids.filter(Boolean).length<2) && (p.datas.filter(Boolean).length<2))return;
-[p.ids[0],p.ids[1]]=[p.ids[1],p.ids[0]];
-[p.datas[0],p.datas[1]]=[p.datas[1],p.datas[0]];
-x.photoIds=p.ids.slice(0,2);x.photoDatas=p.datas.slice(0,2);
-x.photoId=x.photoIds[0]||'';x.photoData=x.photoDatas[0]||'';
-save();renderMasters();
+const b1=await getMasterPhotoBlob(x,0),b2=await getMasterPhotoBlob(x,1);
+if(!b1||!b2)return;
+const id1=`m_${safePhotoPart(x.id)}_1`,id2=`m_${safePhotoPart(x.id)}_2`;
+await putP(id1,b2);await putP(id2,b1);
+x.photoIds=[id1,id2];x.photoId=id1;persistLocalOnly();
+let warning='';
+if(cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('master',x.id,1),b2,true);await uploadPhotoBlob(photoStoragePath('master',x.id,2),b1,true)}catch(e){warning=e?.message||String(e)}
+}
+await renderMasters();
+if(warning)alert('照片順序已在本機交換，但雲端照片尚未完成：'+warning);
 }
 async function saveMaster(){
 if(!mName.value.trim()){
@@ -1337,14 +1527,13 @@ db.masters.some(x=>x.barcode===bc)
 alert('這個條碼已存在食品主檔');
 return;
 }
-let photoId='';
-let photoData='';
-if(masterPhoto){
-photoId='m_'+uid();
-await putP(photoId,masterPhoto);
-photoData=await makeMasterPhotoData(masterPhoto);
-}
 const newMasterId=uid();
+let photoId='',compressed=null,photoCloudWarning='';
+if(masterPhoto){
+compressed=await compressPhotoBlob(masterPhoto);
+photoId=`m_${safePhotoPart(newMasterId)}_1`;
+await putP(photoId,compressed);
+}
 db.masters.push({
 id:newMasterId,
 brand:mBrand.value.trim(),
@@ -1362,16 +1551,15 @@ source:mSource.value,
 confirmed:mConfirmed.value,
 note:mNote.value.trim(),
 photoId,
-photoData,
-photoIds: photoId ? [photoId] : [],
-photoDatas: photoData ? [photoData] : []
+photoIds: photoId ? [photoId] : []
 });
 const shouldReturnToFood=returnToFoodAfterMasterCreate;
 returnToFoodAfterMasterCreate=false;
 save();
+if(compressed&&cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('master',newMasterId,1),compressed,true)}catch(e){photoCloudWarning=e?.message||String(e)}}
 clearMaster();
-renderMasters();
-alert('食品主檔已儲存');
+await renderMasters();
+alert('食品主檔已儲存'+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
 if(shouldReturnToFood)useMaster(newMasterId);
 }
 function clearMaster(){
@@ -1461,38 +1649,21 @@ x.photoId=best;
 const p=normalizeMasterPhotos(x);
 if(!p.ids[0])p.ids[0]=best;
 x.photoIds=p.ids.filter(Boolean).slice(0,2);
-localStorage.setItem(K,JSON.stringify(db));
+persistLocalOnly();
 return best;
 }
 return '';
 }
 async function masterCard(x){
 let p=normalizeMasterPhotos(x);
-if(!p.ids[0] && !p.datas[0]){
+if(!p.ids[0]){
 const recovered=await recoverMasterPhotoId(x);
 if(recovered)p=normalizeMasterPhotos(x);
 }
 const srcs=[];
-let changed=false;
 for(let i=0;i<2;i++){
-const pid=p.ids[i]||'';
-let b=pid?await getP(pid):null;
-let src='';
-if(b){
-src=URL.createObjectURL(b);
-if(!p.datas[i]){
-const pd=await makeMasterPhotoData(b);
-if(pd){p.datas[i]=pd;changed=true;}
-}
-}else if(p.datas[i]){
-src=p.datas[i];
-}
-if(src)srcs.push({src,index:i});
-}
-if(changed){
-x.photoDatas=p.datas.filter(Boolean).slice(0,2);
-x.photoData=x.photoDatas[0]||'';
-localStorage.setItem(K,JSON.stringify(db));
+const b=await getMasterPhotoBlob(x,i);
+if(b)srcs.push({src:URL.createObjectURL(b),index:i});
 }
 const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`${n===1?`<button class="master-photo-swap" type="button" title="左右交換" onclick="event.stopPropagation();swapMasterPhotos('${x.id}')">↔</button>`:''}<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button></div>`).join('')}</div>`:'';
 const addPhotoButton=srcs.length===0
@@ -2061,7 +2232,8 @@ alert('備份格式錯誤');
 };
 r.readAsText(f);
 }
-function init(){
+async function init(){
+await migrateLegacyPhotoData();
 let d=dn();
 fDate.value=
 bDate.value=
