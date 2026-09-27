@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.27.1 knowledge-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.27.2 knowledge-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -190,7 +190,7 @@ button{font:inherit}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.27.1</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.27.2</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -1626,7 +1626,7 @@ return m?m[1].trim():'';
 }
 function numVal(t,k){
 const v=lineVal(t,k);
-const m=v.match(/[0-9]+(?:\\.[0-9]+)?/);
+const m=String(v||'').replace(/,/g,'').match(/[0-9]+(?:\.[0-9]+)?/);
 return m?m[0]:'';
 }
 function applyMasterAI(){
