@@ -1,1294 +1,2658 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v1.8</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- PHOTO_STORAGE_V3 2026-09-26: IndexedDB cache + Supabase Storage; no base64 in localStorage -->
+<meta name="theme-color" content="#f5f6f8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="飲食紀錄">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.PNG">
+<title>KYC 飲食與運動紀錄 2026.09.26 master-dropdown-v1</title>
 <style>
-:root{
-  --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
-  --accent:#2563eb; --accent-soft:#eff6ff; --shadow:0 10px 30px rgba(15,23,42,.08);
-}
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","PingFang TC",sans-serif;background:var(--bg);color:var(--text)}
-button,input,textarea{font:inherit}
-.app{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
-header{
-  height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;
-  padding:0 18px;gap:14px;position:sticky;top:0;z-index:20
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;background:var(--bg);color:var(--text)}
+.app{max-width:900px;margin:auto;padding:16px 14px 96px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.tabs{display:grid;grid-template-columns:repeat(7,1fr);position:fixed;left:0;right:0;bottom:0;background:#f5f6f8f2;padding:8px 5px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.tabbtn{border:0;background:transparent;padding:9px 3px;border-radius:12px;font-size:10px;color:var(--muted)}
+.tabbtn.active{background:var(--accent);color:#fff}
+.section{display:none}
+.section.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.full{grid-column:1/-1}
+label{display:block;color:var(--muted);font-size:13px;margin-bottom:5px}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+textarea{min-height:78px}
+button{font:inherit}
+.primary,.secondary,.danger{border:0;border-radius:12px;padding:11px 14px}
+.primary{background:var(--accent);color:#fff}
+.secondary{background:var(--soft)}
+.danger{background:#fee2e2;color:var(--danger)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kpi{background:var(--soft);padding:10px;border-radius:12px}
+.kpi b{display:block;font-size:18px}
+.kpi span,.small,.note{font-size:12px;color:var(--muted)}
+.item{border-top:1px solid var(--line);padding:12px 0}
+.item:first-child{border-top:0}
+.itemtitle{font-weight:800}
+.photo{width:130px;height:95px;object-fit:cover;border-radius:12px;margin-top:8px}
+.photoPreview{display:none;width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-top:8px}
+.lock{position:fixed;inset:0;background:var(--bg);z-index:99;display:none;align-items:center;justify-content:center;padding:20px}
+.lock.show{display:flex}
+.lockbox{background:#fff;padding:20px;border-radius:20px;width:min(420px,100%);text-align:center}
+.pin{text-align:center;letter-spacing:8px;font-size:24px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.master-card{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+.master-title{font-weight:800}
+.master-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.nutrition div{background:var(--soft);padding:7px;border-radius:10px;text-align:center}
+.nutrition b{display:block;font-size:13px}
+.nutrition span{font-size:9px;color:var(--muted)}
+.picker{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:80;display:none;align-items:flex-end}
+.picker.show{display:flex}
+.pickerbox{background:#fff;width:100%;max-height:85vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px}
+.empty{text-align:center;padding:22px;color:var(--muted)}
+@media(max-width:700px){
+.grid{grid-template-columns:1fr}
+.kpis{grid-template-columns:repeat(2,1fr)}
 }
-.brand{font-weight:800;font-size:19px;display:flex;align-items:center;gap:9px;white-space:nowrap}
-.search{flex:1;max-width:680px}
-.search input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 13px;background:#fafafa;outline:none}
-.search input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
-.layout{display:grid;grid-template-columns:250px minmax(0,1fr) 330px;min-height:calc(100vh - 64px)}
-.sidebar,.rightbar{background:#fff}
-.sidebar{border-right:1px solid var(--line);padding:14px}
-.rightbar{border-left:1px solid var(--line);padding:18px;overflow:auto}
-.drawer-close{position:sticky;top:0;float:right;z-index:2;width:42px;height:42px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,.08)}
-.drawer-backdrop{display:none}
-.section-title{font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin:8px 7px}
-.article-item{
-  padding:11px 12px;border-radius:11px;cursor:pointer;margin-bottom:6px;border:1px solid transparent
+@media print{
+.tabs,.no-print,.lock{display:none!important}
+.app{padding:0}
+.section{display:none!important}
+#printArea{display:block!important}
 }
-.article-item:hover{background:#f8fafc}
-.article-item.active{background:var(--accent-soft);border-color:#bfdbfe}
-.article-item .t{font-size:14px;font-weight:700;line-height:1.4}
-.article-item .m{font-size:12px;color:var(--muted);margin-top:4px}
-.main{padding:26px;min-width:0}
-.paper{
-  max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:18px;
-  box-shadow:var(--shadow);padding:28px 34px 38px
-}
-.meta{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
-h1{font-size:27px;line-height:1.35;margin:9px 0 14px}
-.toolbtn{
-  border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 11px;cursor:pointer;
-  display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650
-}
-.toolbtn:hover{background:#f8fafc}
-.selection-hint{
-  margin:14px 0 8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:12px;
-  background:#f8fafc;color:#64748b;font-size:13px;line-height:1.6
-}
-.selection-toolbar{
-  position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));z-index:90;
-  width:min(720px,calc(100vw - 24px));display:flex;align-items:center;gap:8px;
-  padding:9px;background:rgba(255,255,255,.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  border:1px solid #dbe2ea;border-radius:16px;box-shadow:0 14px 40px rgba(15,23,42,.22);
-  opacity:0;pointer-events:none;transform:translate(-50%,24px) scale(.98);transition:.16s ease
-}
-.selection-toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,0) scale(1)}
-.color-palette{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;flex:1;padding:1px}
-.color-palette::-webkit-scrollbar{display:none}
-.color-btn{
-  width:34px;height:34px;min-width:34px;border:1px solid rgba(15,23,42,.12);border-radius:10px;
-  padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.45);cursor:pointer
-}
-.color-btn:active{transform:scale(.93)}
-.more-colors{
-  position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));z-index:91;
-  width:min(430px,calc(100vw - 28px));padding:12px;background:rgba(255,255,255,.98);
-  border:1px solid #dbe2ea;border-radius:16px;box-shadow:0 14px 40px rgba(15,23,42,.22);
-  transform:translateX(-50%);display:none
-}
-.more-colors.show{display:block}
-.more-colors-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
-.more-color-cell{display:flex;align-items:center;justify-content:center}
-.more-colors .color-btn{width:38px;height:38px;min-width:38px}
-.custom-color-wrap{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;color:#475569;font-size:13px;font-weight:700}
-.custom-color-input{width:46px;height:34px;border:0;background:transparent;padding:0}
-.selection-action{
-  flex:0 0 auto;border:1px solid var(--line);background:#fff;border-radius:10px;height:34px;padding:0 10px;
-  font-size:13px;font-weight:750;color:#334155;white-space:nowrap
-}
-.selection-action.danger{color:#b91c1c;background:#fff7f7}
-.note-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
-.clear-all-btn{border:0;background:#f3f4f6;color:#64748b;border-radius:9px;padding:7px 9px;font-size:12px;font-weight:700}
-.article-body{font-size:18px;line-height:1.95;color:#1f2937;outline:none}
-.article-body p{margin:1em 0}
-.finance-term{
-  color:#1d4ed8;background:#eff6ff;border-bottom:1px dashed #60a5fa;border-radius:4px;
-  padding:0 2px;cursor:pointer
-}
-.finance-term:hover{background:#dbeafe}
-mark.hl-yellow{background:#fff2a8}
-mark.hl-green{background:#cef7d2}
-mark.hl-blue{background:#d9ecff}
-mark.hl-pink{background:#ffd9e8}
-mark.hl-orange{background:#ffe0b2}
-mark.hl-purple{background:#eadcff}
-mark.hl-cyan{background:#cffafe}
-mark.hl-gray{background:#e5e7eb}
-mark.user-hl{padding:0 .05em;border-radius:.18em}
-.annotation-anchor{
-  border-bottom:2px dotted #f59e0b;cursor:pointer;border-radius:.12em
-}
-.inline-note-badge{
-  border:0;background:transparent;padding:0 2px;margin:0 1px;font-size:.72em;vertical-align:super;
-  cursor:pointer;line-height:1
-}
-.annotation-section{margin-top:20px;border-top:1px solid var(--line);padding-top:18px}
-.annotation-toggle{
-  width:100%;border:0;background:transparent;padding:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
-  color:var(--text);cursor:pointer;text-align:left
-}
-.annotation-toggle-left{display:flex;align-items:center;gap:7px;font-weight:750}
-.annotation-toggle-right{display:flex;align-items:center;gap:8px}
-.annotation-count{font-size:12px;color:#64748b;background:#f1f5f9;padding:4px 8px;border-radius:999px}
-.annotation-chevron{font-size:18px;color:#64748b;line-height:1;transition:transform .16s ease}
-.annotation-list{display:grid;gap:9px;margin-top:10px}
-.annotation-section.collapsed .annotation-list{display:none}
-.annotation-toggle:active{opacity:.7}
-.annotation-empty{font-size:13px;color:#94a3b8;padding:10px 0}
-.annotation-item{border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fafafa;cursor:pointer}
-.annotation-item .anno-meta{font-size:11px;color:#b45309;font-weight:800;margin-bottom:5px}
-.annotation-item .anno-quote{font-size:13px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
-.annotation-item .anno-text{font-size:14px;line-height:1.6;color:#1f2937}
 
-.article-manage-btn{white-space:nowrap}
-.article-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.article-title-row h1{flex:1}
-.article-edit-btn{margin-top:8px;flex:0 0 auto}
-.article-modal{position:fixed;inset:0;z-index:125;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.28);padding:14px}
-.article-modal.show{display:flex}
-.article-sheet{width:min(620px,100%);background:#fff;border-radius:18px;padding:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);max-height:88vh;overflow:auto}
-.article-sheet h2{margin:0 0 14px;font-size:20px}
-.article-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.article-field{margin-bottom:11px}
-.article-field label{display:block;font-size:12px;font-weight:800;color:#475569;margin-bottom:6px}
-.article-field input,.article-field textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px 11px;background:#fff;outline:none}
-.article-field input:focus,.article-field textarea:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
-.article-field textarea{min-height:240px;resize:vertical;line-height:1.65}
-.topic-input-row{display:flex;align-items:center;gap:7px}
-.topic-input-row input{flex:1;min-width:0}
-.topic-auto-btn{flex:0 0 auto;height:41px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:10px;padding:0 10px;font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer}
-.topic-auto-btn:active{transform:scale(.98)}
-.topic-auto-hint{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px;min-height:1.45em}
-.topic-auto-hint.auto{color:#047857}
-.article-help{font-size:12px;color:#64748b;line-height:1.55;margin-top:-2px;margin-bottom:10px}
-.article-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
-.article-actions button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 13px;font-weight:750}
-.article-actions .primary{background:#2563eb;color:#fff;border-color:#2563eb}
-.article-actions .danger{color:#b91c1c;background:#fff7f7;margin-right:auto}
+/* 2026-09-26 PHOTO_THUMB_V2: food master photos fixed small on right + tap to zoom */
+/* 2026-09-26 UI restore: long KYC banner + collapsible food-library sections */
+.kyc-banner-wrap{margin:0 0 14px;text-align:center}
+.kyc-banner{display:block;width:100%;max-width:620px;height:auto;margin:0 auto;object-fit:contain}
+.kyc-banner-fallback{display:none;font-weight:800;font-size:clamp(22px,5vw,31px);padding:12px 0}
+.fold{border:1px solid var(--line);border-radius:14px;margin-top:12px;background:#fff;overflow:hidden}
+.fold>summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:800;background:var(--soft);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::after{content:'＋';font-size:21px;line-height:1;color:var(--muted)}
+.fold[open]>summary::after{content:'−'}
+.fold-body{padding:14px}
+.master-count{font-size:13px;color:var(--muted);font-weight:600;margin-left:8px}
+.master-card{position:relative}
+.master-card.has-photo{padding-right:12px;min-height:0}
+.master-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.master-head-info{min-width:0;flex:1 1 auto}
+.master-photo-wrap{display:flex;align-items:flex-start;gap:6px;flex:0 0 auto}
+.master-photo-slot{display:flex;flex-direction:column;align-items:center;gap:2px}
+.master-photo-wrap.one .master-thumb{width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important}
+.master-photo-wrap.two .master-thumb{width:52px!important;height:52px!important;max-width:52px!important;max-height:52px!important}
+.master-thumb{position:static!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
+.master-photo-actions{display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+.master-photo-mini{border:0;background:transparent;color:var(--muted);padding:1px 3px;font-size:9px;line-height:1.2;cursor:pointer}
+.master-photo-mini.delete{color:#d33}
+.master-photo-swap{align-self:center;border:0;background:var(--soft);color:var(--text);border-radius:999px;width:26px;height:26px;padding:0;font-size:15px;line-height:26px;cursor:pointer}
+.record-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.record-actions button{padding:7px 11px;border-radius:10px;font-size:12px}
+.history-food{margin-top:8px;padding:10px 0 2px;border-top:1px dashed var(--line)}
+.editing-note{display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:12px}
+.master-photo-action{border:0;background:var(--soft);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--text);cursor:pointer}
+.zoom-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:120;display:none;align-items:center;justify-content:center;padding:24px}
+.zoom-backdrop.show{display:flex}
+.zoom-backdrop img{max-width:min(94vw,900px);max-height:88vh;border-radius:16px;background:#fff}
+.zoom-close{position:absolute;top:calc(14px + env(safe-area-inset-top));right:16px;width:44px;height:44px;border:0;border-radius:999px;background:#fff;font-size:28px;line-height:1}
+.pickerbox{position:relative}
+.picker-head{position:sticky;top:-18px;z-index:3;background:#fff;padding:18px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}
+.picker-close{border:0;background:var(--soft);border-radius:999px;width:40px;height:40px;font-size:22px;line-height:1;flex:0 0 auto}
 
-.import-methods{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
-.import-method-btn,.import-file-label{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:750;color:#334155;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-.import-method-btn:hover,.import-file-label:hover{background:#f8fafc}
-.import-method-btn.primary-soft{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
-.article-source-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
-.article-source-row .article-field{margin-bottom:0}
-.url-fetch-btn{height:41px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:10px;padding:0 12px;font-weight:800;white-space:nowrap}
-.import-status{font-size:12px;color:#64748b;line-height:1.55;margin:7px 0 10px;min-height:1.55em}
-.import-status.ok{color:#047857}.import-status.err{color:#b91c1c}
-.share-help{display:none;margin:0 0 12px;padding:11px 12px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;font-size:12px;line-height:1.65;color:#475569}
-.share-help.show{display:block}
-.share-help code{word-break:break-all;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:1px 4px}
-.source-link{color:#2563eb;text-decoration:none;font-weight:650}
-.source-link:hover{text-decoration:underline}
-.file-input-hidden{display:none}
-.annotation-modal{position:fixed;inset:0;z-index:120;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.28);padding:14px}
-.annotation-modal.show{display:flex}
-.annotation-sheet{width:min(560px,100%);background:#fff;border-radius:18px;padding:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);max-height:82vh;overflow:auto}
-.annotation-sheet h2{margin:0 0 12px;font-size:20px}
-.annotation-preview{font-size:13px;line-height:1.65;color:#475569;background:#f8fafc;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:12px;max-height:120px;overflow:auto}
-.annotation-form-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin-bottom:10px}
-.annotation-sheet select,.annotation-sheet textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px;background:#fff;outline:none}
-.annotation-sheet textarea{min-height:120px;resize:vertical}
-.annotation-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
-.annotation-actions button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 13px;font-weight:750}
-.annotation-actions .primary{background:#2563eb;color:#fff;border-color:#2563eb}
-.annotation-actions .danger{color:#b91c1c;background:#fff7f7}
-.note-box{
-  margin-top:24px;border-top:1px solid var(--line);padding-top:20px
-}
-.note-box textarea{
-  width:100%;min-height:100px;border:1px solid var(--line);border-radius:12px;padding:12px;resize:vertical;outline:none
-}
-.note-box textarea:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
-.right-empty{color:var(--muted);font-size:14px;line-height:1.8}
-.term-title{font-size:24px;font-weight:800;margin-bottom:4px}
-.term-en{color:var(--muted);margin-bottom:14px}
-.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f3f4f6;font-size:12px;margin-right:6px}
-.info-card{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:13px;background:#fafafa}
-.info-card h3{font-size:13px;margin:0 0 8px;color:#4b5563}
-.info-card p{margin:0;line-height:1.75}
-.toast{
- position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;
- padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:99
-}
-.toast.show{opacity:1}
-@media(max-width:1050px){
-  .layout{grid-template-columns:220px minmax(0,1fr)}
-  .rightbar{
-    position:fixed;right:0;top:64px;bottom:0;width:min(360px,88vw);z-index:30;transform:translateX(105%);
-    transition:.22s;box-shadow:-12px 0 30px rgba(15,23,42,.15)
-  }
-  .rightbar.open{transform:translateX(0)}
-  .drawer-backdrop{position:fixed;inset:64px 0 0 0;background:rgba(15,23,42,.18);z-index:29}
-  .drawer-backdrop.open{display:block}
-}
-@media(max-width:720px){
-  header{padding:0 10px}.brand span:last-child{display:none}
-  .layout{display:block}
-  .sidebar{display:none}
-  .main{padding:12px}
-  #mobileArticleSelectWrap{display:block!important}
-  .paper{padding:20px 18px;border-radius:14px}
-  h1{font-size:23px}
-  .article-body{font-size:17px;line-height:1.85}
-  .article-title-row{gap:8px}
-  .article-edit-btn{padding:8px 9px}
-  .article-form-grid{grid-template-columns:1fr}
-  .selection-hint{font-size:12px}
-}
+/* 2026-09-26 MASTER_DROPDOWN_V1: searchable food-master dropdown in add-food form */
+.master-combobox{position:relative;z-index:12}
+.master-combobox-row{display:flex;align-items:stretch;gap:6px}
+.master-combobox-row input{flex:1 1 auto;min-width:0}
+.master-drop-toggle{flex:0 0 44px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--muted);font-size:22px;line-height:1;padding:0;cursor:pointer}
+.master-dropdown{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:70;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(17,24,39,.14);max-height:310px;overflow:auto;-webkit-overflow-scrolling:touch}
+.master-dropdown.show{display:block}
+.master-dropdown-head{padding:9px 12px;background:var(--soft);font-size:11px;color:var(--muted);position:sticky;top:0;z-index:1}
+.master-option{padding:11px 12px;border-top:1px solid var(--line);cursor:pointer;background:#fff}
+.master-option:first-of-type{border-top:0}
+.master-option-title{font-weight:750;font-size:14px}
+.master-option-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.master-option-add{padding:12px;border-top:1px solid var(--line);font-weight:750;color:#0a84ff;background:#f8fbff;cursor:pointer;position:sticky;bottom:0}
+.master-option-empty{padding:14px 12px;color:var(--muted);font-size:12px;text-align:center}
+
 </style>
 </head>
 <body>
+<div id="lock" class="lock">
+  <div class="lockbox">
+    <h2>🔒 已鎖定</h2>
+    <input id="unlockPin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="••••">
+    <div class="btnrow" style="justify-content:center;margin-top:10px">
+      <button class="primary" onclick="unlockApp()">解鎖</button>
+      <button class="danger" onclick="forgotPin()">忘記 PIN</button>
+    </div>
+  </div>
+</div>
+<div id="foodPicker" class="picker" onclick="if(event.target===this)closePicker()">
+  <div class="pickerbox" onclick="event.stopPropagation()">
+    <div class="picker-head"><div class="itemtitle">從食品主檔選擇</div><button class="picker-close" type="button" aria-label="關閉" onclick="closePicker()">×</button></div>
+    <input id="pickerSearch" placeholder="搜尋品牌、商品或條碼" oninput="renderPicker()" style="margin-top:10px">
+    <div id="pickerList"></div>
+  </div>
+</div>
+<div id="imageZoom" class="zoom-backdrop" onclick="closeImageZoom()">
+  <button class="zoom-close" type="button" aria-label="關閉" onclick="closeImageZoom();event.stopPropagation()">×</button>
+  <img id="imageZoomImg" alt="食品照片放大預覽" onclick="event.stopPropagation()">
+</div>
 <div class="app">
-<header>
-  <div class="brand"><span>📈</span><span>財經閱讀系統</span></div>
-  <div class="search"><input id="search" placeholder="搜尋文章、名詞…" /></div>
-  <button class="toolbtn article-manage-btn" id="newArticle">＋ 文章</button>
-  <button class="toolbtn" id="showTerms">📖 名詞</button>
-</header>
-
-<div class="layout">
-  <aside class="sidebar">
-    <div class="section-title">閱讀清單</div>
-    <div id="articleList">
-      <div class="article-item active"><div class="t">示範｜CPI、利率與債券殖利率怎麼串起來？</div><div class="m">筆記・總體經濟・債券</div></div>
-      <div class="article-item"><div class="t">示範｜為什麼市場會先交易預期？</div><div class="m">概念・市場機制</div></div>
-    </div>
-  </aside>
-
-  <main class="main">
-    <div id="mobileArticleSelectWrap" style="display:none;margin-bottom:10px">
-      <select id="mobileArticleSelect" style="width:100%;padding:12px;border:1px solid #dbe2ea;border-radius:12px;background:white;font-size:16px">
-        <option value="a1">示範｜CPI、利率與債券殖利率怎麼串起來？</option>
-        <option value="a2">示範｜為什麼市場會先交易預期？</option>
-      </select>
-    </div>
-    <article class="paper">
-      <div class="meta" id="meta"><span>筆記</span><span>•</span><span>總體經濟・債券</span></div>
-      <div class="article-title-row">
-        <h1 id="title">示範｜CPI、利率與債券殖利率怎麼串起來？</h1>
-        <button class="toolbtn article-edit-btn" id="editArticle" title="修改本篇文章">✏️</button>
-      </div>
-
-      <div class="selection-hint">💡 選取文字後會出現工具列，可螢光標記、加註解；點一下已標記文字也能改色或取消標記。</div>
-
-      <div id="articleBody" class="article-body">
-        <p>當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。</p>
-        <p>如果市場認為未來利率可能維持較高水準，債券價格可能先反映這種預期，而 <span class="finance-term" data-term="債券殖利率">債券殖利率</span> 也可能因此發生變化。</p>
-        <p>閱讀這類新聞時，不要只記住「數字上升或下降」，而是要試著把「經濟數據 → 市場預期 → 利率 → 債券價格與殖利率」串起來。</p>
-      </div>
-
-      <div class="annotation-section collapsed" id="annotationSection">
-        <button type="button" class="annotation-toggle" id="annotationToggle" aria-expanded="false" aria-controls="annotationList">
-          <span class="annotation-toggle-left">💬 本篇文字註解</span>
-          <span class="annotation-toggle-right"><span class="annotation-count" id="annotationCount">0 則</span><span class="annotation-chevron" id="annotationChevron">⌄</span></span>
-        </button>
-        <div class="annotation-list" id="annotationList"><div class="annotation-empty">尚未建立文字註解。</div></div>
-      </div>
-
-      <div class="note-box">
-        <div class="note-head"><div style="font-weight:750">📝 我的註記</div><button class="clear-all-btn" id="clearHL">🧹 清除本篇標記</button></div>
-        <textarea id="note" placeholder="輸入自己的理解、疑問或待查資料…"></textarea>
-      </div>
-    </article>
-  </main>
-
-  <aside class="rightbar" id="rightbar">
-    <button class="drawer-close" id="closeTerms" aria-label="關閉名詞面板">×</button>
-    <div id="termPanel" class="right-empty">點文章中的藍色財經名詞，即時查看解釋。</div>
-  </aside>
-  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+<div class="no-print kyc-banner-wrap">
+  <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
+  <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
+  <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
 </div>
-</div>
-<div class="selection-toolbar" id="selectionToolbar" aria-hidden="true">
-  <div class="color-palette" aria-label="螢光筆顏色">
-    <button class="color-btn hl" data-color="yellow" aria-label="黃色" title="黃色" style="background:#fff2a8"></button>
-    <button class="color-btn hl" data-color="green" aria-label="綠色" title="綠色" style="background:#cef7d2"></button>
-    <button class="color-btn hl" data-color="blue" aria-label="藍色" title="藍色" style="background:#d9ecff"></button>
-    <button class="color-btn hl" data-color="pink" aria-label="粉紅" title="粉紅" style="background:#ffd9e8"></button>
-    <button class="color-btn hl" data-color="orange" aria-label="橘色" title="橘色" style="background:#ffe0b2"></button>
-    <button class="color-btn hl" data-color="purple" aria-label="紫色" title="紫色" style="background:#eadcff"></button>
-    <button class="color-btn hl" data-color="cyan" aria-label="青色" title="青色" style="background:#cffafe"></button>
-    <button class="color-btn hl" data-color="gray" aria-label="灰色" title="灰色" style="background:#e5e7eb"></button>
-  </div>
-  <button class="selection-action" id="moreColorsBtn">＋更多</button>
-  <button class="selection-action" id="addAnnotation">📝 註解</button>
-  <button class="selection-action danger" id="removeHL">取消標記</button>
-  <button class="selection-action" id="closeHLToolbar" aria-label="關閉">×</button>
-</div>
-<div class="more-colors" id="moreColorsPanel" aria-hidden="true">
-  <div class="more-colors-grid">
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#ffc7c7" aria-label="淡紅" title="淡紅" style="background:#ffc7c7"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#ffd6a5" aria-label="杏橘" title="杏橘" style="background:#ffd6a5"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#fdffb6" aria-label="檸檬" title="檸檬" style="background:#fdffb6"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#d9f99d" aria-label="萊姆" title="萊姆" style="background:#d9f99d"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#b8f2e6" aria-label="薄荷" title="薄荷" style="background:#b8f2e6"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#a9def9" aria-label="天藍" title="天藍" style="background:#a9def9"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#c7d2fe" aria-label="靛藍" title="靛藍" style="background:#c7d2fe"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#d8b4fe" aria-label="薰衣草紫" title="薰衣草紫" style="background:#d8b4fe"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#f5c2e7" aria-label="玫瑰" title="玫瑰" style="background:#f5c2e7"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#e7c6a5" aria-label="奶茶" title="奶茶" style="background:#e7c6a5"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#f4e1c1" aria-label="米色" title="米色" style="background:#f4e1c1"></button></div>
-    <div class="more-color-cell"><button class="color-btn hl" data-color="#d1d5db" aria-label="銀灰" title="銀灰" style="background:#d1d5db"></button></div>
-  </div>
-  <div class="custom-color-wrap"><span>自訂顏色</span><input class="custom-color-input" id="customColor" type="color" value="#ffe082" aria-label="自訂螢光筆顏色"></div>
-</div>
-
-
-<div class="article-modal" id="articleModal" aria-hidden="true">
-  <div class="article-sheet" role="dialog" aria-modal="true" aria-labelledby="articleModalTitle">
-    <h2 id="articleModalTitle">＋ 新增文章</h2>
-
-    <div class="import-methods" id="articleImportMethods">
-      <button type="button" class="import-method-btn primary-soft" id="manualImportBtn">✏️ 手動貼上</button>
-      <button type="button" class="import-method-btn" id="clipboardImportBtn">📋 剪貼簿</button>
-      <button type="button" class="import-method-btn" id="urlImportBtn">🔗 網址</button>
-      <label class="import-file-label" for="articleFileInput">📄 檔案</label>
-      <input class="file-input-hidden" id="articleFileInput" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,text/plain,text/markdown,text/html,application/pdf" />
-      <button type="button" class="import-method-btn" id="iphoneShareBtn">📱 iPhone 分享</button>
+<section id="today" class="section active">
+<div class="card">
+  <div class="itemtitle" id="todayLabel"></div>
+  <div class="kpis" style="margin-top:10px">
+    <div class="kpi">
+      <b id="kcalToday">0</b>
+      <span>飲食 kcal</span>
     </div>
-
-    <div class="share-help" id="iphoneShareHelp">
-      本頁已加入「分享接收」功能：網址帶入 <code>share_title</code>、<code>share_text</code>、<code>share_url</code> 時會自動開啟新增文章並填入內容。iPhone 要從 Safari 分享表直接送進來，需在「捷徑」App 做一次分享捷徑設定；網頁端已先準備好。
+    <div class="kpi">
+      <b id="proteinToday">0</b>
+      <span>蛋白質 g</span>
     </div>
-
-    <div class="article-source-row">
-      <div class="article-field"><label for="articleSourceUrlInput">來源網址（可留空）</label><input id="articleSourceUrlInput" inputmode="url" placeholder="https://…" /></div>
-      <button type="button" class="url-fetch-btn" id="fetchArticleUrl">讀取網址</button>
+    <div class="kpi">
+      <b id="exerciseMin">0</b>
+      <span>運動分鐘</span>
     </div>
-    <div class="import-status" id="articleImportStatus"></div>
-
-    <div class="article-field"><label for="articleTitleInput">文章標題</label><input id="articleTitleInput" placeholder="輸入文章標題" /></div>
-    <div class="article-form-grid">
-      <div class="article-field"><label for="articleTypeInput">類型</label><input id="articleTypeInput" placeholder="例如：筆記、新聞、概念" /></div>
-      <div class="article-field"><label for="articleTopicInput">主題</label><div class="topic-input-row"><input id="articleTopicInput" placeholder="會依標題與內容自動判斷" /><button type="button" class="topic-auto-btn" id="autoTopicBtn">✨ 自動判斷</button></div><div class="topic-auto-hint" id="topicAutoHint">輸入標題或文章內容後，系統會自動建議 1～3 個主題，也可自行修改。</div></div>
-    </div>
-    <div class="article-field"><label for="articleContentInput">文章內容</label><textarea id="articleContentInput" placeholder="貼上或輸入文章內容。空一行可分成不同段落。"></textarea></div>
-    <div class="article-help">可用手動貼上、剪貼簿、網址擷取、TXT／MD／HTML／PDF 檔案匯入。主題會依標題＋文章內容自動建議，你仍可直接修改。修改文章內容時，若該篇已有螢光標記或文字註解，系統會先提醒；只修改標題、類型、主題或來源網址不會影響既有標記。</div>
-    <div class="article-actions">
-      <button class="danger" id="deleteArticle" style="display:none">刪除文章</button>
-      <button id="cancelArticle">取消</button>
-      <button class="primary" id="saveArticle">儲存文章</button>
+    <div class="kpi">
+      <b id="exerciseKcal">0</b>
+      <span>運動消耗 kcal</span>
     </div>
   </div>
 </div>
-
-<div class="annotation-modal" id="annotationModal" aria-hidden="true">
-  <div class="annotation-sheet" role="dialog" aria-modal="true" aria-labelledby="annotationModalTitle">
-    <h2 id="annotationModalTitle">📝 文字註解</h2>
-    <div class="annotation-preview" id="annotationPreview"></div>
-    <div class="annotation-form-row"><label for="annotationType">類型</label><select id="annotationType"><option>我的理解</option><option>疑問</option><option>補充</option><option>待查資料</option></select></div>
-    <textarea id="annotationText" placeholder="輸入這段文字的註解、理解、疑問或待查資料…"></textarea>
-    <div class="annotation-actions">
-      <button class="danger" id="deleteAnnotation" style="display:none">刪除註解</button>
-      <button id="cancelAnnotation">取消</button>
-      <button class="primary" id="saveAnnotation">儲存註解</button>
-    </div>
-  </div>
+<div class="card">
+  <div class="itemtitle">🔔 今日提醒</div>
+  <div id="reminder" class="note" style="margin-top:8px"></div>
 </div>
-<div class="toast" id="toast"></div>
-
-<noscript>
-<div style="margin:12px;padding:12px;border:1px solid #f59e0b;background:#fff7ed;border-radius:12px;color:#9a3412;font-weight:700">
-目前開啟方式沒有執行 JavaScript，所以只能看到示範文章，螢光筆與名詞點擊功能無法測試。請用 Safari／Chrome 開啟網頁版。
+<div class="card">
+  <div class="itemtitle">今日飲食</div>
+  <div id="foodToday"></div>
 </div>
-</noscript>
+<div class="card">
+  <div class="itemtitle">今日運動</div>
+  <div id="exerciseToday"></div>
+</div>
+</section>
+<section id="add" class="section">
+<div class="card">
+<div class="itemtitle">新增飲食</div>
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary" type="button" onclick="startNewMasterFromFood()">＋ 建立新食品</button>
+</div>
+<label style="margin-top:10px">餐點照片</label>
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary"
+    onclick="document.getElementById('photoCameraInput').click()">
+    📷 拍餐點照片
+  </button>
+  <button class="secondary"
+    onclick="document.getElementById('photoLibraryInput').click()">
+    🖼️ 從圖庫選餐點照片
+  </button>
+</div>
+<!-- 拍照：保留 capture -->
+<input
+  id="photoCameraInput"
+  type="file"
+  accept="image/*"
+  capture="environment"
+  style="display:none"
+  onchange="handlePhoto(event)"
+>
+<!-- 圖庫：不要 capture -->
+<input
+  id="photoLibraryInput"
+  type="file"
+  accept="image/*"
+  style="display:none"
+  onchange="handlePhoto(event)"
+>
+<img id="photoPreview" class="photoPreview">
+<div class="grid" style="margin-top:10px">
+<div>
+<label>日期</label>
+<input id="fDate" type="date">
+</div>
+<div>
+<label>時間</label>
+<input id="fTime" type="time">
+</div>
+<div>
+<label>餐別</label>
+<select id="fMeal">
+<option>早餐</option>
+<option>午餐</option>
+<option>下午點心</option>
+<option>晚餐</option>
+<option>宵夜</option>
+<option>其他</option>
+</select>
+</div>
+<div class="master-combobox">
+<label>食品主檔</label>
+<div class="master-combobox-row">
+<input id="fMasterName" placeholder="搜尋或選擇食品" autocomplete="off"
+  onfocus="openMasterDropdown()"
+  oninput="onMasterSearchInput()"
+  onkeydown="handleMasterSearchKey(event)"
+  onblur="setTimeout(closeMasterDropdown,180)">
+<button class="master-drop-toggle" type="button" aria-label="展開食品主檔" onclick="toggleMasterDropdown()">⌄</button>
+</div>
+<div id="masterDropdown" class="master-dropdown"></div>
+</div>
+<div>
+<label>食物／餐點</label>
+<input id="fFood">
+</div>
+<div>
+<label id="fQtyLabel">吃了幾份</label>
+<input id="fQty" value="1" inputmode="decimal" oninput="recalcMaster()">
+</div>
+<div>
+<label>單位</label>
+<select id="fUnit" onchange="updateFoodQtyLabel();recalcMaster()">
+<option>份</option>
+<option>g</option>
+<option>ml</option>
+<option>顆</option>
+<option>片</option>
+<option>碗</option>
+<option>杯</option>
+<option>個</option>
+<option>包</option>
+</select>
+</div>
+<div class="full">
+<div id="fCalcHint" class="note">選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算。</div>
+</div>
+<div>
+<label>熱量 kcal</label>
+<input id="fKcal">
+</div>
+<div>
+<label>蛋白質 g</label>
+<input id="fProtein">
+</div>
+<div>
+<label>碳水 g</label>
+<input id="fCarb">
+</div>
+<div>
+<label>糖 g</label>
+<input id="fSugar">
+</div>
+<div>
+<label>脂肪 g</label>
+<input id="fFat">
+</div>
+<div>
+<label>纖維 g</label>
+<input id="fFiber">
+</div>
+<div>
+<label>鈉 mg</label>
+<input id="fSodium">
+</div>
+<div class="full">
+<label>備註</label>
+<textarea id="fNote"></textarea>
+</div>
+</div>
+<div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若不重新選照片，會保留原照片。</div>
+<div class="btnrow" style="margin-top:10px">
+<button id="saveFoodBtn" class="primary" onclick="saveFood()">儲存這一餐</button>
+<button id="cancelFoodEditBtn" class="secondary" style="display:none" onclick="cancelFoodEdit()">取消修改</button>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">體重／體脂</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>日期</label>
+<input id="bDate" type="date">
+</div>
+<div>
+<label>體重 kg</label>
+<input id="bWeight">
+</div>
+<div>
+<label>體脂 %</label>
+<input id="bFat">
+</div>
+<div>
+<label>腰圍 cm</label>
+<input id="bWaist">
+</div>
+</div>
+<button class="primary" style="margin-top:10px" onclick="saveBody()">
+儲存
+</button>
+</div>
+</section>
+<section id="exercise" class="section">
+<div class="card">
+<div class="itemtitle">新增運動</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>日期</label>
+<input id="eDate" type="date">
+</div>
+<div>
+<label>類型</label>
+<select id="eType" onchange="autoClass()">
+<option>快走</option>
+<option>跑步</option>
+<option>單車</option>
+<option>橢圓機</option>
+<option>游泳</option>
+<option>傳統重量訓練</option>
+<option>功能性肌力訓練</option>
+<option>HIIT</option>
+<option>其他</option>
+</select>
+</div>
+<div>
+<label>分類</label>
+<select id="eClass">
+<option>有氧</option>
+<option>無氧</option>
+<option>混合</option>
+</select>
+</div>
+<div>
+<label>開始</label>
+<input id="eStart" type="time">
+</div>
+<div>
+<label>結束</label>
+<input id="eEnd" type="time" onchange="calcMin()">
+</div>
+<div>
+<label>分鐘</label>
+<input id="eMinutes">
+</div>
+<div>
+<label>消耗 kcal</label>
+<input id="eKcal">
+</div>
+<div class="full">
+<label>備註</label>
+<textarea id="eNote"></textarea>
+</div>
+</div>
+<button class="primary" style="margin-top:10px" onclick="saveExercise()">
+儲存運動
+</button>
+<div class="note" style="margin-top:10px">
+目前 PWA 不能直接讀 Apple Health / Apple Watch；未來原生 iPhone App 可用 HealthKit 匯入。
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">運動紀錄</div>
+<div id="exerciseList"></div>
+</div>
+</section>
+<section id="fooddb" class="section">
+<div class="card">
+<div class="itemtitle">食品主檔</div>
+<div class="note">第一次建立後，下次直接選商品就能帶入營養素。包裝標示優先於網路資料。</div>
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary" onclick="document.getElementById('smartPhotoCameraInput').click()">📷 拍照辨識</button>
+  <button class="secondary" onclick="document.getElementById('smartPhotoLibraryInput').click()">🖼️ 從圖庫選擇</button>
+</div>
+<input id="smartPhotoCameraInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleSmartRecognitionPhoto(event)">
+<input id="smartPhotoLibraryInput" type="file" accept="image/*" style="display:none" onchange="handleSmartRecognitionPhoto(event)">
+<details id="masterFormDetails" class="fold">
+<summary>辨識結果／填寫食品資料</summary>
+<div class="fold-body">
+<img id="masterPhotoPreview" class="photoPreview">
+<div class="btnrow" style="margin-top:10px">
+<button class="secondary" onclick="shareMasterPhotoToAI()">傳給 ChatGPT 辨識</button>
+<button class="secondary" onclick="pasteMasterAI()">貼上辨識結果</button>
+</div>
+<textarea id="masterAIText" placeholder="品牌：\n品名：\n條碼：\n每份：\n熱量： kcal\n蛋白質： g\n碳水： g\n糖： g\n脂肪： g\n纖維： g\n鈉： mg" style="margin-top:10px"></textarea>
+<button class="primary" style="margin-top:8px" onclick="applyMasterAI()">套用辨識結果</button>
+<div class="grid" style="margin-top:14px">
+<div>
+<label>品牌</label>
+<input id="mBrand">
+</div>
+<div>
+<label>商品名稱</label>
+<input id="mName">
+</div>
+<div>
+<label>條碼</label>
+<input id="mBarcode" inputmode="numeric">
+</div>
+<div>
+<label>每份重量/容量</label>
+<input id="mServing" placeholder="例如 400 ml">
+</div>
+<div>
+<label>熱量 kcal</label>
+<input id="mKcal">
+</div>
+<div>
+<label>蛋白質 g</label>
+<input id="mProtein">
+</div>
+<div>
+<label>碳水 g</label>
+<input id="mCarb">
+</div>
+<div>
+<label>糖 g</label>
+<input id="mSugar">
+</div>
+<div>
+<label>脂肪 g</label>
+<input id="mFat">
+</div>
+<div>
+<label>膳食纖維 g</label>
+<input id="mFiber">
+</div>
+<div>
+<label>鈉 mg</label>
+<input id="mSodium">
+</div>
+<div>
+<label>資料來源</label>
+<select id="mSource">
+<option>包裝營養標示</option>
+<option>品牌官網</option>
+<option>網路資料</option>
+<option>AI 辨識</option>
+<option>手動輸入</option>
+</select>
+</div>
+<div>
+<label>最後確認日期</label>
+<input id="mConfirmed" type="date">
+</div>
+<div class="full">
+<label>備註</label>
+<textarea id="mNote"></textarea>
+</div>
+</div>
+<button class="primary" style="margin-top:10px" onclick="saveMaster()">
+儲存食品主檔
+</button>
+</div>
+</details>
+</div>
+<div class="card">
+<div class="itemtitle">已建立食品</div>
+<input
+id="masterSearch"
+placeholder="搜尋品牌、商品或條碼"
+oninput="renderMasters()"
+style="margin-top:10px">
+<details id="masterListDetails" class="fold">
+<summary><span>食品列表<span id="masterCount" class="master-count">共 0 筆</span></span></summary>
+<div class="fold-body"><div id="masterList"></div></div>
+</details>
+</div>
+</section>
+<section id="history" class="section">
+<div class="card">
+<div class="itemtitle">歷史紀錄</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>開始日期</label>
+<input id="hStart" type="date">
+</div>
+<div>
+<label>結束日期</label>
+<input id="hEnd" type="date">
+</div>
+</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="primary" onclick="renderHistory()">
+查詢
+</button>
+<button class="secondary" onclick="printHistory()">
+列印
+</button>
+</div>
+</div>
+<div class="card">
+<div id="historyList"></div>
+</div>
+</section>
+<section id="stats" class="section">
+<div class="card">
+<div class="itemtitle">統計</div>
+<div class="kpis" style="margin-top:10px">
+<div class="kpi">
+<b id="statFoods">0</b>
+<span>餐數</span>
+</div>
+<div class="kpi">
+<b id="statDays">0</b>
+<span>飲食天數</span>
+</div>
+<div class="kpi">
+<b id="statEx">0</b>
+<span>運動分鐘</span>
+</div>
+<div class="kpi">
+<b id="statBody">0</b>
+<span>身體紀錄</span>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">體重／體脂歷史</div>
+<div id="bodyList"></div>
+</div>
+</section>
+<section id="settings" class="section">
+<div class="card">
+<div class="itemtitle">智慧提醒</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>每日熱量目標</label>
+<input id="goalKcal">
+</div>
+<div>
+<label>每日蛋白質目標 g</label>
+<input id="goalProtein">
+</div>
+<div>
+<label>接近目標提醒 %</label>
+<input id="warnPercent">
+</div>
+<div>
+<label>晚間總結時間</label>
+<input id="summaryTime" type="time">
+</div>
+</div>
+<button class="primary" style="margin-top:10px" onclick="saveSettings()">
+儲存設定
+</button>
+</div>
+<div class="card">
+<div class="itemtitle">🔒 本機 PIN 鎖</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>4～6 位 PIN</label>
+<input id="newPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false">
+</div>
+<div>
+<label>離開幾分鐘後鎖定</label>
+<input id="lockMinutes" value="5">
+</div>
+</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="primary" onclick="setPin()">
+啟用／更新 PIN
+</button>
+<button class="danger" onclick="disablePin()">
+停用 PIN
+</button>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">備份</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="primary" onclick="exportBackup()">
+匯出 JSON
+</button>
+<label class="secondary" style="padding:11px 14px;border-radius:12px">
+匯入 JSON
+<input type="file" accept=".json" style="display:none" onchange="importBackup(event)">
+</label>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">☁️ 跨裝置雲端同步</div>
+<div class="note" style="margin-top:6px">首次登入成功後會記住登入狀態；之後開啟網頁、回到網頁及新增／修改資料時會自動雙向同步。既有資料不會被清空；照片會壓縮後保存在本機快取，並同步到 Supabase Storage（food-photos）。</div>
+<!-- 2026-09-26 iPhone/Safari AUTOFILL: email + current-password; PIN/key stay out of autofill -->
+<div class="grid" style="margin-top:10px">
+<div class="full"><label for="cloudUrl">Supabase Project URL</label><input id="cloudUrl" name="cloud-url" type="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://你的專案.supabase.co"></div>
+<div class="full"><label for="cloudKey">Publishable / anon key</label><input id="cloudKey" name="supabase-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="貼上 Supabase 的公開用戶端金鑰"></div>
+<div><label for="cloudEmail">登入 Email</label><input id="cloudEmail" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+<div><label for="cloudPassword">密碼</label><input id="cloudPassword" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="secondary" onclick="saveCloudConfig()">儲存連線設定</button>
+<button class="secondary" onclick="cloudSignUp()">建立帳號</button>
+<button class="primary" onclick="cloudSignIn()">登入</button>
+<button class="secondary" onclick="cloudSignOut()">登出</button>
+<button class="primary" onclick="syncCloud()">立即雙向同步</button>
+</div>
+<div id="cloudStatus" class="note" role="status" aria-live="polite" style="margin-top:10px">尚未登入 Supabase。</div>
+<div class="note" style="margin-top:6px">照片雲端需建立私人 Storage bucket：<b>food-photos</b>。照片會自動縮至最長邊 1200px 後上傳，本機只保留 IndexedDB 快取，不再把 Base64 圖片塞進 localStorage。</div>
+</div>
+</section>
+<section id="printArea" class="section">
+<h2>飲食與運動紀錄</h2>
+<div id="printContent"></div>
+</section>
+</div>
+<nav class="tabs no-print">
+<button class="tabbtn active" data-tab="today" onclick="goTab('today')">
+今天
+</button>
+<button class="tabbtn" data-tab="add" onclick="goTab('add')">
+飲食
+</button>
+<button class="tabbtn" data-tab="exercise" onclick="goTab('exercise')">
+運動
+</button>
+<button class="tabbtn" data-tab="fooddb" onclick="goTab('fooddb')">
+食品庫
+</button>
+<button class="tabbtn" data-tab="history" onclick="goTab('history')">
+紀錄
+</button>
+<button class="tabbtn" data-tab="stats" onclick="goTab('stats')">
+統計
+</button>
+<button class="tabbtn" data-tab="settings" onclick="goTab('settings')">
+設定
+</button>
+</nav>
 <script>
-const terms = {
-  "CPI":{
-    title:"消費者物價指數（CPI）", en:"Consumer Price Index",
-    category:"經濟指標", mastery:"模糊",
-    short:"衡量一籃子消費商品與服務價格變動的指標，常用來觀察通膨。",
-    detail:"把它想成一個固定購物籃：比較這個購物籃現在比以前貴多少。",
-    caution:"CPI 上升不代表所有商品都一起上漲；閱讀時要分清楚年增率、月增率與核心 CPI。",
-    related:["PCE","PPI","核心 CPI","通膨"]
-  },
-  "利率":{
-    title:"利率", en:"Interest Rate",
-    category:"總體經濟", mastery:"模糊",
-    short:"資金的價格；借錢要付出的成本，也會影響儲蓄、投資、匯率與資產估值。",
-    detail:"如果把資金當成商品，利率就是使用這筆資金的價格。",
-    caution:"文章寫「利率」時，要確認指的是政策利率、市場利率、債券殖利率，還是實質利率。",
-    related:["政策利率","實質利率","債券殖利率","Fed"]
-  },
-  "債券殖利率":{
-    title:"債券殖利率", en:"Bond Yield / Yield",
-    category:"債券", mastery:"陌生",
-    short:"用目前債券價格衡量持有債券所對應的報酬率概念；一般而言，債券價格與殖利率反向變動。",
-    detail:"同一張債券，如果市場價格跌了，新的買家用較低價格取得同樣的現金流，因此對應的殖利率會提高。",
-    caution:"票面利率、當期殖利率、到期殖利率並不是同一件事。",
-    related:["債券價格","利率","殖利率曲線","票面利率"]
-  }
+const K='foodlog_v6';
+const D={
+foods:[],
+body:[],
+exercise:[],
+masters:[],
+deletedFoods:[],
+settings:{
+goalKcal:'',
+goalProtein:'',
+warnPercent:'80',
+summaryTime:'20:30',
+pinHash:'',
+lockMinutes:'5',
+lastHidden:0
+}
 };
-
-const defaultArticles = [
- {
-   id:"a1",
-   title:"示範｜CPI、利率與債券殖利率怎麼串起來？",
-   type:"筆記", topic:"總體經濟・債券",
-   body:[
-     `當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。`,
-     `如果市場認為未來利率可能維持較高水準，債券價格可能先反映這種預期，而 <span class="finance-term" data-term="債券殖利率">債券殖利率</span> 也可能因此發生變化。`,
-     `閱讀這類新聞時，不要只記住「數字上升或下降」，而是要試著把「經濟數據 → 市場預期 → 利率 → 債券價格與殖利率」串起來。`
-   ]
- },
- {
-   id:"a2",
-   title:"示範｜為什麼市場會先交易預期？",
-   type:"概念", topic:"市場機制",
-   body:[
-     `金融市場通常會先根據資訊調整價格，而不是等事件正式發生後才反應。`,
-     `因此，當投資人預期未來 <span class="finance-term" data-term="利率">利率</span> 可能改變時，相關資產價格可能提前調整。`,
-     `這也是理解債券、股票與外匯市場時很重要的一個觀念：市場價格反映的不只是現在，也包含對未來的預期。`
-   ]
- }
-];
-
-function loadArticles(){
- try{
-   const saved=JSON.parse(localStorage.getItem("fin-articles-v1")||"null");
-   if(Array.isArray(saved) && saved.length)return saved;
- }catch(e){}
- const initial=JSON.parse(JSON.stringify(defaultArticles));
- localStorage.setItem("fin-articles-v1",JSON.stringify(initial));
- return initial;
+let db=load(),
+photo=null,
+photoURL=null,
+selectedMasterId='',
+editingFoodId='',
+masterPhoto=null,
+masterPhotoKind='',
+masterPhotoURL=null,
+returnToFoodAfterMasterCreate=false;
+function load(){
+try{
+return {
+...D,
+...JSON.parse(localStorage.getItem(K)||'{}'),
+settings:{
+...D.settings,
+...(JSON.parse(localStorage.getItem(K)||'{}').settings||{})
 }
-function saveArticles(){localStorage.setItem("fin-articles-v1",JSON.stringify(articles))}
-let articles=loadArticles();
-
-let currentId = localStorage.getItem("fin-current") || articles[0]?.id || "";
-if(!articles.some(a=>a.id===currentId)) currentId=articles[0]?.id || "";
-
-function key(type,id){ return `fin-${type}-${id}`; }
-function toast(msg){
-  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"),1400);
 }
-function renderMobileArticleSelect(){
- const sel=document.getElementById("mobileArticleSelect"); if(!sel)return;
- sel.innerHTML=articles.map(a=>`<option value="${esc(a.id)}">${esc(a.title)}</option>`).join("");
- sel.value=currentId;
+}catch{
+return JSON.parse(JSON.stringify(D))
 }
-function renderList(filter=""){
- const box=document.getElementById("articleList"); box.innerHTML="";
- const shown=articles.filter(a => ((a.title||"")+(a.topic||"")+(a.type||"")+(a.sourceUrl||"")).toLowerCase().includes(filter.toLowerCase()));
- if(!shown.length){box.innerHTML='<div class="annotation-empty" style="padding:10px 12px">找不到文章。</div>';return}
- shown.forEach(a=>{
-   const d=document.createElement("div"); d.className="article-item"+(a.id===currentId?" active":"");
-   d.innerHTML=`<div class="t">${esc(a.title)}</div><div class="m">${esc(a.type||"文章")}・${esc(a.topic||"未分類")}</div>`;
-   d.onclick=()=>{currentId=a.id;localStorage.setItem("fin-current",currentId);renderArticle();renderList(filter);renderMobileArticleSelect();}
-   box.appendChild(d);
- });
 }
-function renderArticle(){
- savedRange=null;activeMark=null;
- if(typeof hideHLToolbar==="function")hideHLToolbar();
- const a=articles.find(x=>x.id===currentId)||articles[0];
- if(!a){
-   document.getElementById("title").textContent="尚無文章";
-   document.getElementById("meta").innerHTML='<span>請先新增文章</span>';
-   document.getElementById("articleBody").innerHTML='<p style="color:#94a3b8">按上方「＋ 文章」建立第一篇內容。</p>';
-   document.getElementById("note").value="";
-   return;
- }
- document.getElementById("title").textContent=a.title;
- const meta=document.getElementById("meta");
- meta.innerHTML=`<span>${esc(a.type||"文章")}</span><span>•</span><span>${esc(a.topic||"未分類")}</span>`;
- if(a.sourceUrl && /^https?:\/\//i.test(a.sourceUrl)){
-   const dot=document.createElement("span");dot.textContent="•";meta.appendChild(dot);
-   const link=document.createElement("a");link.className="source-link";link.href=a.sourceUrl;link.target="_blank";link.rel="noopener noreferrer";link.textContent="來源 ↗";meta.appendChild(link);
- }
- const body=document.getElementById("articleBody");
- const saved=localStorage.getItem(key("body",a.id));
- const baseHtml=a.bodyHtml || (Array.isArray(a.body)?a.body.map(p=>`<p>${p}</p>`).join(""):"");
- body.innerHTML=saved || baseHtml;
- document.getElementById("note").value=localStorage.getItem(key("note",a.id))||"";
- bindTerms();
- renderAnnotations();
- setAnnotationExpanded(false);
+function localStoragePayload(){
+return JSON.stringify(db,(key,value)=>
+(key==='photoData'||key==='photoDatas')?undefined:value
+);
 }
-
-function plainTextToHtml(text){
- const chunks=String(text||"").replace(/\r/g,"").split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
- return chunks.map(p=>`<p>${esc(p).replace(/\n/g,"<br>")}</p>`).join("");
+function persistLocalOnly(){
+try{
+localStorage.setItem(K,localStoragePayload());
+return true;
+}catch(e){
+console.error('本機資料儲存失敗',e);
+return false;
 }
-function htmlToPlainText(html){
- const div=document.createElement("div"); div.innerHTML=html||"";
- div.querySelectorAll("br").forEach(br=>br.replaceWith("\n"));
- div.querySelectorAll("p,li,blockquote").forEach(el=>el.append("\n\n"));
- return (div.textContent||"").replace(/\n{3,}/g,"\n\n").trim();
 }
-function setImportStatus(message="",kind=""){
- const el=document.getElementById("articleImportStatus");
- el.textContent=message;el.className="import-status"+(kind?` ${kind}`:"");
+function save(){
+const ok=persistLocalOnly();
+if(!ok){
+alert('本機資料儲存空間不足。照片已改用 IndexedDB／Supabase Storage，請重新整理後再試一次。');
+return;
 }
-function normalizeImportedText(text){
- return String(text||"").replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+if(!cloudSuppress && cloudSession && localStorage.getItem(cloudReadyKey())){
+clearTimeout(cloudSyncTimer);
+cloudSyncTimer=setTimeout(()=>syncCloud(),1200)
 }
-
-/* 清理網址閱讀器常帶入的技術欄位：
-   Title / URL Source / Published Time / Markdown Content，
-   並移除正文開頭重複的 Image N 圖說。 */
-function cleanReaderImportedText(text){
- let v=String(text||"").replace(/\r/g,"");
-
- // reader/jina 常見欄位。即使前面多了空白或其它文字，也從 Markdown Content 後開始取正文。
- const marker=/^\s*Markdown Content\s*:\s*(?:\n|$)/mi;
- const markerMatch=marker.exec(v);
- if(markerMatch && markerMatch.index < Math.min(v.length,5000)){
-   v=v.slice(markerMatch.index+markerMatch[0].length);
- }else{
-   // 沒有 Markdown Content marker 時，才嘗試清理開頭 metadata。
-   const lines=v.split("\n");
-   let i=0,metaHits=0;
-   while(i<lines.length && i<20){
-     const line=lines[i].trim();
-     if(!line){i++;continue}
-     if(/^(?:Title|URL Source|Published Time)\s*:/i.test(line)){
-       metaHits++;i++;continue;
-     }
-     if(metaHits>0 && /^https?:\/\//i.test(line)){i++;continue}
-     break;
-   }
-   if(metaHits>=2)v=lines.slice(i).join("\n");
- }
-
- v=normalizeImportedText(v);
- let lines=v.split("\n");
-
- // 清掉正文開頭的 Image 1 / Image 2... 圖說與緊接著的重複圖說。
- let guard=0;
- while(lines.length && guard++<12){
-   while(lines.length && !lines[0].trim())lines.shift();
-   if(!lines.length)break;
-
-   const first=lines[0].trim();
-   const im=first.match(/^Image\s*\d+\s*:\s*(.*)$/i);
-   if(!im)break;
-
-   const caption=(im[1]||"").trim();
-   lines.shift();
-   while(lines.length && !lines[0].trim())lines.shift();
-
-   if(caption && lines.length){
-     const norm=x=>String(x||"")
-       .replace(/\s+/g," ")
-       .replace(/[。．.]+$/,"")
-       .trim();
-     if(norm(lines[0])===norm(caption))lines.shift();
-   }
- }
-
- // 最後一道保險：正文開頭若仍殘留 reader 欄位，繼續移除。
- while(lines.length){
-   const line=lines[0].trim();
-   if(!line){lines.shift();continue}
-   if(/^(?:Title|URL Source|Published Time|Markdown Content)\s*:/i.test(line)){
-     lines.shift();continue;
-   }
-   break;
- }
-
- return normalizeImportedText(lines.join("\n"));
 }
-
-function looksLikeBlockedArticlePage(text,title=""){
- const sample=(String(title||"")+"\n"+String(text||"")).toLowerCase();
- const blockers=[
-   "請更新您的瀏覽器",
-   "瀏覽器版本較舊",
-   "已不再受支援",
-   "不再受支援",
-   "建議您更新瀏覽器版本",
-   "your browser is no longer supported",
-   "browser is not supported",
-   "unsupported browser",
-   "enable javascript",
-   "javascript is required",
-   "access denied",
-   "403 forbidden"
- ];
- return blockers.some(k=>sample.includes(k.toLowerCase()));
+const DEFAULT_CLOUD_URL='https://tfyffsondjlvxbezsckr.supabase.co';
+const CLOUD_CONFIG_KEY='foodlog_cloud_config_v1';
+const CLOUD_SESSION_KEY='foodlog_cloud_session_v1';
+let cloudConfig={},cloudSession=null;
+try{cloudConfig=JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY)||'{}')||{}}catch{}
+try{cloudSession=JSON.parse(localStorage.getItem(CLOUD_SESSION_KEY)||'null')}catch{}
+let cloudSuppress=false,cloudSyncTimer=0;
+function cloudReadyKey(){return 'foodlog_cloud_ready_'+(cloudSession?.user?.id||'')}
+function setCloudStatus(s){if(document.getElementById('cloudStatus'))cloudStatus.textContent=s}
+function loadCloudFields(){cloudUrl.value=cloudConfig.url||DEFAULT_CLOUD_URL;cloudKey.value=cloudConfig.key||'';if(cloudSession?.user?.email)cloudEmail.value=cloudSession.user.email;setCloudStatus(cloudSession?.user?`已登入：${cloudSession.user.email||cloudSession.user.id}`:'尚未登入 Supabase。')}
+function saveCloudConfig(){
+const url=(cloudUrl.value||'').trim().replace(/\/$/,'');
+const key=(cloudKey.value||'').trim();
+if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key){alert('請填入有效的 Supabase Project URL 和 publishable / anon key。');return}
+cloudConfig={url,key};localStorage.setItem(CLOUD_CONFIG_KEY,JSON.stringify(cloudConfig));setCloudStatus('連線設定已儲存在這台裝置。');
 }
-
-function parseReaderMarkdown(raw){
- const source=String(raw||"").replace(/\r/g,"");
- const titleMatch=source.match(/^Title:\s*(.+)$/mi);
- const title=titleMatch?titleMatch[1].trim():"";
- return {title,text:cleanReaderImportedText(markdownToPlainText(source))};
+function ensureCloudConfig(){if(!cloudConfig.url||!cloudConfig.key){saveCloudConfig();if(!cloudConfig.url||!cloudConfig.key)throw new Error('請先儲存 Supabase 連線設定。')}}
+async function cloudFetch(path,options={},auth=true){
+ensureCloudConfig();
+const headers={'apikey':cloudConfig.key,'Content-Type':'application/json',...(options.headers||{})};
+if(auth){await refreshCloudSession();headers.Authorization='Bearer '+cloudSession.access_token}
+const r=await fetch(cloudConfig.url+path,{...options,headers});
+const body=await r.text();let data;try{data=body?JSON.parse(body):null}catch{data=body}
+if(!r.ok)throw new Error(data?.msg||data?.message||data?.hint||data?.error_description||data?.error||`HTTP ${r.status}`);
+return data
 }
-
-function markdownToPlainText(md){
- return normalizeImportedText(String(md||"")
-   .replace(/^```[^\n]*\n?/gm,"").replace(/^~~~[^\n]*\n?/gm,"")
-   .replace(/!\[([^\]]*)\]\([^)]*\)/g,"$1")
-   .replace(/\[([^\]]+)\]\([^)]*\)/g,"$1")
-   .replace(/^\s{0,3}#{1,6}\s+/gm,"")
-   .replace(/^\s*>\s?/gm,"")
-   .replace(/^\s*[-*+]\s+/gm,"• ")
-   .replace(/\*\*|__|~~|`/g,""));
+function persistCloudSession(s){cloudSession=s;localStorage.setItem(CLOUD_SESSION_KEY,JSON.stringify(s));setCloudStatus(s?.user?`已登入：${s.user.email||s.user.id}`:'尚未登入 Supabase。')}
+async function refreshCloudSession(){
+if(!cloudSession?.access_token)throw new Error('請先登入 Supabase。');
+if(cloudSession.expires_at && Date.now()<cloudSession.expires_at-60000)return;
+if(!cloudSession.refresh_token)throw new Error('登入已逾期，請重新登入。');
+const s=await cloudFetch('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:JSON.stringify({refresh_token:cloudSession.refresh_token})},false);
+persistCloudSession({...s,expires_at:Date.now()+(s.expires_in||3600)*1000});
 }
-function extractHtmlArticle(html){
- const doc=new DOMParser().parseFromString(String(html||""),"text/html");
- const title=(doc.querySelector('meta[property="og:title"]')?.content||doc.title||"").trim();
- const root=(doc.querySelector("article")||doc.querySelector("main")||doc.body)?.cloneNode(true);
- if(!root)return {title,text:""};
- root.querySelectorAll("script,style,noscript,svg,nav,footer,header,aside,form,button").forEach(el=>el.remove());
- root.querySelectorAll("br").forEach(br=>br.replaceWith("\n"));
- root.querySelectorAll("p,h1,h2,h3,h4,h5,h6,li,blockquote,section,div").forEach(el=>el.append("\n\n"));
- return {title,text:normalizeImportedText(root.textContent||"")};
+async function cloudSignUp(){try{saveCloudConfig();if(!cloudConfig.key)return;const email=cloudEmail.value.trim(),password=cloudPassword.value;if(!email||password.length<8)throw new Error('請輸入 Email，密碼至少 8 個字元。');const s=await cloudFetch('/auth/v1/signup',{method:'POST',body:JSON.stringify({email,password})},false);if(s.access_token)persistCloudSession({...s,expires_at:Date.now()+(s.expires_in||3600)*1000});else setCloudStatus('帳號已建立；請先到 Email 收信完成驗證，再回來登入。');}catch(e){setCloudStatus('建立帳號失敗：'+e.message)}}
+async function cloudSignIn(){try{saveCloudConfig();if(!cloudConfig.key)return;const email=cloudEmail.value.trim(),password=cloudPassword.value;if(!email||!password)throw new Error('請輸入 Email 和密碼。');const s=await cloudFetch('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})},false);persistCloudSession({...s,expires_at:Date.now()+(s.expires_in||3600)*1000});cloudPassword.value='';await syncCloud();}catch(e){setCloudStatus('登入失敗：'+e.message)}}
+function cloudSignOut(){persistCloudSession(null);setCloudStatus('已登出；本機資料仍保留。')}
+async function stableCloudId(userId,table,legacyId){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${userId}:${table}:${legacyId}`));const h=[...new Uint8Array(bytes)].slice(0,16);h[6]=(h[6]&15)|80;h[8]=(h[8]&63)|128;const s=[...h].map(x=>x.toString(16).padStart(2,'0')).join('');return `${s.slice(0,8)}-${s.slice(8,12)}-${s.slice(12,16)}-${s.slice(16,20)}-${s.slice(20)}`}
+function cloudRows(){const u=cloudSession.user.id;return [
+['food_logs',db.foods,x=>({log_date:x.date,meal_time:x.time,meal:x.meal,master_legacy_id:x.masterId||null,food:x.food,qty:x.qty,unit:x.unit,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,note:x.note})],
+['body_logs',db.body,x=>({log_date:x.date,weight:x.weight,fat:x.fat,waist:x.waist})],
+['exercise_logs',db.exercise,x=>({log_date:x.date,exercise_type:x.type,exercise_class:x.class,start_time:x.start,end_time:x.end,minutes:x.minutes,kcal:x.kcal,note:x.note})],
+['food_masters',db.masters,x=>({brand:x.brand,name:x.name,barcode:x.barcode,serving:x.serving,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,source:x.source,confirmed:!!x.confirmed,note:x.note})]
+].map(([table,items,convert])=>({table,rows:items.map(x=>({user_id:u,legacy_id:String(x.id||uid()),...convert(x)}))}))}
+async function localRowsWithIds(){const u=cloudSession.user.id,out=cloudRows();for(const group of out){const local=group.table==='food_logs'?db.foods:group.table==='body_logs'?db.body:group.table==='exercise_logs'?db.exercise:db.masters;for(let i=0;i<group.rows.length;i++)group.rows[i].id=await stableCloudId(u,group.table,group.rows[i].legacy_id)}return out}
+const FOOD_DELETE_MARK='__KYC_DELETED_V1__';
+function deletedFoodIds(){return new Set((db.deletedFoods||[]).map(x=>String(x.id)))}
+async function pullCloudFoodDeletions(){
+if(!cloudSession?.user)return;
+const rows=await cloudFetch(`/rest/v1/food_logs?select=legacy_id,note&note=eq.${encodeURIComponent(FOOD_DELETE_MARK)}`);
+if(!Array.isArray(db.deletedFoods))db.deletedFoods=[];
+for(const r of rows||[]){
+const id=String(r.legacy_id||'');
+if(!id)continue;
+if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});
+db.foods=db.foods.filter(x=>String(x.id)!==id);
 }
-function safeHttpUrl(value){
- try{const u=new URL(String(value||"").trim());return /^https?:$/.test(u.protocol)?u.toString():""}catch(e){return ""}
 }
-async function importFromClipboard(){
- setImportStatus("正在讀取剪貼簿…");
- try{
-   const text=await navigator.clipboard.readText();
-   if(!text.trim())throw new Error("剪貼簿沒有文字");
-   const trimmed=text.trim();
-   if(/^https?:\/\/\S+$/.test(trimmed)){
-     document.getElementById("articleSourceUrlInput").value=trimmed;
-     setImportStatus("已貼入網址，可按「讀取網址」擷取內容。","ok");
-     document.getElementById("articleSourceUrlInput").focus();
-   }else{
-     document.getElementById("articleContentInput").value=cleanReaderImportedText(text);
-     scheduleAutoTopic();
-     setImportStatus("已從剪貼簿貼入文章內容。","ok");
-   }
- }catch(e){
-   setImportStatus("無法直接讀取剪貼簿，請長按文章內容欄位後選「貼上」。","err");
- }
-}
-async function fetchArticleFromUrl(){
- const input=document.getElementById("articleSourceUrlInput");
- const url=safeHttpUrl(input.value);
- if(!url){setImportStatus("請先輸入正確的 http／https 網址。","err");return}
- input.value=url;
- const btn=document.getElementById("fetchArticleUrl");btn.disabled=true;btn.textContent="讀取中…";
- setImportStatus("正在讀取文章網址…");
-
- try{
-   let title="",text="",usedReader=false,directProblem="";
-
-   // 第一步：直接讀取原網址
-   try{
-     const r=await fetch(url,{method:"GET",mode:"cors",credentials:"omit"});
-     if(!r.ok)throw new Error(`HTTP ${r.status}`);
-     const ct=r.headers.get("content-type")||"";
-     const raw=await r.text();
-
-     if(ct.includes("html")||/<html[\s>]/i.test(raw)){
-       ({title,text}=extractHtmlArticle(raw));
-     }else{
-       text=cleanReaderImportedText(raw);
-     }
-
-     // 有些網站（尤其 LINE/LIFF）HTTP 仍回 200，但其實只回「瀏覽器不支援」殼頁。
-     if(!text || text.length<20 || looksLikeBlockedArticlePage(text,title)){
-       directProblem=looksLikeBlockedArticlePage(text,title) ? "網站回傳瀏覽器限制頁" : "原網址沒有足夠正文";
-       throw new Error(directProblem);
-     }
-   }catch(directErr){
-     // 第二步：改由 reader 取得可閱讀正文
-     usedReader=true;
-     setImportStatus("原網址無法直接取得正文，正在改用閱讀器重新擷取…");
-
-     const readerUrl="https://r.jina.ai/"+url;
-     const r=await fetch(readerUrl,{credentials:"omit"});
-     if(!r.ok)throw directErr;
-
-     const raw=await r.text();
-     const parsed=parseReaderMarkdown(raw);
-     title=parsed.title||title;
-     text=parsed.text;
-
-     if(!text || text.length<20)throw new Error("閱讀器也沒有取得足夠正文");
-     if(looksLikeBlockedArticlePage(text,title))throw new Error("取得的仍是網站阻擋頁");
-   }
-
-   text=cleanReaderImportedText(text);
-   if(!text || text.length<20)throw new Error("沒有擷取到足夠的文章文字");
-
-   // 不讓「請更新瀏覽器」之類錯誤標題進入文章標題欄。
-   if(title && !looksLikeBlockedArticlePage("",title) &&
-      !document.getElementById("articleTitleInput").value.trim()){
-     document.getElementById("articleTitleInput").value=title;
-   }
-
-   document.getElementById("articleContentInput").value=text;
-
-   // 網址擷取的新文章預設視為新聞；使用者仍可自行修改。
-   if(articleEditorMode==="new" && document.getElementById("articleTypeInput").value.trim()==="筆記"){
-     document.getElementById("articleTypeInput").value="新聞";
-   }
-
-   scheduleAutoTopic();
-   setImportStatus(
-     usedReader
-       ? "已避開網站的瀏覽器限制頁，改用閱讀器匯入正文。請快速確認後再儲存。"
-       : "網址內容已匯入。請先快速確認標題與正文再儲存。",
-     "ok"
-   );
- }catch(e){
-   setImportStatus("這個網站目前仍無法自動取得正文。來源網址已保留，可改用複製全文後貼上。","err");
- }finally{
-   btn.disabled=false;
-   btn.textContent="讀取網址";
- }
-}
-async function loadPdfJs(){
- if(window.__pdfjsModule)return window.__pdfjsModule;
- const mod=await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs");
- mod.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
- window.__pdfjsModule=mod;return mod;
-}
-async function extractPdfText(file){
- const pdfjs=await loadPdfJs();
- const data=await file.arrayBuffer();
- const pdf=await pdfjs.getDocument({data}).promise;
- const pages=[];
- for(let i=1;i<=pdf.numPages;i++){
-   const page=await pdf.getPage(i);const content=await page.getTextContent();
-   pages.push(content.items.map(x=>x.str||"").join(" ").replace(/\s+/g," ").trim());
- }
- return normalizeImportedText(pages.join("\n\n"));
-}
-async function importArticleFile(file){
- if(!file)return;
- setImportStatus(`正在讀取 ${file.name}…`);
- try{
-   const name=file.name||"";const ext=(name.split(".").pop()||"").toLowerCase();
-   let text="",title=name.replace(/\.[^.]+$/,"");
-   if(ext==="pdf" || file.type==="application/pdf")text=await extractPdfText(file);
-   else{
-     const raw=await file.text();
-     if(ext==="html"||ext==="htm"||file.type==="text/html"){
-       const parsed=extractHtmlArticle(raw);
-       if(parsed.title)title=parsed.title;
-       text=parsed.text;
-     }else if(ext==="md"||ext==="markdown"||file.type==="text/markdown")text=markdownToPlainText(raw);
-     else text=cleanReaderImportedText(raw);
-   }
-   if(!text.trim())throw new Error("檔案內沒有可讀文字");
-   document.getElementById("articleContentInput").value=text;
-   if(!document.getElementById("articleTitleInput").value.trim())document.getElementById("articleTitleInput").value=title;
-   scheduleAutoTopic();
-   setImportStatus(`已匯入 ${file.name}。`,`ok`);
- }catch(e){
-   setImportStatus(`檔案匯入失敗：${e?.message||"無法讀取"}`,"err");
- }
-}
-function consumeSharedArticleParams(){
- const q=new URLSearchParams(location.search);
- const sharedTitle=q.get("share_title")||q.get("title")||"";
- const sharedText=q.get("share_text")||q.get("text")||"";
- const sharedUrl=q.get("share_url")||q.get("url")||"";
- if(!sharedTitle && !sharedText && !sharedUrl)return false;
- openArticleModal("new");
- if(sharedTitle)document.getElementById("articleTitleInput").value=sharedTitle;
- if(sharedText)document.getElementById("articleContentInput").value=cleanReaderImportedText(sharedText);
- if(sharedUrl && safeHttpUrl(sharedUrl))document.getElementById("articleSourceUrlInput").value=safeHttpUrl(sharedUrl);
- if(!sharedText && sharedUrl)setImportStatus("已收到分享網址，可按「讀取網址」擷取文章。","ok");
- else setImportStatus("已接收 iPhone／分享捷徑傳入的內容。","ok");
- scheduleAutoTopic();
- try{history.replaceState(null,"",location.pathname+location.hash)}catch(e){}
- return true;
-}
-const TOPIC_RULES=[
- {name:"半導體",keywords:[["半導體",4],["台積電",5],["tsmc",5],["聯電",4],["日月光",4],["矽品",4],["晶圓",3],["晶片",3],["先進封裝",5],["封裝",3],["cowos",5],["soic",5],["hbm",4],["ic設計",4],["光罩",3],["euv",4],["晶圓代工",5]]},
- {name:"AI",keywords:[["人工智慧",5],["ai",4],["輝達",5],["nvidia",5],["gpu",4],["大語言模型",5],["生成式ai",5],["算力",3],["ai伺服器",5],["機器學習",4]]},
- {name:"科技產業",keywords:[["科技產業",5],["科技",2],["科學園區",5],["嘉科",5],["竹科",5],["中科",5],["南科",5],["電子業",3],["電子產業",3],["供應鏈",2],["伺服器",3],["資料中心",3],["科技廠",3]]},
- {name:"產業投資",keywords:[["投資興建",5],["投資",2],["擴建",4],["擴產",4],["設廠",4],["建廠",4],["資本支出",5],["capex",5],["產能",3],["廠房",3],["園區",2],["生產基地",3]]},
- {name:"總體經濟",keywords:[["gdp",5],["cpi",5],["pce",5],["ppi",4],["通膨",5],["通貨膨脹",5],["失業率",4],["非農",4],["就業",3],["景氣",3],["經濟成長",4],["pmi",4],["消費者物價",5],["生產者物價",4]]},
- {name:"利率",keywords:[["利率",4],["降息",5],["升息",5],["聯準會",5],["fed",5],["fomc",5],["央行",3],["政策利率",5],["基準利率",4],["利率決策",5]]},
- {name:"債券",keywords:[["債券",5],["殖利率",5],["公債",5],["美債",5],["yield",4],["殖利率曲線",5],["信用利差",5],["公司債",4],["債市",4]]},
- {name:"股票",keywords:[["股票",4],["股價",4],["台股",5],["美股",5],["上市",2],["上櫃",2],["大盤",3],["股市",4],["外資",3],["投信",3],["法人",2],["指數",2]]},
- {name:"ETF・基金",keywords:[["etf",5],["基金",4],["配息",3],["淨值",3],["申購",3],["受益人",3],["共同基金",5],["指數型基金",5]]},
- {name:"企業財報",keywords:[["財報",5],["營收",4],["eps",5],["毛利率",4],["營業利益",4],["淨利",4],["法說會",5],["財測",5],["獲利",3],["季報",4],["年報",3]]},
- {name:"外匯",keywords:[["匯率",5],["外匯",5],["美元",3],["台幣",3],["新台幣",3],["日圓",3],["歐元",3],["人民幣",3],["升值",2],["貶值",2],["dxy",5],["美元指數",5]]},
- {name:"金融",keywords:[["金融",4],["銀行",4],["金控",5],["保險",3],["信貸",4],["房貸",3],["存款",3],["放款",3],["信用卡",3],["金融業",5]]},
- {name:"房地產",keywords:[["房地產",5],["房市",5],["房價",5],["預售屋",5],["成屋",4],["建商",4],["不動產",5],["租金",3],["土地交易",4],["房貸",3]]},
- {name:"能源",keywords:[["能源",4],["原油",5],["石油",4],["油價",5],["天然氣",5],["電力",3],["綠能",4],["太陽能",4],["風電",4],["核能",4],["opec",5]]},
- {name:"原物料",keywords:[["原物料",5],["黃金",5],["銅價",5],["銅",2],["鋼鐵",4],["鐵礦砂",5],["大豆",4],["小麥",4],["農產品",3],["商品價格",4]]},
- {name:"航運",keywords:[["航運",5],["貨櫃",5],["海運",4],["空運",4],["運價",5],["scfi",5],["船舶",3],["散裝",4]]},
- {name:"汽車",keywords:[["電動車",5],["ev",4],["汽車",4],["特斯拉",5],["tesla",5],["車用",3],["電池",3],["充電樁",4]]},
- {name:"生技醫療",keywords:[["生技",5],["製藥",5],["醫療",4],["藥物",3],["臨床試驗",5],["fda",5],["疫苗",4],["新藥",5]]},
- {name:"消費零售",keywords:[["零售",5],["消費",3],["百貨",4],["超商",4],["餐飲",4],["觀光",4],["旅遊",4],["電商",4],["內需",3]]},
- {name:"國際市場",keywords:[["國際市場",5],["全球市場",5],["美國",2],["中國",2],["日本",2],["歐洲",2],["歐盟",2],["新興市場",4],["關稅",4],["貿易戰",5],["地緣政治",5]]},
- {name:"政策法規",keywords:[["政策",3],["法規",5],["監管",4],["金管會",5],["國科會",4],["經濟部",4],["財政部",4],["行政院",4],["政府計畫",4],["徵求意見",3]]}
-];
-let topicManualEdited=false;
-let topicAutoTimer=null;
-function topicText(s){return String(s||"").toLowerCase().replace(/\s+/g,"");}
-function topicKeywordScore(text,keyword){
- if(!text || !keyword)return 0;
- let count=0,pos=0;
- while((pos=text.indexOf(keyword,pos))!==-1){count++;pos+=Math.max(keyword.length,1);if(count>=5)break}
- return count;
-}
-function inferArticleTopics(title,content){
- const t=topicText(title),c=topicText(content);
- if(!t && !c)return [];
- const scored=TOPIC_RULES.map(rule=>{
-   let score=0,hits=0;
-   for(const item of rule.keywords){
-     const kw=topicText(item[0]),weight=Number(item[1])||1;
-     const tc=topicKeywordScore(t,kw),cc=topicKeywordScore(c,kw);
-     if(tc){score+=tc*weight*3.2;hits+=tc}
-     if(cc){score+=cc*weight;hits+=cc}
-   }
-   return {name:rule.name,score,hits};
- }).filter(x=>x.score>=4 && x.hits>0).sort((a,b)=>b.score-a.score);
- if(!scored.length)return [];
- const top=scored[0].score;
- return scored.filter((x,i)=>i<3 && (i===0 || x.score>=Math.max(4,top*.14))).map(x=>x.name);
-}
-function setTopicAutoHint(message,isAuto=false){
- const el=document.getElementById("topicAutoHint");if(!el)return;
- el.textContent=message;el.classList.toggle("auto",!!isAuto);
-}
-function applyAutoTopic(force=false){
- const input=document.getElementById("articleTopicInput");if(!input)return;
- if(topicManualEdited && !force)return;
- const topics=inferArticleTopics(document.getElementById("articleTitleInput")?.value||"",document.getElementById("articleContentInput")?.value||"");
- if(topics.length){
-   input.value=topics.join("・");
-   topicManualEdited=false;
-   setTopicAutoHint(`✨ 已自動判斷：${topics.join("・")}（可直接修改）`,true);
- }else if(force){
-   setTopicAutoHint("目前文字不足以判斷主題，可自行輸入；文章內容多一些後再試。",false);
- }
-}
-function scheduleAutoTopic(){
- if(topicManualEdited)return;
- clearTimeout(topicAutoTimer);
- topicAutoTimer=setTimeout(()=>applyAutoTopic(false),420);
-}
-
-let articleEditorMode="new";
-function openArticleModal(mode="new"){
- const modal=document.getElementById("articleModal");
- const del=document.getElementById("deleteArticle");
- articleEditorMode=mode;
- if(mode==="edit"){
-   const a=articles.find(x=>x.id===currentId); if(!a){toast("目前沒有可修改的文章");return}
-   document.getElementById("articleModalTitle").textContent="✏️ 修改文章";
-   document.getElementById("articleTitleInput").value=a.title||"";
-   document.getElementById("articleTypeInput").value=a.type||"";
-   document.getElementById("articleTopicInput").value=a.topic||"";
-   topicManualEdited=true;
-   setTopicAutoHint("目前保留原主題；若要重新分析，按「✨ 自動判斷」。",false);
-   document.getElementById("articleSourceUrlInput").value=a.sourceUrl||"";
-   setImportStatus("");document.getElementById("iphoneShareHelp").classList.remove("show");
-   const saved=localStorage.getItem(key("body",a.id));
-   const base=a.bodyHtml || (Array.isArray(a.body)?a.body.map(p=>`<p>${p}</p>`).join(""):"");
-   document.getElementById("articleContentInput").value=htmlToPlainText(saved||base);
-   del.style.display="inline-block";
- }else{
-   document.getElementById("articleModalTitle").textContent="＋ 新增文章";
-   document.getElementById("articleTitleInput").value="";
-   document.getElementById("articleTypeInput").value="筆記";
-   document.getElementById("articleTopicInput").value="";
-   topicManualEdited=false;
-   setTopicAutoHint("輸入標題或文章內容後，系統會自動建議 1～3 個主題，也可自行修改。",false);
-   document.getElementById("articleSourceUrlInput").value="";
-   document.getElementById("articleContentInput").value="";
-   setImportStatus("");document.getElementById("iphoneShareHelp").classList.remove("show");
-   del.style.display="none";
- }
- modal.classList.add("show");modal.setAttribute("aria-hidden","false");
- setTimeout(()=>document.getElementById("articleTitleInput").focus(),60);
-}
-function closeArticleModal(){
- const modal=document.getElementById("articleModal");modal.classList.remove("show");modal.setAttribute("aria-hidden","true");
-}
-function makeArticleId(){return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`}
-function saveArticleFromModal(){
- const title=document.getElementById("articleTitleInput").value.trim();
- const type=document.getElementById("articleTypeInput").value.trim()||"筆記";
- let topic=document.getElementById("articleTopicInput").value.trim();
- if(!topic){const autoTopics=inferArticleTopics(title,document.getElementById("articleContentInput").value);topic=autoTopics.join("・")||"未分類";}
- const sourceUrl=safeHttpUrl(document.getElementById("articleSourceUrlInput").value)||"";
- const content=document.getElementById("articleContentInput").value.trim();
- if(!title){toast("請輸入文章標題");return}
- if(!content){toast("請輸入文章內容");return}
- if(articleEditorMode==="new"){
-   const id=makeArticleId();
-   articles.unshift({id,title,type,topic,sourceUrl,bodyHtml:plainTextToHtml(content),createdAt:Date.now()});
-   saveArticles(); currentId=id; localStorage.setItem("fin-current",currentId);
-   closeArticleModal();renderList();renderMobileArticleSelect();renderArticle();toast("文章已新增");
-   return;
- }
- const i=articles.findIndex(x=>x.id===currentId); if(i<0)return;
- const a=articles[i];
- const saved=localStorage.getItem(key("body",a.id));
- const base=a.bodyHtml || (Array.isArray(a.body)?a.body.map(p=>`<p>${p}</p>`).join(""):"");
- const oldText=htmlToPlainText(saved||base);
- const contentChanged=oldText.trim()!==content.trim();
- if(contentChanged){
-   const hasMarks=!!document.querySelector("#articleBody mark.user-hl");
-   const hasAnnos=getAnnotations().length>0;
-   if((hasMarks||hasAnnos) && !confirm("修改文章內容會清除這篇既有的螢光標記與文字註解，確定要繼續嗎？"))return;
-   localStorage.setItem(key("body",a.id),plainTextToHtml(content));
-   localStorage.removeItem(key("annotations",a.id));
- }
- articles[i]={...a,title,type,topic,sourceUrl,bodyHtml:contentChanged?plainTextToHtml(content):(a.bodyHtml||undefined),updatedAt:Date.now()};
- saveArticles();closeArticleModal();renderList();renderMobileArticleSelect();renderArticle();toast("文章已更新");
-}
-function deleteCurrentArticle(){
- const i=articles.findIndex(x=>x.id===currentId); if(i<0)return;
- const a=articles[i];
- if(!confirm(`確定刪除「${a.title}」嗎？`))return;
- articles.splice(i,1); saveArticles();
- ["body","note","annotations"].forEach(t=>localStorage.removeItem(key(t,a.id)));
- currentId=articles[0]?.id||"";
- if(currentId)localStorage.setItem("fin-current",currentId); else localStorage.removeItem("fin-current");
- closeArticleModal();renderList();renderMobileArticleSelect();renderArticle();toast("文章已刪除");
-}
-
-function bindTerms(){
- document.querySelectorAll(".finance-term").forEach(el=>{
-   el.onclick=(e)=>{e.stopPropagation();showTerm(el.dataset.term);}
- });
-}
-let savedRange=null;
-let activeMark=null;
-let toolbarInteraction=false;
-let toolbarHoldTimer=null;
-const selectionToolbar=document.getElementById("selectionToolbar");
-const moreColorsPanel=document.getElementById("moreColorsPanel");
-const articleBodyEl=document.getElementById("articleBody");
-
-function holdToolbarInteraction(ms=500){
- toolbarInteraction=true;
- clearTimeout(toolbarHoldTimer);
- toolbarHoldTimer=setTimeout(()=>{toolbarInteraction=false},ms);
-}
-
-function showHLToolbar(){
- selectionToolbar.classList.add("show");
- selectionToolbar.setAttribute("aria-hidden","false");
-}
-function hideMoreColors(){
- const p=document.getElementById("moreColorsPanel");
- p.classList.remove("show"); p.setAttribute("aria-hidden","true");
-}
-function hideHLToolbar(clearState=false){
- selectionToolbar.classList.remove("show");
- selectionToolbar.setAttribute("aria-hidden","true");
- hideMoreColors();
- if(clearState){activeMark=null;savedRange=null;}
-}
-function captureArticleSelection(){
- const sel=window.getSelection();
- if(!sel || sel.rangeCount===0 || sel.isCollapsed)return false;
- const range=sel.getRangeAt(0);
- const body=document.getElementById("articleBody");
- if(body.contains(range.commonAncestorContainer)){
-   savedRange=range.cloneRange();
-   activeMark=null;
-   showHLToolbar();
-   return true;
- }
- return false;
-}
-function getArticleRange(){
- const sel=window.getSelection();
- const body=document.getElementById("articleBody");
- if(sel && sel.rangeCount>0 && !sel.isCollapsed){
-   const range=sel.getRangeAt(0);
-   if(body.contains(range.commonAncestorContainer)){
-     savedRange=range.cloneRange();
-     return range.cloneRange();
-   }
- }
- if(savedRange && body.contains(savedRange.commonAncestorContainer)) return savedRange.cloneRange();
- return null;
-}
-function openTerms(){
- document.getElementById("rightbar").classList.add("open");
- document.getElementById("drawerBackdrop").classList.add("open");
-}
-function closeTerms(){
- document.getElementById("rightbar").classList.remove("open");
- document.getElementById("drawerBackdrop").classList.remove("open");
-}
-
-document.addEventListener("selectionchange",()=>{
- setTimeout(()=>{
-   if(captureArticleSelection())return;
-   const sel=window.getSelection();
-   if(toolbarInteraction || moreColorsPanel.classList.contains("show"))return;
-   if(!activeMark && (!sel || sel.isCollapsed)) hideHLToolbar();
- },0);
+async function uploadFoodDeleteTombstones(){
+if(!cloudSession?.user || !Array.isArray(db.deletedFoods) || !db.deletedFoods.length)return;
+const u=cloudSession.user.id;
+const rows=[];
+for(const x of db.deletedFoods){
+if(x.remote)continue;
+const legacy=String(x.id||'');
+if(!legacy)continue;
+rows.push({
+id:await stableCloudId(u,'food_logs',legacy),user_id:u,legacy_id:legacy,
+log_date:x.date||null,meal_time:x.time||null,meal:x.meal||null,master_legacy_id:x.masterId||null,
+food:x.food||'',qty:x.qty||null,unit:x.unit||null,kcal:x.kcal||null,protein:x.protein||null,
+carb:x.carb||null,sugar:x.sugar||null,fat:x.fat||null,fiber:x.fiber||null,sodium:x.sodium||null,
+note:FOOD_DELETE_MARK
 });
+}
+if(rows.length)await cloudFetch('/rest/v1/food_logs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
+}
+async function uploadLocalCloud(){if(!cloudSession?.user)throw new Error('請先登入。');for(const g of await localRowsWithIds()){if(!g.rows.length)continue;await cloudFetch(`/rest/v1/${g.table}?on_conflict=id`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(g.rows)})}const s=db.settings;await cloudFetch('/rest/v1/user_settings?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:cloudSession.user.id,goal_kcal:s.goalKcal||null,goal_protein:s.goalProtein||null,warn_percent:s.warnPercent||80,summary_time:s.summaryTime||'20:30'})})}
+function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,weight:r.weight,fat:r.fat,waist:r.waist};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,note:r.note};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
+async function pullCloudTable(table,key){const rows=await cloudFetch(`/rest/v1/${table}?select=*`);const local=db[key];const deleted=deletedFoodIds();for(const r of rows){if(table==='food_logs' && r.note===FOOD_DELETE_MARK){const id=String(r.legacy_id||r.id||'');if(id){if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}continue;}const x=cloudLocalRow(table,r);if(table==='food_logs' && deleted.has(String(x.id)))continue;const i=local.findIndex(v=>String(v.id)===String(x.id));if(i<0)local.push(x)} }
+async function syncCloud(){
+try{
+if(!cloudSession?.user)throw new Error('請先登入，再執行同步。');
+setCloudStatus('同步中…本機資料會合併到雲端，不會清空任何一邊。');
+await pullCloudFoodDeletions();
+await uploadFoodDeleteTombstones();
+await uploadLocalCloud();
+let photoResult={uploaded:0,failed:0,message:''};
+try{photoResult=await uploadAllLocalPhotos();}
+catch(e){photoResult={uploaded:0,failed:1,message:e?.message||String(e)}}
+cloudSuppress=true;
+await pullCloudTable('food_logs','foods');
+await pullCloudTable('body_logs','body');
+await pullCloudTable('exercise_logs','exercise');
+await pullCloudTable('food_masters','masters');
+const settings=await cloudFetch('/rest/v1/user_settings?select=*&limit=1');
+if(settings?.[0])db.settings={...db.settings,goalKcal:settings[0].goal_kcal??db.settings.goalKcal,goalProtein:settings[0].goal_protein??db.settings.goalProtein,warnPercent:settings[0].warn_percent??db.settings.warnPercent,summaryTime:settings[0].summary_time??db.settings.summaryTime};
+persistLocalOnly();
+localStorage.setItem(cloudReadyKey(),'1');
+cloudSuppress=false;
+await renderToday();
+await renderMasters();
+renderHistory();
+const photoMsg=photoResult.failed
+?`；照片雲端尚未完成：${photoResult.message||photoResult.failed+' 筆失敗'}`
+:`、照片已同步 ${photoResult.uploaded||0} 筆`;
+setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆${photoMsg}。`);
+}catch(e){
+cloudSuppress=false;
+setCloudStatus('同步失敗：'+e.message);
+}
+}
 
-function showTerm(name){
- const t=terms[name]; if(!t)return;
- document.getElementById("termPanel").innerHTML=`
-   <div class="term-title">${t.title}</div>
-   <div class="term-en">${t.en}</div>
-   <div><span class="badge">${t.category}</span><span class="badge">掌握：${t.mastery}</span></div>
-   <div class="info-card"><h3>一句話解釋</h3><p>${t.short}</p></div>
-   <div class="info-card"><h3>白話理解</h3><p>${t.detail}</p></div>
-   <div class="info-card"><h3>閱讀時注意</h3><p>${t.caution}</p></div>
-   <div class="info-card"><h3>相關概念</h3><p>${t.related.join("・")}</p></div>`;
- openTerms();
+let cloudAutoSyncRunning=false;
+async function autoRestoreAndSyncCloud(reason='自動'){
+if(cloudAutoSyncRunning || !cloudSession?.refresh_token && !cloudSession?.access_token)return;
+if(!cloudConfig?.url || !cloudConfig?.key)return;
+cloudAutoSyncRunning=true;
+try{
+await refreshCloudSession();
+await syncCloud();
+}catch(e){
+setCloudStatus(`${reason}同步暫未完成：${e.message}`);
+}finally{
+cloudAutoSyncRunning=false;
+}
+}
+window.addEventListener('pageshow',()=>setTimeout(()=>autoRestoreAndSyncCloud('開啟網頁'),250));
+window.addEventListener('focus',()=>setTimeout(()=>autoRestoreAndSyncCloud('回到網頁'),250));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>autoRestoreAndSyncCloud('回到網頁'),250)});
+setInterval(()=>{if(!document.hidden)autoRestoreAndSyncCloud('定期')},120000);
+
+function p(n){
+return String(n).padStart(2,'0')
+}
+function dn(){
+let d=new Date();
+return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`
+}
+function tn(){
+let d=new Date();
+return `${p(d.getHours())}:${p(d.getMinutes())}`
+}
+function num(v){
+let x=parseFloat(v);
+return isFinite(x)?x:0
+}
+function uid(){
+return Date.now().toString(36)+Math.random().toString(36).slice(2,7)
+}
+function esc(s){
+return String(s??'').replace(/[&<>"']/g,m=>({
+'&':'&amp;','<':'&lt;',
+'>':'&gt;',
+'"':'&quot;',
+"'":'&#039;'
+}[m]))
+}
+function goTab(id){
+if(returnToFoodAfterMasterCreate && id!=='fooddb' && id!=='add')returnToFoodAfterMasterCreate=false;
+document.querySelectorAll('.section')
+.forEach(x=>x.classList.remove('active'));
+document.querySelectorAll('.tabbtn')
+.forEach(x=>x.classList.remove('active'));
+document.getElementById(id).classList.add('active');
+document.querySelector(`[data-tab="${id}"]`)?.classList.add('active');
+if(id==='today')renderToday();
+if(id==='exercise')renderExercise();
+if(id==='fooddb')renderMasters();
+if(id==='history')renderHistory();
+if(id==='stats')renderStats();
+if(id==='settings')loadSettings();
+}
+function pdb(){
+return new Promise((a,b)=>{
+let r=indexedDB.open('foodphotos',1);
+r.onupgradeneeded=e=>
+e.target.result.createObjectStore('p');
+r.onsuccess=e=>a(e.target.result);
+r.onerror=e=>b(e.target.error);
+})
+}
+async function putP(id,b){
+let d=await pdb();
+return new Promise((a,c)=>{
+let t=d.transaction('p','readwrite');
+t.objectStore('p').put(b,id);
+t.oncomplete=a;
+t.onerror=()=>c(t.error);
+})
+}
+async function getP(id){
+if(!id)return null;
+let d=await pdb();
+return new Promise((a,c)=>{
+let r=d.transaction('p').objectStore('p').get(id);
+r.onsuccess=()=>a(r.result||null);
+r.onerror=()=>c(r.error);
+})
+}
+async function delP(id){
+if(!id)return;
+let d=await pdb();
+return new Promise((a,c)=>{
+let t=d.transaction('p','readwrite');
+t.objectStore('p').delete(id);
+t.oncomplete=a;
+t.onerror=()=>c(t.error);
+})
+}
+
+/* ==================================================
+   PHOTO_STORAGE_V3
+   - localStorage 只存文字與照片索引，不再存 Base64 圖片
+   - 圖片本機快取：IndexedDB
+   - 圖片雲端：Supabase Storage / food-photos
+   ================================================== */
+const PHOTO_BUCKET='food-photos';
+const PHOTO_UPLOAD_STATE_KEY='foodlog_photo_upload_state_v1';
+const cloudPhotoMisses=new Set();
+function safePhotoPart(v){return String(v??'').replace(/[^A-Za-z0-9._-]/g,'_')}
+function photoStoragePath(kind,recordId,slot=1){
+if(!cloudSession?.user?.id)throw new Error('尚未登入 Supabase');
+const folder=kind==='master'?'masters':'foods';
+return `${safePhotoPart(cloudSession.user.id)}/${folder}/${safePhotoPart(recordId)}/${Number(slot)||1}.jpg`;
+}
+function localPhotoCacheId(kind,recordId,slot=1){
+return `cloud_${kind}_${safePhotoPart(recordId)}_${Number(slot)||1}`;
+}
+function getPhotoUploadState(){
+try{return JSON.parse(localStorage.getItem(PHOTO_UPLOAD_STATE_KEY)||'{}')||{}}catch{return {}}
+}
+function photoAlreadyUploaded(path){return !!getPhotoUploadState()[path]}
+function markPhotoUploaded(path){
+const s=getPhotoUploadState();s[path]=Date.now();
+try{localStorage.setItem(PHOTO_UPLOAD_STATE_KEY,JSON.stringify(s))}catch{}
+cloudPhotoMisses.delete(path);
+}
+async function photoStorageError(r){
+let msg='';try{const t=await r.text();try{const j=JSON.parse(t);msg=j.message||j.error||j.msg||t}catch{msg=t}}catch{}
+if(r.status===404)return '找不到 food-photos 儲存桶或照片檔案';
+if(r.status===403)return 'Supabase Storage 權限不足，請建立 food-photos 的 RLS 權限';
+return msg||`HTTP ${r.status}`;
+}
+async function uploadPhotoBlob(path,blob,force=false){
+if(!cloudSession?.user||!blob)return false;
+if(!force && photoAlreadyUploaded(path))return false;
+ensureCloudConfig();await refreshCloudSession();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}/${path}`,{
+method:'POST',
+headers:{
+'apikey':cloudConfig.key,
+'Authorization':'Bearer '+cloudSession.access_token,
+'Content-Type':'image/jpeg',
+'x-upsert':'true',
+'cache-control':'0'
+},
+body:blob
+});
+if(!r.ok)throw new Error(await photoStorageError(r));
+markPhotoUploaded(path);return true;
+}
+async function downloadPhotoBlob(path){
+if(!cloudSession?.user||cloudPhotoMisses.has(path))return null;
+ensureCloudConfig();await refreshCloudSession();
+const bust=Date.now();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/authenticated/${PHOTO_BUCKET}/${path}?v=${bust}`,{
+cache:'no-store',
+headers:{'apikey':cloudConfig.key,'Authorization':'Bearer '+cloudSession.access_token,'Cache-Control':'no-cache'}
+});
+if(r.status===404){cloudPhotoMisses.add(path);return null;}
+if(!r.ok)throw new Error(await photoStorageError(r));
+return await r.blob();
+}
+async function deletePhotoBlob(path){
+if(!cloudSession?.user||!path)return false;
+ensureCloudConfig();await refreshCloudSession();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}`,{
+method:'DELETE',
+headers:{
+'apikey':cloudConfig.key,
+'Authorization':'Bearer '+cloudSession.access_token,
+'Content-Type':'application/json'
+},
+body:JSON.stringify({prefixes:[path]})
+});
+if(!r.ok)throw new Error(await photoStorageError(r));
+const state=getPhotoUploadState();delete state[path];
+try{localStorage.setItem(PHOTO_UPLOAD_STATE_KEY,JSON.stringify(state))}catch{}
+cloudPhotoMisses.add(path);
+return true;
+}
+async function compressPhotoBlob(file,maxSide=1200,quality=.82){
+if(!file)return null;
+try{
+const img=await new Promise((resolve,reject)=>{
+const u=URL.createObjectURL(file),im=new Image();
+im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};
+im.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('圖片讀取失敗'))};
+im.src=u;
+});
+let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+const scale=Math.min(1,maxSide/Math.max(w,h));
+w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+const c=document.createElement('canvas');c.width=w;c.height=h;
+const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
+const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg',quality));
+return blob||file;
+}catch(e){console.warn('照片壓縮失敗，改存原圖',e);return file}
+}
+function dataUrlToBlob(dataUrl){
+try{
+const [meta,data]=String(dataUrl||'').split(',');if(!data)return null;
+const mime=(meta.match(/data:([^;]+)/)||[])[1]||'image/jpeg';
+const bin=atob(data),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+return new Blob([arr],{type:mime});
+}catch{return null}
+}
+async function migrateLegacyPhotoData(){
+let changed=false;
+for(const x of db.masters||[]){
+let ids=Array.isArray(x.photoIds)?x.photoIds.filter(Boolean):[];
+if(!ids.length&&x.photoId)ids=[x.photoId];
+let datas=Array.isArray(x.photoDatas)?x.photoDatas.filter(Boolean):[];
+if(!datas.length&&x.photoData)datas=[x.photoData];
+for(let i=0;i<Math.min(2,datas.length);i++){
+const b=dataUrlToBlob(datas[i]);if(!b)continue;
+const pid=ids[i]||`m_${safePhotoPart(x.id)}_${i+1}`;
+try{await putP(pid,b);ids[i]=pid}catch(e){console.warn('舊照片搬移失敗',e)}
+}
+x.photoIds=ids.slice(0,2);x.photoId=x.photoIds[0]||'';
+if('photoData'in x){delete x.photoData;changed=true}
+if('photoDatas'in x){delete x.photoDatas;changed=true}
+}
+if(changed)persistLocalOnly();
+}
+async function getMasterPhotoBlob(x,index){
+const p=normalizeMasterPhotos(x),localId=p.ids[index]||'';
+if(localId){const b=await getP(localId);if(b)return b;}
+const cacheId=localPhotoCacheId('master',x.id,index+1);
+const cached=await getP(cacheId);if(cached)return cached;
+if(!cloudSession?.user)return null;
+try{
+const path=photoStoragePath('master',x.id,index+1),b=await downloadPhotoBlob(path);
+if(b){await putP(cacheId,b);return b;}
+}catch(e){console.warn('主檔照片下載失敗',e)}
+return null;
+}
+async function getFoodPhotoBlob(x){
+if(x.photoId){const b=await getP(x.photoId);if(b)return b;}
+const cacheId=localPhotoCacheId('food',x.id,1);
+const cached=await getP(cacheId);if(cached)return cached;
+if(!cloudSession?.user)return null;
+try{
+const path=photoStoragePath('food',x.id,1),b=await downloadPhotoBlob(path);
+if(b){await putP(cacheId,b);return b;}
+}catch(e){console.warn('飲食照片下載失敗',e)}
+return null;
+}
+async function uploadAllLocalPhotos(){
+if(!cloudSession?.user)return {uploaded:0,failed:0,message:''};
+let uploaded=0,failed=0,last='';
+for(const x of db.foods||[]){
+try{
+let b=x.photoId?await getP(x.photoId):null;
+if(!b)b=await getP(localPhotoCacheId('food',x.id,1));
+if(b && await uploadPhotoBlob(photoStoragePath('food',x.id,1),b,false))uploaded++;
+}catch(e){failed++;last=e?.message||String(e)}
+}
+for(const x of db.masters||[]){
+const p=normalizeMasterPhotos(x);
+for(let i=0;i<2;i++){
+try{
+let b=p.ids[i]?await getP(p.ids[i]):null;
+if(!b)b=await getP(localPhotoCacheId('master',x.id,i+1));
+if(b && await uploadPhotoBlob(photoStoragePath('master',x.id,i+1),b,false))uploaded++;
+}catch(e){failed++;last=e?.message||String(e)}
+}
+}
+return {uploaded,failed,message:last};
+}
+async function handlePhoto(e){
+photo=e.target.files[0];
+if(!photo)return;
+if(photoURL)
+URL.revokeObjectURL(photoURL);
+photoURL=URL.createObjectURL(photo);
+photoPreview.src=photoURL;
+photoPreview.style.display='block';
+}
+function clearFoodEntryForm(){
+selectedMasterId='';
+editingFoodId='';
+closeMasterDropdown();
+fMasterName.value='';
+fFood.value='';
+fQty.value='1';
+fUnit.value='份';
+updateFoodQtyLabel();
+if(document.getElementById('fCalcHint'))fCalcHint.textContent='選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算。';
+fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value=fNote.value='';
+photo=null;
+photoCameraInput.value='';photoLibraryInput.value='';
+if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
+photoPreview.removeAttribute('src');photoPreview.style.display='none';
+if(saveFoodBtn)saveFoodBtn.textContent='儲存這一餐';
+if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='none';
+if(foodEditNotice)foodEditNotice.style.display='none';
+}
+function cancelFoodEdit(){clearFoodEntryForm();fDate.value=dn();fTime.value=tn();}
+async function saveFood(){
+if(!fFood.value.trim()){alert('請輸入食物／餐點');return;}
+let existing=editingFoodId?db.foods.find(x=>String(x.id)===String(editingFoodId)):null;
+const recordId=existing?.id||uid();
+let photoId=existing?.photoId||'';
+let compressed=null,photoCloudWarning='';
+if(photo){
+compressed=await compressPhotoBlob(photo);
+photoId=`p_${safePhotoPart(recordId)}_1`;
+await putP(photoId,compressed);
+}
+const values={date:fDate.value,time:fTime.value,meal:fMeal.value,masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
+if(existing){Object.assign(existing,values);}else{db.foods.push({id:recordId,...values});}
+save();
+if(compressed&&cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('food',recordId,1),compressed,true)}catch(e){photoCloudWarning=e?.message||String(e)}
+}
+const wasEdit=!!existing;
+clearFoodEntryForm();
+fDate.value=dn();fTime.value=tn();
+await renderToday();renderHistory();renderStats();
+alert((wasEdit?'飲食紀錄已更新':'已儲存這一餐')+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
+}
+async function editFood(id){
+const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
+editingFoodId=String(x.id);selectedMasterId=x.masterId||'';
+fDate.value=x.date||dn();fTime.value=x.time||tn();fMeal.value=x.meal||'早餐';
+const m=db.masters.find(v=>String(v.id)===String(x.masterId||''));
+fMasterName.value=m?((m.brand?m.brand+' ':'')+m.name):'';
+fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';updateFoodQtyLabel();
+fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
+photo=null;
+if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
+{const b=await getFoodPhotoBlob(x);if(b){photoURL=URL.createObjectURL(b);photoPreview.src=photoURL;photoPreview.style.display='block';}else{photoPreview.style.display='none';}}
+if(saveFoodBtn)saveFoodBtn.textContent='更新這一餐';
+if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='';
+if(foodEditNotice)foodEditNotice.style.display='block';
+goTab('add');
+setTimeout(()=>document.getElementById('add')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+async function deleteFood(id){
+const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
+if(!confirm(`確定刪除「${x.food||'這筆飲食'}」？`))return;
+if(!Array.isArray(db.deletedFoods))db.deletedFoods=[];
+if(!db.deletedFoods.some(v=>String(v.id)===String(x.id)))db.deletedFoods.push({...x});
+db.foods=db.foods.filter(v=>String(v.id)!==String(id));
+if(String(editingFoodId)===String(id))clearFoodEntryForm();
+save();
+await renderToday();renderHistory();renderStats();
+}
+async function foodHtml(x){
+let pic='';
+{let b=await getFoodPhotoBlob(x);if(b)pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;}
+return `<div class="item"><b>${esc(x.food)}</b><div class="small">${esc(x.meal)}・${esc(x.time)}${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}</div>${pic}<div class="small">${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g・碳水 ${esc(x.carb||'—')} g・脂肪 ${esc(x.fat||'—')} g・糖 ${esc(x.sugar||'—')} g・鈉 ${esc(x.sodium||'—')} mg</div><div class="record-actions"><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
+}
+async function renderToday(){
+let d=dn();
+let f=db.foods.filter(x=>x.date===d);
+let e=db.exercise.filter(x=>x.date===d);
+todayLabel.textContent=`今天 ${d}`;
+kcalToday.textContent=
+Math.round(f.reduce((a,b)=>a+num(b.kcal),0));
+proteinToday.textContent=
+f.reduce((a,b)=>a+num(b.protein),0)
+.toFixed(1)
+.replace('.0','');
+exerciseMin.textContent=
+Math.round(e.reduce((a,b)=>a+num(b.minutes),0));
+exerciseKcal.textContent=
+Math.round(e.reduce((a,b)=>a+num(b.kcal),0));
+foodToday.innerHTML=
+f.length
+?(await Promise.all(f.map(foodHtml))).join('')
+:'<div class="empty">今天還沒有飲食紀錄</div>';
+exerciseToday.innerHTML=
+e.length
+?e.map(exHtml).join('')
+:'<div class="empty">今天還沒有運動紀錄</div>';
+renderReminder();
+}
+function exHtml(x){
+return `<div class="item">
+<b>${esc(x.type)}</b>
+<div class="small">
+${esc(x.class)}・
+${esc(x.minutes)} 分鐘・
+${esc(x.kcal||'—')} kcal
+</div>
+</div>`;
+}
+function autoClass(){
+let t=eType.value;
+eClass.value=
+['快走','跑步','單車','橢圓機','游泳'].includes(t)
+?'有氧'
+:['傳統重量訓練','功能性肌力訓練'].includes(t)
+?'無氧'
+:'混合';
+}
+function calcMin(){
+if(!eStart.value||!eEnd.value)return;
+let [sh,sm]=eStart.value.split(':').map(Number);
+let [eh,em]=eEnd.value.split(':').map(Number);
+let m=(eh*60+em)-(sh*60+sm);
+if(m<0)m+=1440;
+eMinutes.value=m;
+}
+function saveExercise(){
+db.exercise.push({
+id:uid(),
+date:eDate.value,
+type:eType.value,
+class:eClass.value,
+start:eStart.value,
+end:eEnd.value,
+minutes:eMinutes.value,
+kcal:eKcal.value,
+note:eNote.value
+});
+save();
+renderExercise();
+renderToday();
+alert('運動已儲存');
+}
+function renderExercise(){
+let a=[...db.exercise]
+.sort((x,y)=>(y.date+y.start).localeCompare(x.date+x.start));
+exerciseList.innerHTML=
+a.length
+?a.map(x=>`
+<div class="item">
+<b>${x.date}｜${esc(x.type)}</b>
+<div class="small">
+${esc(x.class)}・
+${esc(x.minutes)} 分鐘・
+${esc(x.kcal||'—')} kcal
+</div>
+</div>
+`).join('')
+:'<div class="empty">尚無運動紀錄</div>';
+}
+
+async function handleSmartRecognitionPhoto(e){
+const f=e.target.files[0];
+if(!f)return;
+masterPhoto=f;
+masterPhotoKind='general';
+if(masterPhotoURL)URL.revokeObjectURL(masterPhotoURL);
+masterPhotoURL=URL.createObjectURL(f);
+masterPhotoPreview.src=masterPhotoURL;
+masterPhotoPreview.style.display='block';
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+/* 若瀏覽器剛好支援 BarcodeDetector，就順便嘗試抓條碼；抓不到也不干擾一般照片辨識。 */
+if('BarcodeDetector' in window){
+try{
+const det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']});
+const bmp=await createImageBitmap(f);
+const rs=await det.detect(bmp);
+if(rs.length && !mBarcode.value)mBarcode.value=rs[0].rawValue;
+}catch(_){ }
+}
+setTimeout(()=>detail?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+e.target.value='';
+}
+
+async function handleMasterPhoto(e,kind){
+const f=e.target.files[0];
+if(!f)return;
+masterPhoto=f;
+masterPhotoKind=kind;
+if(masterPhotoURL)
+URL.revokeObjectURL(masterPhotoURL);
+masterPhotoURL=URL.createObjectURL(f);
+masterPhotoPreview.src=masterPhotoURL;
+masterPhotoPreview.style.display='block';
+}
+async function copyAIFormat(text){
+try{
+if(navigator.clipboard && navigator.clipboard.writeText){
+await navigator.clipboard.writeText(text);
+return true;
+}
+}catch(e){}
+
+try{
+const ta=document.createElement('textarea');
+ta.value=text;
+ta.setAttribute('readonly','');
+ta.style.position='fixed';
+ta.style.opacity='0';
+ta.style.pointerEvents='none';
+document.body.appendChild(ta);
+ta.select();
+ta.setSelectionRange(0,ta.value.length);
+const ok=document.execCommand('copy');
+document.body.removeChild(ta);
+return ok;
+}catch(e){
+return false;
+}
+}
+
+async function shareMasterPhotoToAI(){
+if(!masterPhoto){
+alert('請先拍照或從圖庫選擇食品照片');
+return;
+}
+
+const text=
+`請辨識這張食品照片（可能是商品正面、外包裝、條碼或營養標示），請只用以下格式回覆，不確定留白：
+品牌：
+品名：
+條碼：
+每份：
+熱量： kcal
+蛋白質： g
+碳水： g
+糖： g
+脂肪： g
+纖維： g
+鈉： mg`;
+
+/*
+先複製辨識格式，再開啟 iPhone 分享清單。
+網頁無法知道分享清單裡是否有 ChatGPT，
+因此若使用者關閉分享清單，就提醒直接開 ChatGPT 上傳照片並貼上格式。
+*/
+const copied=await copyAIFormat(text);
+
+const fallbackMessage=
+copied
+?'✅ 辨識格式已複製。\n\n如果分享清單沒有 ChatGPT，請直接開啟 ChatGPT，上傳剛剛選的照片，再貼上已複製的辨識格式。'
+:'如果分享清單沒有 ChatGPT，請直接開啟 ChatGPT，上傳剛剛選的照片，再手動貼上／輸入辨識格式。';
+
+if(
+navigator.share &&
+navigator.canShare &&
+navigator.canShare({files:[masterPhoto]})
+){
+try{
+await navigator.share({
+files:[masterPhoto],
+text,
+title:'食品營養辨識'
+});
+}catch(e){
+if(e && e.name==='AbortError'){
+alert(fallbackMessage);
+}else{
+alert('照片分享未完成。\n\n'+fallbackMessage);
+}
+}
+}else{
+alert('這個瀏覽器無法直接分享照片。\n\n'+fallbackMessage);
+}
+}
+async function pasteMasterAI(){
+try{
+masterAIText.value=
+await navigator.clipboard.readText();
+}catch(e){
+alert('請長按文字框後選「貼上」');
+}
+}
+function lineVal(t,k){
+const m=
+t.match(
+new RegExp(
+'^'+k+'\\s*[:：]\\s*(.+)$',
+'im'
+)
+);
+return m?m[1].trim():'';
+}
+function numVal(t,k){
+const v=lineVal(t,k);
+const m=v.match(/[0-9]+(?:\\.[0-9]+)?/);
+return m?m[0]:'';
+}
+function applyMasterAI(){
+const t=masterAIText.value;
+mBrand.value=
+lineVal(t,'品牌');
+mName.value=
+lineVal(t,'品名')||
+lineVal(t,'商品名稱');
+mBarcode.value=
+lineVal(t,'條碼');
+mServing.value=
+lineVal(t,'每份');
+mKcal.value=
+numVal(t,'熱量');
+mProtein.value=
+numVal(t,'蛋白質');
+mCarb.value=
+numVal(t,'碳水')||
+numVal(t,'碳水化合物');
+mSugar.value=
+numVal(t,'糖');
+mFat.value=
+numVal(t,'脂肪');
+mFiber.value=
+numVal(t,'纖維')||
+numVal(t,'膳食纖維');
+mSodium.value=
+numVal(t,'鈉');
+mSource.value='AI 辨識';
+mConfirmed.value=dn();
+alert('已帶入可辨識欄位，請對照包裝確認後再儲存。');
+}
+async function scanBarcodePhoto(e){
+const f=e.target.files[0];
+if(!f)return;
+masterPhoto=f;
+masterPhotoKind='barcode';
+if(masterPhotoURL)
+URL.revokeObjectURL(masterPhotoURL);
+masterPhotoURL=
+URL.createObjectURL(f);
+masterPhotoPreview.src=
+masterPhotoURL;
+masterPhotoPreview.style.display=
+'block';
+if(!('BarcodeDetector' in window)){
+alert('這台 iPhone 的瀏覽器目前不支援網頁直接辨識條碼。可以把這張照片傳給 ChatGPT 辨識，或手動輸入條碼。');
+return;
+}
+try{
+const det=
+new BarcodeDetector({
+formats:[
+'ean_13',
+'ean_8',
+'upc_a',
+'upc_e',
+'code_128'
+]
+});
+const bmp=
+await createImageBitmap(f);
+const rs=
+await det.detect(bmp);
+if(rs.length){
+mBarcode.value=
+rs[0].rawValue;
+alert('已辨識條碼：'+rs[0].rawValue);
+}else{
+alert('沒有辨識到條碼，請拍近一點或改手動輸入。');
+}
+}catch(err){
+alert('條碼辨識失敗，可改傳給 ChatGPT 辨識。');
+}
+}
+function normalizeMasterPhotos(x){
+let ids=Array.isArray(x.photoIds)?x.photoIds.filter(Boolean):[];
+if(!ids.length&&x.photoId)ids=[x.photoId];
+ids=ids.slice(0,2);
+x.photoIds=ids;
+x.photoId=ids[0]||'';
+return {ids};
+}
+async function attachMasterPhoto(id,index=0){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+index=Math.max(0,Math.min(1,Number(index)||0));
+const input=document.createElement('input');
+input.type='file';input.accept='image/*';input.style.display='none';
+document.body.appendChild(input);
+input.onchange=async()=>{
+const f=input.files&&input.files[0];
+if(!f){input.remove();return;}
+let cloudWarning='';
+try{
+const b=await compressPhotoBlob(f);
+const p=normalizeMasterPhotos(x);
+const oldId=p.ids[index]||'';
+// 每次更換都使用新的本機照片 ID，避免 iPhone / IndexedDB 顯示舊快取。
+const pid=`m_${safePhotoPart(x.id)}_${index+1}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+await putP(pid,b);
+p.ids[index]=pid;
+x.photoIds=p.ids.slice(0,2);x.photoId=x.photoIds[0]||'';
+persistLocalOnly();
+if(oldId&&oldId!==pid){try{await delP(oldId)}catch{}}
+try{await delP(localPhotoCacheId('master',x.id,index+1))}catch{}
+masterPhotoKeyCache=null;
+if(cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('master',x.id,index+1),b,true)}catch(e){cloudWarning=e?.message||String(e)}}
+await renderMasters();
+if(cloudWarning)alert('照片已更新在本機，但雲端照片尚未完成：'+cloudWarning);
+}catch(e){alert('照片儲存失敗：'+(e?.message||e));}
+input.remove();
+};
+input.click();
+}
+async function deleteMasterPhoto(id,index=0){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+index=Math.max(0,Math.min(1,Number(index)||0));
+if(!confirm(`確定刪除第 ${index+1} 張照片？`))return;
+const p=normalizeMasterPhotos(x);
+const oldIds=[...p.ids];
+let cloudWarning='';
+try{
+if(index===0 && oldIds[1]){
+// 刪除第一張時，第二張自動前移成第一張，避免留下空洞。
+const b2=await getMasterPhotoBlob(x,1);
+const newId=`m_${safePhotoPart(x.id)}_1_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+if(b2)await putP(newId,b2);
+x.photoIds=b2?[newId]:[];
+x.photoId=x.photoIds[0]||'';
+for(const k of oldIds){if(k&&k!==newId){try{await delP(k)}catch{}}}
+try{await delP(localPhotoCacheId('master',x.id,1))}catch{}
+try{await delP(localPhotoCacheId('master',x.id,2))}catch{}
+persistLocalOnly();masterPhotoKeyCache=null;
+if(cloudSession?.user){
+try{
+const p1=photoStoragePath('master',x.id,1),p2=photoStoragePath('master',x.id,2);
+if(b2)await uploadPhotoBlob(p1,b2,true);
+await deletePhotoBlob(p2);
+}catch(e){cloudWarning=e?.message||String(e)}
+}
+}else{
+const oldId=oldIds[index]||'';
+if(oldId){try{await delP(oldId)}catch{}}
+const kept=oldIds.filter((_,i)=>i!==index).filter(Boolean);
+x.photoIds=kept.slice(0,2);x.photoId=x.photoIds[0]||'';
+try{await delP(localPhotoCacheId('master',x.id,index+1))}catch{}
+persistLocalOnly();masterPhotoKeyCache=null;
+if(cloudSession?.user){try{await deletePhotoBlob(photoStoragePath('master',x.id,index+1))}catch(e){cloudWarning=e?.message||String(e)}}
+}
+await renderMasters();
+if(cloudWarning)alert('照片已從本機刪除，但雲端刪除尚未完成：'+cloudWarning+'\n若之後又看到舊照片，請先確認 Supabase Storage 有 DELETE 權限。');
+}catch(e){alert('刪除照片失敗：'+(e?.message||e));}
+}
+async function swapMasterPhotos(id){
+const x=db.masters.find(v=>String(v.id)===String(id));if(!x)return;
+const b1=await getMasterPhotoBlob(x,0),b2=await getMasterPhotoBlob(x,1);
+if(!b1||!b2)return;
+const id1=`m_${safePhotoPart(x.id)}_1`,id2=`m_${safePhotoPart(x.id)}_2`;
+await putP(id1,b2);await putP(id2,b1);
+x.photoIds=[id1,id2];x.photoId=id1;persistLocalOnly();
+let warning='';
+if(cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('master',x.id,1),b2,true);await uploadPhotoBlob(photoStoragePath('master',x.id,2),b1,true)}catch(e){warning=e?.message||String(e)}
+}
+await renderMasters();
+if(warning)alert('照片順序已在本機交換，但雲端照片尚未完成：'+warning);
+}
+async function saveMaster(){
+if(!mName.value.trim()){
+alert('請輸入商品名稱');
+return;
+}
+const bc=
+mBarcode.value.trim();
+if(
+bc &&
+db.masters.some(x=>x.barcode===bc)
+){
+alert('這個條碼已存在食品主檔');
+return;
+}
+const newMasterId=uid();
+let photoId='',compressed=null,photoCloudWarning='';
+if(masterPhoto){
+compressed=await compressPhotoBlob(masterPhoto);
+photoId=`m_${safePhotoPart(newMasterId)}_1`;
+await putP(photoId,compressed);
+}
+db.masters.push({
+id:newMasterId,
+brand:mBrand.value.trim(),
+name:mName.value.trim(),
+barcode:bc,
+serving:mServing.value.trim(),
+kcal:mKcal.value,
+protein:mProtein.value,
+carb:mCarb.value,
+sugar:mSugar.value,
+fat:mFat.value,
+fiber:mFiber.value,
+sodium:mSodium.value,
+source:mSource.value,
+confirmed:mConfirmed.value,
+note:mNote.value.trim(),
+photoId,
+photoIds: photoId ? [photoId] : []
+});
+const shouldReturnToFood=returnToFoodAfterMasterCreate;
+returnToFoodAfterMasterCreate=false;
+save();
+if(compressed&&cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('master',newMasterId,1),compressed,true)}catch(e){photoCloudWarning=e?.message||String(e)}}
+clearMaster();
+await renderMasters();
+alert('食品主檔已儲存'+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
+if(shouldReturnToFood)useMaster(newMasterId);
+}
+function clearMaster(){
+[
+mBrand,
+mName,
+mBarcode,
+mServing,
+mKcal,
+mProtein,
+mCarb,
+mSugar,
+mFat,
+mFiber,
+mSodium,
+mNote,
+masterAIText
+].forEach(x=>x.value='');
+mSource.value=
+'包裝營養標示';
+mConfirmed.value=
+dn();
+masterPhoto=null;
+masterPhotoKind='';
+if(masterPhotoURL){URL.revokeObjectURL(masterPhotoURL);masterPhotoURL=null;}
+masterPhotoPreview.removeAttribute('src');
+masterPhotoPreview.style.display='none';
+['smartPhotoCameraInput','smartPhotoLibraryInput','barcodePhotoInput','barcodePhotoLibraryInput','pkgPhotoInput','pkgPhotoLibraryInput','nutritionPhotoInput','nutritionPhotoLibraryInput'].forEach(id=>{
+const el=document.getElementById(id);if(el)el.value='';
+});
+}
+
+function openImageZoom(src){
+if(!src)return;
+imageZoomImg.src=src;
+imageZoom.classList.add('show');
+}
+function closeImageZoom(){
+imageZoom.classList.remove('show');
+imageZoomImg.removeAttribute('src');
+}
+
+let masterPhotoKeyCache=null;
+function photoKeyTime(v){
+const s=String(v||'').replace(/^[pm]_/, '');
+if(s.length<8)return NaN;
+const n=parseInt(s.slice(0,8),36);
+return Number.isFinite(n)?n:NaN;
+}
+async function getMasterPhotoKeys(){
+if(masterPhotoKeyCache)return masterPhotoKeyCache;
+masterPhotoKeyCache=(async()=>{
+const d=await pdb();
+return await new Promise((resolve,reject)=>{
+const store=d.transaction('p','readonly').objectStore('p');
+if(store.getAllKeys){
+const r=store.getAllKeys();
+r.onsuccess=()=>resolve((r.result||[]).map(String).filter(k=>k.startsWith('m_')));
+r.onerror=()=>reject(r.error);
+}else{
+const keys=[];
+const r=store.openCursor();
+r.onsuccess=()=>{const c=r.result;if(!c){resolve(keys);return;}const k=String(c.key);if(k.startsWith('m_'))keys.push(k);c.continue();};
+r.onerror=()=>reject(r.error);
+}
+});
+})().catch(()=>[]);
+return masterPhotoKeyCache;
+}
+async function recoverMasterPhotoId(x){
+const xt=photoKeyTime(x?.id);
+if(!Number.isFinite(xt))return '';
+const keys=await getMasterPhotoKeys();
+if(!keys.length)return '';
+const used=new Set(db.masters.flatMap(v=>[v.photoId,...(Array.isArray(v.photoIds)?v.photoIds:[])]).filter(Boolean));
+let best='',bestDiff=Infinity;
+for(const k of keys){
+if(used.has(k))continue;
+const kt=photoKeyTime(k);
+if(!Number.isFinite(kt))continue;
+const diff=Math.abs(kt-xt);
+if(diff<bestDiff){bestDiff=diff;best=k;}
+}
+/* photoId 與 master id 是儲存時前後建立，通常只差幾毫秒；10 秒內才自動認回，避免配錯照片。 */
+if(best && bestDiff<=10000){
+x.photoId=best;
+const p=normalizeMasterPhotos(x);
+if(!p.ids[0])p.ids[0]=best;
+x.photoIds=p.ids.filter(Boolean).slice(0,2);
+persistLocalOnly();
+return best;
+}
+return '';
+}
+async function masterCard(x){
+let p=normalizeMasterPhotos(x);
+if(!p.ids[0]){
+const recovered=await recoverMasterPhotoId(x);
+if(recovered)p=normalizeMasterPhotos(x);
+}
+const srcs=[];
+for(let i=0;i<2;i++){
+const b=await getMasterPhotoBlob(x,i);
+if(b)srcs.push({src:URL.createObjectURL(b),index:i});
+}
+const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`${n===1?`<button class="master-photo-swap" type="button" title="左右交換" onclick="event.stopPropagation();swapMasterPhotos('${x.id}')">↔</button>`:''}<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><div class="master-photo-actions"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button><button class="master-photo-mini delete" type="button" onclick="event.stopPropagation();deleteMasterPhoto('${x.id}',${v.index})">刪除</button></div></div>`).join('')}</div>`:'';
+const addPhotoButton=srcs.length===0
+?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',0)">📷 補照片</button>`
+:srcs.length===1
+?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',1)">＋第2張</button>`
+:'';
+return `
+<div class="master-card ${srcs.length?'has-photo':''}">
+<div class="master-head-row">
+<div class="master-head-info">
+<div class="master-title">${esc(x.brand?x.brand+' ':'')}${esc(x.name)}</div>
+<div class="master-meta">${x.barcode?'條碼 '+esc(x.barcode)+'・':''}${esc(x.serving||'每份未填')}・${esc(x.source||'')}</div>
+</div>
+${photoHtml}
+</div>
+<div class="nutrition">
+<div><b>${esc(x.kcal||'—')}</b><span>kcal</span></div>
+<div><b>${esc(x.protein||'—')}</b><span>蛋白質 g</span></div>
+<div><b>${esc(x.carb||'—')}</b><span>碳水 g</span></div>
+<div><b>${esc(x.fat||'—')}</b><span>脂肪 g</span></div>
+<div><b>${esc(x.sugar||'—')}</b><span>糖 g</span></div>
+<div><b>${esc(x.fiber||'—')}</b><span>纖維 g</span></div>
+<div><b>${esc(x.sodium||'—')}</b><span>鈉 mg</span></div>
+</div>
+<div class="btnrow" style="margin-top:8px">
+<button class="secondary" onclick="useMaster('${x.id}')">加入飲食</button>
+${addPhotoButton}
+<button class="danger" onclick="deleteMaster('${x.id}')">刪除食品</button>
+</div>
+</div>`;
+}
+
+async function renderMasters(){
+const q=
+(masterSearch?.value||'')
+.trim()
+.toLowerCase();
+const listDetails=document.getElementById('masterListDetails');
+if(listDetails && q)listDetails.open=true;
+const a=
+db.masters.filter(x=>
+!q ||
+`${x.brand} ${x.name} ${x.barcode}`
+.toLowerCase()
+.includes(q)
+);
+const countEl=document.getElementById('masterCount');
+if(countEl){
+countEl.textContent=q?`共 ${a.length} / ${db.masters.length} 筆`:`共 ${db.masters.length} 筆`;
+}
+masterList.innerHTML=
+a.length
+?(await Promise.all(a.map(masterCard))).join('')
+:'<div class="empty">尚未建立食品主檔</div>';
+}
+
+function deleteMaster(id){
+if(!confirm('確定刪除這個食品主檔？'))
+return;
+db.masters=
+db.masters.filter(x=>x.id!==id);
+save();
+renderMasters();
+}
+function masterDisplayName(x){
+return ((x?.brand?x.brand+' ':'')+(x?.name||'')).trim();
+}
+function masterMatches(q){
+const needle=String(q||'').trim().toLowerCase();
+return db.masters.filter(x=>
+!needle ||
+`${x.brand||''} ${x.name||''} ${x.barcode||''}`.toLowerCase().includes(needle)
+);
+}
+function openMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+renderMasterDropdown();
+el.classList.add('show');
+}
+function closeMasterDropdown(){
+document.getElementById('masterDropdown')?.classList.remove('show');
+}
+function toggleMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+if(el.classList.contains('show')){
+closeMasterDropdown();
+}else{
+renderMasterDropdown();
+el.classList.add('show');
+fMasterName.focus({preventScroll:true});
+}
+}
+function onMasterSearchInput(){
+const current=db.masters.find(v=>String(v.id)===String(selectedMasterId));
+if(current && fMasterName.value.trim()!==masterDisplayName(current)){
+const oldName=masterDisplayName(current);
+selectedMasterId='';
+if(fFood.value.trim()===oldName)fFood.value='';
+clearCalculatedNutrition();
+const hint=document.getElementById('fCalcHint');
+if(hint)hint.textContent='請從下拉選擇食品主檔；找不到時可直接建立新食品。';
+}
+openMasterDropdown();
+}
+function renderMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+const raw=(fMasterName.value||'').trim();
+const a=masterMatches(raw);
+const shown=a.slice(0,60);
+const rows=shown.map(x=>`<div class="master-option" onmousedown="event.preventDefault()" onclick="useMaster('${x.id}')"><div class="master-option-title">${esc(masterDisplayName(x))}</div><div class="master-option-meta">${esc(x.serving||'未填每份量')}・${esc(x.kcal||'—')} kcal/份${x.barcode?`・${esc(x.barcode)}`:''}</div></div>`).join('');
+const empty=!shown.length?'<div class="master-option-empty">找不到符合的食品主檔</div>':'';
+const addText=raw?`＋ 建立「${esc(raw)}」為新食品`:'＋ 建立新食品';
+el.innerHTML=`<div class="master-dropdown-head">食品主檔共 ${db.masters.length} 筆${raw?`・找到 ${a.length} 筆`:''}</div>${rows}${empty}<div class="master-option-add" onmousedown="event.preventDefault()" onclick="startNewMasterFromFood()">${addText}</div>`;
+}
+function handleMasterSearchKey(e){
+if(e.key==='Escape'){
+closeMasterDropdown();
+fMasterName.blur();
+return;
+}
+if(e.key!=='Enter')return;
+e.preventDefault();
+const raw=(fMasterName.value||'').trim();
+const exact=db.masters.find(x=>masterDisplayName(x).toLowerCase()===raw.toLowerCase() || String(x.barcode||'')===raw);
+if(exact){useMaster(exact.id);return;}
+const a=masterMatches(raw);
+if(a.length===1){useMaster(a[0].id);return;}
+if(a.length===0)startNewMasterFromFood();
+}
+function startNewMasterFromFood(prefill){
+const typed=String(prefill??fMasterName.value??'').trim();
+returnToFoodAfterMasterCreate=true;
+closeMasterDropdown();
+clearMaster();
+if(typed)mName.value=typed;
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+goTab('fooddb');
+setTimeout(()=>{
+(detail||document.getElementById('fooddb'))?.scrollIntoView({behavior:'smooth',block:'start'});
+if(typed)mName.focus({preventScroll:true});
+},80);
+}
+function openPicker(){
+pickerSearch.value='';
+foodPicker.classList.add('show');
+renderPicker();
+}
+function closePicker(){
+foodPicker.classList.remove('show');
+}
+function renderPicker(){
+const q=
+pickerSearch.value
+.trim()
+.toLowerCase();
+const a=
+db.masters.filter(x=>
+!q ||
+`${x.brand} ${x.name} ${x.barcode}`
+.toLowerCase()
+.includes(q)
+);
+pickerList.innerHTML=
+a.length
+?a.map(x=>`
+<div class="master-card" onclick="useMaster('${x.id}')">
+<div class="master-title">
+${esc(x.brand?x.brand+' ':'')}${esc(x.name)}
+</div>
+<div class="master-meta">
+${esc(x.serving||'')}・
+${esc(x.kcal||'—')} kcal/份
+</div>
+</div>
+`).join('')
+:'<div class="empty">找不到食品</div>';
+}
+function useMaster(id){
+const x=
+db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+selectedMasterId=String(id);
+fMasterName.value=masterDisplayName(x);
+fFood.value=fMasterName.value;
+fQty.value='1';
+fUnit.value='份';
+updateFoodQtyLabel();
+recalcMaster();
+closeMasterDropdown();
+closePicker();
+goTab('add');
+}
+function normalizeFoodUnit(u){
+const raw=String(u||'').trim();
+const s=raw.toLowerCase().replace(/\s+/g,'');
+if(['g','公克','克'].includes(s))return 'g';
+if(['kg','公斤'].includes(s))return 'kg';
+if(['ml','毫升','cc','c.c.','c.c'].includes(s))return 'ml';
+if(['份','顆','片','碗','杯','個','包'].includes(raw))return raw;
+return raw;
+}
+function servingCandidates(serving){
+const s=String(serving||'');
+const out=[];
+const re=/([0-9]+(?:\.[0-9]+)?)\s*(公斤|kg|公克|克|g|毫升|ml|mL|ML|cc|c\.c\.|c\.c|份|顆|片|碗|杯|個|包)/gi;
+let m;
+while((m=re.exec(s))){
+let amount=parseFloat(m[1]);
+let unit=normalizeFoodUnit(m[2]);
+if(unit==='kg'){amount*=1000;unit='g';}
+if(isFinite(amount)&&amount>0)out.push({amount,unit});
+}
+return out;
+}
+function updateFoodQtyLabel(){
+const el=document.getElementById('fQtyLabel');
+if(!el)return;
+const u=fUnit?.value||'份';
+el.textContent=u==='份'?'吃了幾份':`實際食用量（${u}）`;
+}
+function setMasterNutritionByFactor(x,factor){
+const fmt=v=>(num(v)*factor).toFixed(1).replace('.0','');
+fKcal.value=fmt(x.kcal);
+fProtein.value=fmt(x.protein);
+fCarb.value=fmt(x.carb);
+fSugar.value=fmt(x.sugar);
+fFat.value=fmt(x.fat);
+fFiber.value=fmt(x.fiber);
+fSodium.value=fmt(x.sodium);
+}
+function clearCalculatedNutrition(){
+fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value='';
+}
+function recalcMaster(){
+const x=
+db.masters.find(v=>v.id===selectedMasterId);
+if(!x)return;
+const q=num(fQty.value);
+const unit=normalizeFoodUnit(fUnit.value);
+const hint=document.getElementById('fCalcHint');
+let factor=null;
+if(unit==='份'){
+factor=q;
+if(hint)hint.textContent=`以「份」計算：主檔每份營養 × ${q || 0}。${x.serving?`（主檔每份：${x.serving}）`:''}`;
+}else{
+const candidates=servingCandidates(x.serving);
+const match=candidates.find(v=>v.unit===unit);
+if(match){
+factor=q/match.amount;
+if(hint)hint.textContent=`依主檔每份 ${match.amount} ${unit} 換算：${q || 0} ${unit} = ${factor.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')} 份。`;
+}else{
+clearCalculatedNutrition();
+if(hint)hint.textContent=x.serving
+?`主檔每份為「${x.serving}」，沒有可直接換算成 ${unit} 的資料；請改用相符單位或補充主檔的每份重量／容量。`
+:`主檔尚未填「每份重量／容量」，目前無法用 ${unit} 自動換算。`;
+return;
+}
+}
+setMasterNutritionByFactor(x,factor);
 }
 function saveBody(){
- localStorage.setItem(key("body",currentId),document.getElementById("articleBody").innerHTML);
- bindTerms();
+if(
+!bWeight.value &&
+!bFat.value &&
+!bWaist.value
+){
+alert('至少輸入一項');
+return;
 }
-function unwrapMark(mark){
- if(!mark || !mark.isConnected)return false;
- const parent=mark.parentNode;
- mark.replaceWith(...mark.childNodes);
- parent?.normalize?.();
- return true;
-}
-function marksIntersecting(range){
- return [...document.querySelectorAll("#articleBody mark.user-hl")].filter(m=>{
-   try{return range.intersectsNode(m)}catch(e){return false}
- });
-}
-function finishHLAction(message){
- window.getSelection()?.removeAllRanges();
- activeMark=null;savedRange=null;
- hideHLToolbar();
- saveBody();
- if(message)toast(message);
-}
-function applyMarkColor(mark,color){
- mark.className="user-hl";
- mark.style.backgroundColor="";
- if(String(color).startsWith("#")) mark.style.backgroundColor=color;
- else mark.classList.add(`hl-${color}`);
-}
-function getAnnotations(){
- try{return JSON.parse(localStorage.getItem(key("annotations",currentId))||"[]")}catch(e){return []}
-}
-function setAnnotations(items){localStorage.setItem(key("annotations",currentId),JSON.stringify(items))}
-function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
-function setAnnotationExpanded(expanded){
- const section=document.getElementById("annotationSection");
- const toggle=document.getElementById("annotationToggle");
- const chevron=document.getElementById("annotationChevron");
- if(!section || !toggle || !chevron)return;
- section.classList.toggle("collapsed",!expanded);
- toggle.setAttribute("aria-expanded",expanded?"true":"false");
- chevron.textContent=expanded?"⌃":"⌄";
-}
-function renderAnnotations(){
- const items=getAnnotations();
- const box=document.getElementById("annotationList");
- document.getElementById("annotationCount").textContent=`${items.length} 則`;
- if(!items.length){box.innerHTML='<div class="annotation-empty">尚未建立文字註解。</div>';return}
- box.innerHTML=items.map(n=>`<div class="annotation-item" data-note-id="${n.id}"><div class="anno-meta">${esc(n.type||"註解")}</div><div class="anno-quote">「${esc(n.quote)}」</div><div class="anno-text">${esc(n.text)}</div></div>`).join("");
- box.querySelectorAll(".annotation-item").forEach(el=>el.onclick=()=>openAnnotationModal(el.dataset.noteId));
-}
-let pendingAnnotation=null;
-function makeNoteId(){return `n-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`}
-function closestBlock(node){
- let el=node.nodeType===1?node:node.parentElement;
- return el?.closest?.("p,li,blockquote,div.article-body")||null;
-}
-function openAnnotationModal(existingId=null){
- const items=getAnnotations();
- const modal=document.getElementById("annotationModal");
- const del=document.getElementById("deleteAnnotation");
- if(existingId){
-   const n=items.find(x=>x.id===existingId); if(!n)return;
-   pendingAnnotation={id:existingId,editing:true};
-   document.getElementById("annotationPreview").textContent=`「${n.quote}」`;
-   document.getElementById("annotationType").value=n.type||"我的理解";
-   document.getElementById("annotationText").value=n.text||"";
-   del.style.display="inline-block";
- }else{
-   const range=getArticleRange();
-   if(!range){toast("請先選取要註解的文字");return}
-   const quote=range.toString().trim(); if(!quote){toast("請先選取要註解的文字");return}
-   const sb=closestBlock(range.startContainer), eb=closestBlock(range.endContainer);
-   if(!sb || !eb || sb!==eb){toast("目前註解請先選取同一段落內的文字");return}
-   if(marksIntersecting(range).some(()=>false)){}
-   const already=[...document.querySelectorAll("#articleBody .annotation-anchor")].some(a=>{try{return range.intersectsNode(a)}catch(e){return false}});
-   if(already){toast("這段範圍已有文字註解，可直接點 📝 修改");return}
-   pendingAnnotation={id:makeNoteId(),editing:false,range:range.cloneRange(),quote};
-   document.getElementById("annotationPreview").textContent=`「${quote}」`;
-   document.getElementById("annotationType").value="我的理解";
-   document.getElementById("annotationText").value="";
-   del.style.display="none";
- }
- hideHLToolbar(false);
- modal.classList.add("show"); modal.setAttribute("aria-hidden","false");
- setTimeout(()=>document.getElementById("annotationText").focus(),80);
-}
-function closeAnnotationModal(){
- const modal=document.getElementById("annotationModal");
- modal.classList.remove("show");modal.setAttribute("aria-hidden","true");
- pendingAnnotation=null;
-}
-function unwrapAnnotation(span){
- if(!span||!span.isConnected)return;
- const id=span.dataset.noteId; const parent=span.parentNode;
- span.replaceWith(...span.childNodes); parent?.normalize?.();
- document.querySelectorAll(`#articleBody .inline-note-badge[data-note-id="${id}"]`).forEach(b=>b.remove());
-}
-function saveAnnotationFromModal(){
- if(!pendingAnnotation)return;
- const text=document.getElementById("annotationText").value.trim();
- if(!text){toast("請輸入註解內容");return}
- const type=document.getElementById("annotationType").value;
- let items=getAnnotations();
- if(pendingAnnotation.editing){
-   items=items.map(n=>n.id===pendingAnnotation.id?{...n,type,text,updatedAt:Date.now()}:n);
-   setAnnotations(items); renderAnnotations(); closeAnnotationModal(); toast("註解已更新"); return;
- }
- const range=pendingAnnotation.range;
- const body=document.getElementById("articleBody");
- if(!range || !body.contains(range.commonAncestorContainer)){toast("選取位置已改變，請重新選取文字");closeAnnotationModal();return}
- try{
-   const span=document.createElement("span"); span.className="annotation-anchor"; span.dataset.noteId=pendingAnnotation.id;
-   span.title=text;
-   const frag=range.extractContents(); span.appendChild(frag); range.insertNode(span);
-   const badge=document.createElement("button"); badge.type="button"; badge.className="inline-note-badge"; badge.dataset.noteId=pendingAnnotation.id; badge.setAttribute("aria-label","查看文字註解"); badge.textContent="📝";
-   span.after(badge);
-   items.push({id:pendingAnnotation.id,quote:pendingAnnotation.quote,type,text,createdAt:Date.now()});
-   setAnnotations(items); saveBody(); renderAnnotations(); window.getSelection()?.removeAllRanges(); savedRange=null; activeMark=null; closeAnnotationModal(); toast("已建立文字註解");
- }catch(e){toast("這段文字結構較複雜，請縮小選取範圍再試")}
-}
-function deleteCurrentAnnotation(){
- if(!pendingAnnotation?.editing)return;
- const id=pendingAnnotation.id;
- document.querySelectorAll(`#articleBody .annotation-anchor[data-note-id="${id}"]`).forEach(unwrapAnnotation);
- setAnnotations(getAnnotations().filter(n=>n.id!==id));
- saveBody(); renderAnnotations(); closeAnnotationModal(); toast("已刪除註解");
-}
-function highlight(color){
- if(activeMark && activeMark.isConnected){
-   applyMarkColor(activeMark,color);
-   finishHLAction("已變更標記顏色");
-   return;
- }
- const range=getArticleRange();
- if(!range){toast("請先選取文章文字");return;}
- try{
-   const mark=document.createElement("mark");
-   applyMarkColor(mark,color);
-   range.surroundContents(mark);
-   finishHLAction("已標記重點");
- }catch(e){
-   try{
-     const frag=range.extractContents();
-     const mark=document.createElement("mark");
-     applyMarkColor(mark,color);
-     mark.appendChild(frag); range.insertNode(mark);
-     finishHLAction("已標記重點");
-   }catch(err){
-     toast("這段文字跨到特殊標記，請縮小選取範圍再試");
-   }
- }
-}
-
-[selectionToolbar,moreColorsPanel].forEach(surface=>{
- surface.addEventListener("pointerdown",()=>holdToolbarInteraction(700));
- surface.addEventListener("touchstart",()=>holdToolbarInteraction(900),{passive:true});
+let x=
+db.body.find(x=>x.date===bDate.value);
+if(x){
+x.weight=bWeight.value;
+x.fat=bFat.value;
+x.waist=bWaist.value;
+}else{
+db.body.push({
+id:uid(),
+date:bDate.value,
+weight:bWeight.value,
+fat:bFat.value,
+waist:bWaist.value
 });
-document.querySelectorAll(".hl").forEach(b=>{
- b.addEventListener("pointerdown",e=>{e.preventDefault();holdToolbarInteraction(700)});
- b.addEventListener("click",()=>highlight(b.dataset.color));
-});
-
-const moreColorsBtn=document.getElementById("moreColorsBtn");
-function toggleMoreColors(e){
- if(e){e.preventDefault();e.stopPropagation();}
- holdToolbarInteraction(900);
- const on=!moreColorsPanel.classList.contains("show");
- moreColorsPanel.classList.toggle("show",on);
- moreColorsPanel.setAttribute("aria-hidden",on?"false":"true");
- showHLToolbar();
 }
-moreColorsBtn.addEventListener("pointerdown",toggleMoreColors);
-moreColorsBtn.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();});
-document.getElementById("customColor").addEventListener("change",e=>highlight(e.target.value));
-document.getElementById("addAnnotation").addEventListener("pointerdown",e=>e.preventDefault());
-document.getElementById("addAnnotation").onclick=()=>openAnnotationModal();
-document.getElementById("saveAnnotation").onclick=saveAnnotationFromModal;
-document.getElementById("cancelAnnotation").onclick=closeAnnotationModal;
-document.getElementById("deleteAnnotation").onclick=()=>{if(confirm("要刪除這則文字註解嗎？"))deleteCurrentAnnotation()};
-document.getElementById("annotationModal").addEventListener("click",e=>{if(e.target.id==="annotationModal")closeAnnotationModal()});
-
-document.getElementById("removeHL").addEventListener("pointerdown",e=>e.preventDefault());
-document.getElementById("removeHL").onclick=()=>{
- if(activeMark && activeMark.isConnected){
-   unwrapMark(activeMark);
-   finishHLAction("已取消標記");
-   return;
- }
- const range=getArticleRange();
- if(!range){toast("請先選取已標記文字，或直接點一下標記");return;}
- const marks=marksIntersecting(range);
- if(!marks.length){toast("選取範圍沒有螢光標記");return;}
- marks.forEach(unwrapMark);
- finishHLAction("已取消選取範圍的標記");
-};
-document.getElementById("closeHLToolbar").onclick=()=>hideHLToolbar(true);
-document.getElementById("clearHL").onclick=()=>{
- if(!confirm("要清除本篇所有螢光標記嗎？"))return;
- document.querySelectorAll("#articleBody mark.user-hl").forEach(unwrapMark);
- hideHLToolbar(true); saveBody(); toast("已清除本篇標記");
-};
-
-articleBodyEl.addEventListener("click",e=>{
- const anno=e.target.closest?.(".annotation-anchor,.inline-note-badge");
- if(anno){
-   const id=anno.dataset.noteId; if(id)openAnnotationModal(id);
-   return;
- }
- const mark=e.target.closest?.("mark.user-hl");
- if(!mark)return;
- activeMark=mark;
- const r=document.createRange();r.selectNodeContents(mark);savedRange=r;
- showHLToolbar();
-});
-articleBodyEl.addEventListener("mouseup",()=>setTimeout(captureArticleSelection,0));
-articleBodyEl.addEventListener("touchend",()=>setTimeout(captureArticleSelection,80));
-
-
-document.getElementById("newArticle").onclick=()=>openArticleModal("new");
-document.getElementById("editArticle").onclick=()=>openArticleModal("edit");
-document.getElementById("manualImportBtn").onclick=()=>{setImportStatus("可直接貼上或輸入文章內容。");document.getElementById("articleContentInput").focus()};
-document.getElementById("clipboardImportBtn").onclick=importFromClipboard;
-document.getElementById("urlImportBtn").onclick=()=>{setImportStatus("貼入文章網址後按「讀取網址」。");document.getElementById("articleSourceUrlInput").focus()};
-document.getElementById("fetchArticleUrl").onclick=fetchArticleFromUrl;
-document.getElementById("articleFileInput").addEventListener("change",async e=>{const f=e.target.files?.[0];await importArticleFile(f);e.target.value=""});
-document.getElementById("iphoneShareBtn").onclick=()=>{const el=document.getElementById("iphoneShareHelp");el.classList.toggle("show");setImportStatus(el.classList.contains("show")?"iPhone 分享接收端已就緒；需再設定一次捷徑分享動作。":"")};
-document.getElementById("saveArticle").onclick=saveArticleFromModal;
-document.getElementById("articleTitleInput").addEventListener("input",scheduleAutoTopic);
-document.getElementById("articleContentInput").addEventListener("input",scheduleAutoTopic);
-document.getElementById("articleTopicInput").addEventListener("input",()=>{topicManualEdited=true;setTopicAutoHint("已改為手動主題；之後不會自動覆蓋。要重新分析請按「✨ 自動判斷」。",false)});
-document.getElementById("autoTopicBtn").onclick=()=>{topicManualEdited=false;applyAutoTopic(true)};
-document.getElementById("cancelArticle").onclick=closeArticleModal;
-document.getElementById("deleteArticle").onclick=deleteCurrentArticle;
-document.getElementById("articleModal").addEventListener("click",e=>{if(e.target.id==="articleModal")closeArticleModal()});
-
-document.getElementById("annotationToggle").onclick=()=>{
- const section=document.getElementById("annotationSection");
- setAnnotationExpanded(section.classList.contains("collapsed"));
-};
-document.getElementById("note").addEventListener("input",e=>{
- localStorage.setItem(key("note",currentId),e.target.value);
-});
-document.getElementById("search").addEventListener("input",e=>renderList(e.target.value));
-document.getElementById("showTerms").onclick=()=>{
- const rb=document.getElementById("rightbar");
- if(rb.classList.contains("open")){closeTerms();return;}
- document.getElementById("termPanel").innerHTML=
-   `<div class="term-title">名詞快速查</div>`+
-   Object.keys(terms).map(k=>`<div class="info-card" style="cursor:pointer" onclick="showTerm('${k}')"><h3>${terms[k].title}</h3><p>${terms[k].short}</p></div>`).join("");
- openTerms();
-};
-document.getElementById("closeTerms").onclick=closeTerms;
-document.getElementById("drawerBackdrop").onclick=closeTerms;
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeTerms();closeAnnotationModal();closeArticleModal();hideHLToolbar(true);}});
-
-const mobileSel=document.getElementById("mobileArticleSelect");
-if(mobileSel){
-  mobileSel.value=currentId;
-  mobileSel.addEventListener("change",e=>{
-    currentId=e.target.value;
-    localStorage.setItem("fin-current",currentId);
-    renderArticle();renderList();
-  });
+save();
+alert('已儲存');
 }
-renderList();renderMobileArticleSelect();renderArticle();
-setTimeout(consumeSharedArticleParams,0);
+function renderHistory(){
+let s=hStart.value,e=hEnd.value;
+let f=db.foods.filter(x=>x.date>=s&&x.date<=e);
+let ex=db.exercise.filter(x=>x.date>=s&&x.date<=e);
+let days=[...new Set([...f.map(x=>x.date),...ex.map(x=>x.date)])].sort().reverse();
+historyList.innerHTML=days.length?days.map(d=>{
+const foods=f.filter(v=>v.date===d).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
+const mins=ex.filter(v=>v.date===d).reduce((a,b)=>a+num(b.minutes),0);
+return `<div class="item"><b>${d}</b><div class="small">飲食 ${foods.length} 筆・運動 ${mins} 分鐘</div>${foods.map(v=>`<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.meal)}・${esc(v.time||'')}・${esc(v.qty||'')} ${esc(v.unit||'')}・${esc(v.kcal||'—')} kcal</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`).join('')}</div>`;
+}).join(''):'<div class="empty">無資料</div>';
+}
+function printHistory(){
+let s=hStart.value;
+let e=hEnd.value;
+let f=
+db.foods.filter(x=>
+x.date>=s &&
+x.date<=e
+);
+let x=
+db.exercise.filter(x=>
+x.date>=s &&
+x.date<=e
+);
+printContent.innerHTML=
+`<h3>${s}～${e}</h3>
+<h4>飲食</h4>
+${f.map(v=>
+`<div>
+${v.date}
+${esc(v.meal)}
+${esc(v.food)}
+${esc(v.kcal)} kcal
+</div>`
+).join('')}
+<h4>運動</h4>
+${x.map(v=>
+`<div>
+${v.date}
+${esc(v.type)}
+${esc(v.class)}
+${esc(v.minutes)} 分鐘
+</div>`
+).join('')}`;
+window.print();
+}
+function renderStats(){
+statFoods.textContent=
+db.foods.length;
+statDays.textContent=
+new Set(
+db.foods.map(x=>x.date)
+).size;
+statEx.textContent=
+Math.round(
+db.exercise.reduce(
+(a,b)=>a+num(b.minutes),
+0
+)
+);
+statBody.textContent=
+db.body.length;
+bodyList.innerHTML=
+[...db.body]
+.sort((a,b)=>
+b.date.localeCompare(a.date)
+)
+.map(x=>`
+<div class="item">
+<b>${x.date}</b>
+<div class="small">
+體重 ${esc(x.weight||'—')} kg・
+體脂 ${esc(x.fat||'—')} %・
+腰圍 ${esc(x.waist||'—')} cm
+</div>
+</div>
+`).join('')
+||
+'<div class="empty">尚無資料</div>';
+}
+function renderReminder(){
+let f=
+db.foods.filter(x=>
+x.date===dn()
+);
+let k=
+f.reduce(
+(a,b)=>a+num(b.kcal),
+0
+);
+let p=
+f.reduce(
+(a,b)=>a+num(b.protein),
+0
+);
+let g=
+num(db.settings.goalKcal);
+let gp=
+num(db.settings.goalProtein);let w=
+num(db.settings.warnPercent)||80;
+let m=[];
+if(g){
+let q=
+k/g*100;
+m.push(
+q>=100
+?`今天約 ${Math.round(k)} kcal，已達設定目標。`
+:q>=w
+?`今天約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
+:`今天約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
+);
+}else{
+m.push('尚未設定每日熱量目標。');
+}
+if(gp){
+m.push(
+p>=gp
+?`蛋白質約 ${p.toFixed(1)} g，已達目標。`
+:`蛋白質約 ${p.toFixed(1)} g，距目標約 ${(gp-p).toFixed(1)} g。`
+);
+}
+reminder.textContent=
+m.join(' ');
+}
+function loadSettings(){
+goalKcal.value=
+db.settings.goalKcal;
+goalProtein.value=
+db.settings.goalProtein;
+warnPercent.value=
+db.settings.warnPercent;
+summaryTime.value=
+db.settings.summaryTime;
+lockMinutes.value=
+db.settings.lockMinutes;
+loadCloudFields();
+}
+function saveSettings(){
+db.settings.goalKcal=
+goalKcal.value;
+db.settings.goalProtein=
+goalProtein.value;
+db.settings.warnPercent=
+warnPercent.value||'80';
+db.settings.summaryTime=
+summaryTime.value||'20:30';
+db.settings.lockMinutes=
+lockMinutes.value||'5';
+save();
+renderReminder();
+alert('已儲存');
+}
+async function hashPin(v){
+let h=
+await crypto.subtle.digest(
+'SHA-256',
+new TextEncoder().encode(v)
+);
+return [
+...new Uint8Array(h)
+]
+.map(x=>
+x.toString(16).padStart(2,'0')
+)
+.join('');
+}
+async function setPin(){
+let v=
+newPin.value.trim();
+if(!/^\d{4,6}$/.test(v)){
+alert('請輸入 4～6 位數字');
+return;
+}
+db.settings.pinHash=
+await hashPin(v);
+db.settings.lockMinutes=
+lockMinutes.value||'5';
+save();
+newPin.value='';
+alert('PIN 已啟用');
+}
+function disablePin(){
+db.settings.pinHash='';
+save();
+lock.classList.remove('show');
+alert('PIN 已停用');
+}
+async function unlockApp(){
+if(
+await hashPin(unlockPin.value)
+===
+db.settings.pinHash
+){
+lock.classList.remove('show');
+unlockPin.value='';
+}else{
+alert('PIN 錯誤');
+}
+}
+function forgotPin(){
+if(
+confirm(
+'忘記 PIN 需要清除這個瀏覽器中的所有資料，確定嗎？'
+)
+){
+localStorage.removeItem(K);
+indexedDB.deleteDatabase('foodphotos');
+location.reload();
+}
+}
+document.addEventListener(
+'visibilitychange',
+()=>{
+if(document.hidden){
+db.settings.lastHidden=
+Date.now();
+save();
+}else if(
+db.settings.pinHash &&
+Date.now()-
+(db.settings.lastHidden||0)
+>
+num(db.settings.lockMinutes)*60000
+){
+lock.classList.add('show');
+}
+}
+);
+function exportBackup(){
+let b=
+new Blob(
+[
+JSON.stringify(
+db,
+null,
+2
+)
+],
+{
+type:'application/json'
+}
+);
+let a=
+document.createElement('a');
+a.href=
+URL.createObjectURL(b);
+a.download=
+`飲食紀錄備份_${dn()}.json`;
+a.click();
+}
+function importBackup(e){
+let f=
+e.target.files[0];
+if(!f)return;
+let r=
+new FileReader();
+r.onload=()=>{
+try{
+const imported=
+JSON.parse(r.result);
+db={
+...D,
+...imported,
+settings:{
+...D.settings,
+...(imported.settings||{})
+}
+};
+save();
+location.reload();
+}catch{
+alert('備份格式錯誤');
+}
+};
+r.readAsText(f);
+}
+async function init(){
+await migrateLegacyPhotoData();
+let d=dn();
+fDate.value=
+bDate.value=
+eDate.value=
+hStart.value=
+hEnd.value=
+mConfirmed.value=
+d;
+fTime.value=
+eStart.value=
+tn();
+updateFoodQtyLabel();
+autoClass();
+renderToday();
+renderExercise();
+renderStats();
+loadSettings();
+loadCloudFields();
+if(db.settings.pinHash){
+const elapsed=Date.now()-(db.settings.lastHidden||Date.now());
+if(elapsed>num(db.settings.lockMinutes)*60000){
+lock.classList.add('show');
+setTimeout(()=>{
+if(window.foodlogFaceId?.unlock && localStorage.getItem('foodlog_faceid_credential_v1')){
+window.foodlogFaceId.unlock();
+}
+},350);
+}
+}
+setTimeout(()=>autoRestoreAndSyncCloud('開啟網頁'),300);
+}
+/*
+==================================================
+重要修正
+暫時移除舊 Service Worker
+避免 iPhone / GitHub Pages 持續使用舊版頁面
+==================================================
+*/
+if('serviceWorker' in navigator){
+window.addEventListener('load',async()=>{
+try{
+const registrations=
+await navigator.serviceWorker.getRegistrations();
+for(const registration of registrations){
+if(location.href.startsWith(registration.scope)){
+await registration.unregister();
+}
+}
+/*
+如果目前這一頁仍然被舊 Service Worker 控制，
+自動重新載入一次。
+*/
+if(
+navigator.serviceWorker.controller &&
+!sessionStorage.getItem('foodlog_sw_cleanup')
+){
+sessionStorage.setItem(
+'foodlog_sw_cleanup',
+'1'
+);
+location.reload();
+}
+}catch(err){
+console.log(
+'Service Worker 清除失敗',
+err
+);
+}
+});
+}
+init();
+</script>
+
+<script>
+/* iPhone Face ID／Passkey 本機解鎖；PIN 保留為備用。 */
+(() => {
+  'use strict';
+
+  const CRED_KEY = 'foodlog_faceid_credential_v1';
+  const USER_KEY = 'foodlog_faceid_user_v1';
+
+  const $ = (id) => document.getElementById(id);
+
+  function supported() {
+    return !!(
+      window.isSecureContext &&
+      window.PublicKeyCredential &&
+      navigator.credentials &&
+      navigator.credentials.create &&
+      navigator.credentials.get
+    );
+  }
+
+  function b64urlToBytes(s) {
+    s = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const bin = atob(s);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function bytesToB64url(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  function randomBytes(n) {
+    return crypto.getRandomValues(new Uint8Array(n));
+  }
+
+  function hasPin() {
+    try {
+      return !!(typeof db !== 'undefined' && db.settings && db.settings.pinHash);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function hasFaceId() {
+    return !!localStorage.getItem(CRED_KEY);
+  }
+
+  async function platformAuthenticatorAvailable() {
+    if (!supported()) return false;
+    try {
+      if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function unlockScreen() {
+    const lockEl = $('lock');
+    if (lockEl) lockEl.classList.remove('show');
+    const pin = $('unlockPin');
+    if (pin) pin.value = '';
+  }
+
+  async function enableFaceId() {
+    if (!supported()) {
+      alert('目前這個瀏覽器無法使用 Face ID／Passkey。請使用 iPhone Safari 或從主畫面開啟此網站。');
+      return;
+    }
+
+        if (!(await platformAuthenticatorAvailable())) {
+      alert('這台裝置目前沒有可用的 Face ID／Touch ID／裝置驗證器。');
+      return;
+    }
+
+    try {
+      let userId = localStorage.getItem(USER_KEY);
+      if (!userId) {
+        userId = bytesToB64url(randomBytes(16));
+        localStorage.setItem(USER_KEY, userId);
+      }
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: randomBytes(32),
+          rp: { name: '飲食紀錄' },
+          user: {
+            id: b64urlToBytes(userId),
+            name: 'foodlog-local-user',
+            displayName: '飲食紀錄使用者'
+          },
+          pubKeyCredParams: [
+            { type: 'public-key', alg: -7 },
+            { type: 'public-key', alg: -257 }
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            residentKey: 'required',
+            requireResidentKey: true,
+            userVerification: 'required'
+          },
+          timeout: 60000,
+          attestation: 'none'
+        }
+      });
+
+      if (!credential) throw new Error('未建立憑證');
+
+      // credential.id 就是 rawId 的 base64url 表示，可直接保存供下一次 allowCredentials 使用。
+      localStorage.setItem(CRED_KEY, credential.id);
+      refreshUI();
+      alert('Face ID 已啟用。下次鎖定後可直接使用 Face ID 解鎖。');
+    } catch (err) {
+      if (err && err.name === 'NotAllowedError') return;
+      console.error('Face ID 啟用失敗', err);
+      alert('Face ID 啟用失敗。請確認是從 HTTPS 的正式網站開啟，並允許 iPhone 使用 Passkey／Face ID。');
+    }
+  }
+
+  async function unlockWithFaceId() {
+    const credentialId = localStorage.getItem(CRED_KEY);
+    if (!supported()) {
+      alert('目前這個瀏覽器無法使用 Face ID／Passkey，請改用 PIN。');
+      return;
+    }
+
+    try {
+      const publicKey={
+        challenge: randomBytes(32),
+        userVerification: 'required',
+        timeout: 60000
+      };
+      if(credentialId){
+        publicKey.allowCredentials=[{type:'public-key',id:b64urlToBytes(credentialId),transports:['internal']}];
+      }
+      const credential = await navigator.credentials.get({ publicKey });
+
+      if (!credential) throw new Error('未取得憑證');
+
+      // 對這個純靜態本機鎖而言，成功取得「同一網站、同一 credential ID、且要求 userVerification」
+      // 的 assertion 後即解除畫面鎖。正式網路帳號登入仍應把 assertion 送至伺服器驗簽。
+      unlockScreen();
+    } catch (err) {
+      if (err && err.name === 'NotAllowedError') return;
+      console.error('Face ID 解鎖失敗', err);
+      alert('Face ID 解鎖失敗，請改用 PIN。');
+    }
+  }
+
+  function disableFaceId(showAlert = true) {
+    localStorage.removeItem(CRED_KEY);
+    refreshUI();
+    if (showAlert) alert('Face ID 已停用。');
+  }
+
+  function injectLockButton() {
+    const box = document.querySelector('#lock .lockbox');
+    if (!box || $('faceIdUnlockBtn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'faceIdUnlockBtn';
+    btn.className = 'primary';
+    btn.type = 'button';
+    btn.textContent = '🔐 使用 Face ID 解鎖';
+    btn.style.cssText = 'width:100%;margin:4px 0 12px;padding:13px 14px;';
+    btn.addEventListener('click', unlockWithFaceId);
+
+    const pin = $('unlockPin');
+    if (pin) box.insertBefore(btn, pin);
+    else box.appendChild(btn);
+  }
+
+  function injectSettingsCard() {
+    const settings = $('settings');
+    if (!settings || $('faceIdSettingsCard')) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'faceIdSettingsCard';
+    card.innerHTML = `
+      <div class="itemtitle">🔐 Face ID／裝置驗證</div>
+      <div id="faceIdStatus" class="note" style="margin-top:8px"></div>
+      <div class="btnrow" style="margin-top:10px">
+        <button id="enableFaceIdBtn" class="primary" type="button">啟用 Face ID</button>
+        <button id="disableFaceIdBtn" class="danger" type="button">停用 Face ID</button>
+      </div>
+      <div class="note" style="margin-top:10px">
+        iPhone 會透過 Passkey／WebAuthn 叫出 Face ID；原本 PIN 會保留作為備用。
+        本功能是這個 GitHub Pages 靜態網站的本機畫面鎖，不等同伺服器帳號登入。
+      </div>`;
+
+    const cards = settings.querySelectorAll(':scope > .card');
+    if (cards.length >= 2) cards[1].after(card);
+    else settings.appendChild(card);
+
+    $('enableFaceIdBtn').addEventListener('click', enableFaceId);
+    $('disableFaceIdBtn').addEventListener('click', () => disableFaceId(true));
+  }
+
+  async function refreshUI() {
+    const enabled = hasFaceId();
+    const unlockBtn = $('faceIdUnlockBtn');
+    if (unlockBtn) unlockBtn.style.display = supported() ? '' : 'none';
+
+    const status = $('faceIdStatus');
+    if (status) {
+      if (!supported()) {
+        status.textContent = '目前環境不支援 WebAuthn／Passkey。請用 iPhone Safari 或主畫面 App，並確認網址是 HTTPS。';
+      } else if (enabled) {
+        status.textContent = '狀態：已啟用。鎖定畫面可使用 Face ID 解鎖。';
+      } else {
+        const platform = await platformAuthenticatorAvailable();
+        status.textContent = platform
+          ? '狀態：可啟用 Face ID；PIN 僅作備用，不是必要條件。'
+          : '狀態：此裝置目前沒有可用的 Face ID／Touch ID／裝置驗證器。';
+      }
+    }
+
+    const off = $('disableFaceIdBtn');
+    if (off) off.style.display = enabled ? '' : 'none';
+  }
+
+  function patchPinDisable() {
+    // PIN 只是備用方式；停用 PIN 不會連帶停用已建立的 Face ID／Passkey。
+    if (typeof window.disablePin === 'function' && !window.disablePin.__faceIdPatched) {
+      const original = window.disablePin;
+      const wrapped = function (...args) {
+        const result = original.apply(this, args);
+        refreshUI();
+        return result;
+      };
+      wrapped.__faceIdPatched = true;
+      window.disablePin = wrapped;
+    }
+  }
+
+  function ensureLockWhenNeeded() {
+    // Face ID／Passkey 可獨立使用；PIN 僅作備用，不強制綁定。
+  }
+
+  function start() {
+    injectLockButton();
+    injectSettingsCard();
+    patchPinDisable();
+    ensureLockWhenNeeded();
+    refreshUI();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+
+  // 方便除錯或未來維護，不影響一般使用。
+  window.foodlogFaceId = {
+    enable: enableFaceId,
+    unlock: unlockWithFaceId,
+    disable: disableFaceId,
+    refresh: refreshUI
+  };
+})();
 </script>
 </body>
 </html>
