@@ -2253,6 +2253,29 @@ function inferKnowledgeCategory(text){
   return '未分類';
 }
 
+function legacyCopyKnowledgeText(text){
+  let ta=null;
+  try{
+    ta=document.createElement('textarea');
+    ta.value=text;
+    ta.setAttribute('readonly','');
+    ta.setAttribute('aria-hidden','true');
+    ta.style.position='fixed';
+    ta.style.left='-9999px';
+    ta.style.top='0';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.focus({preventScroll:true});
+    ta.select();
+    ta.setSelectionRange(0,ta.value.length);
+    return !!document.execCommand('copy');
+  }catch(e){
+    return false;
+  }finally{
+    if(ta?.parentNode)ta.parentNode.removeChild(ta);
+  }
+}
+
 async function copyKnowledgePrompt(){
   const raw=(document.getElementById('kRaw')?.value||'').trim();
   if(!raw){alert('請先把原始聊天內容貼進來');return;}
@@ -2281,8 +2304,45 @@ async function copyKnowledgePrompt(){
 
 原始聊天內容：
 ${raw}`;
-  const ok=await copyAIFormat(prompt);
-  alert(ok?'已複製整理指令。請貼到 ChatGPT，取得整理結果後再貼回這裡。':'複製失敗，請手動選取文字。');
+
+  const btn=[...document.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='copyKnowledgePrompt()');
+  const originalText=btn?.textContent||'📋 複製給 ChatGPT 整理';
+  if(btn){btn.disabled=true;btn.textContent='⏳ 複製中…';}
+
+  let ok=legacyCopyKnowledgeText(prompt);
+
+  if(!ok && navigator.clipboard?.writeText){
+    try{
+      await Promise.race([
+        navigator.clipboard.writeText(prompt),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('clipboard timeout')),1500))
+      ]);
+      ok=true;
+    }catch(e){}
+  }
+
+  if(btn){
+    btn.disabled=false;
+    btn.textContent=ok?'✅ 已複製，可到 ChatGPT 貼上':originalText;
+    setTimeout(()=>{if(btn)btn.textContent=originalText;},2200);
+  }
+
+  if(ok){
+    alert(`✅ 已複製整理指令。\n\n請切換到 ChatGPT，直接貼上送出；ChatGPT 整理完成後，再把結果貼回「ChatGPT 整理結果」。`);
+    return;
+  }
+
+  try{
+    if(navigator.share){
+      await navigator.share({title:'飲食知識整理',text:prompt});
+      if(btn){btn.textContent='✅ 已開啟分享';setTimeout(()=>btn.textContent=originalText,2200);}
+      return;
+    }
+  }catch(e){
+    if(e?.name==='AbortError')return;
+  }
+
+  alert('這個瀏覽器目前限制了自動複製。請先長按「原始聊天內容」選取並複製，再到 ChatGPT 貼上；或改用 Safari 直接開啟此網頁後再試一次。');
 }
 
 async function pasteKnowledgeAI(){
@@ -2998,7 +3058,7 @@ init();
     try {
       let userId = localStorage.getItem(USER_KEY);
       if (!userId) {
-        userId = bytesToB64url(randomBytes(16));
+userId = bytesToB64url(randomBytes(16));
         localStorage.setItem(USER_KEY, userId);
       }
 
