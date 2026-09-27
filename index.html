@@ -9,14 +9,14 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 2026.09.26 master-dropdown-v1</title>
+<title>KYC 飲食與運動紀錄 v2026.09.27.1 knowledge-v1</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;background:var(--bg);color:var(--text)}
 .app{max-width:900px;margin:auto;padding:16px 14px 96px}
 .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
-.tabs{display:grid;grid-template-columns:repeat(7,1fr);position:fixed;left:0;right:0;bottom:0;background:#f5f6f8f2;padding:8px 5px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.tabs{display:grid;grid-template-columns:repeat(8,1fr);position:fixed;left:0;right:0;bottom:0;background:#f5f6f8f2;padding:8px 5px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
 .tabbtn{border:0;background:transparent;padding:9px 3px;border-radius:12px;font-size:10px;color:var(--muted)}
 .tabbtn.active{background:var(--accent);color:#fff}
 .section{display:none}
@@ -120,6 +120,32 @@ button{font:inherit}
 .master-option-add{padding:12px;border-top:1px solid var(--line);font-weight:750;color:#0a84ff;background:#f8fbff;cursor:pointer;position:sticky;bottom:0}
 .master-option-empty{padding:14px 12px;color:var(--muted);font-size:12px;text-align:center}
 
+
+/* 2026-09-27 KNOWLEDGE_V1: 飲食知識庫／聊天內容整理 */
+.knowledge-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.knowledge-toolbar input{flex:1 1 220px}
+.knowledge-toolbar select{flex:0 1 180px}
+.knowledge-card{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:10px;background:#fff}
+.knowledge-title{font-weight:800;font-size:16px}
+.knowledge-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.knowledge-summary{margin-top:8px;line-height:1.55}
+.knowledge-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.knowledge-box{background:var(--soft);border-radius:12px;padding:10px}
+.knowledge-box b{display:block;font-size:12px;margin-bottom:4px}
+.knowledge-box div{white-space:pre-wrap;line-height:1.5;font-size:13px}
+.knowledge-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.knowledge-tag{display:inline-block;background:var(--soft);border-radius:999px;padding:4px 8px;font-size:11px;color:var(--muted)}
+.knowledge-detail{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.knowledge-detail summary{cursor:pointer;font-size:12px;color:var(--muted);font-weight:700}
+.knowledge-raw{white-space:pre-wrap;line-height:1.55;font-size:13px;margin-top:8px;background:#fafafa;border-radius:10px;padding:10px}
+.knowledge-form-note{padding:10px;border-radius:12px;background:#f8fbff;color:#315170;font-size:12px;line-height:1.5}
+.knowledge-editing{display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:12px}
+@media(max-width:700px){
+  .knowledge-grid{grid-template-columns:1fr}
+  .tabs{grid-template-columns:repeat(8,1fr)}
+  .tabbtn{font-size:9px;padding:9px 1px}
+}
+
 </style>
 </head>
 <body>
@@ -149,6 +175,7 @@ button{font:inherit}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.27.1</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -507,6 +534,143 @@ style="margin-top:10px">
 </details>
 </div>
 </section>
+
+<section id="knowledge" class="section">
+  <div class="card">
+    <div class="itemtitle">🧠 飲食知識庫</div>
+    <div class="note" style="margin-top:6px">
+      以前和 ChatGPT 討論過的飲食建議可直接貼進來。保留完整原文，同時整理成「摘要／情境／適用條件／注意事項」，之後搜尋會比較快。
+    </div>
+
+    <details id="knowledgeFormDetails" class="fold">
+      <summary>新增／整理一筆飲食知識</summary>
+      <div class="fold-body">
+        <div class="knowledge-form-note">
+          最省事的方式：把原本聊天內容完整貼到「原始聊天內容」，按「複製給 ChatGPT 整理」；ChatGPT 回覆後貼到「整理結果」，再按「套用整理結果」。原始聊天不會被刪掉。
+        </div>
+
+        <label style="margin-top:12px">原始聊天內容（可很長）</label>
+        <textarea id="kRaw" style="min-height:180px" placeholder="直接貼上以前和 ChatGPT 的完整聊天內容，不用先自己整理。"></textarea>
+
+        <div class="btnrow" style="margin-top:8px">
+          <button class="secondary" type="button" onclick="copyKnowledgePrompt()">📋 複製給 ChatGPT 整理</button>
+          <button class="secondary" type="button" onclick="pasteKnowledgeAI()">貼上整理結果</button>
+        </div>
+
+        <label style="margin-top:12px">ChatGPT 整理結果</label>
+        <textarea id="kAIText" style="min-height:150px" placeholder="標題：
+類型：
+情境：
+摘要：
+建議：
+適用條件：
+注意事項：
+原食物：
+替代食物：
+替代份量：
+關鍵字："></textarea>
+        <button class="primary" style="margin-top:8px" type="button" onclick="applyKnowledgeAI()">套用整理結果</button>
+
+        <div class="grid" style="margin-top:14px">
+          <div class="full">
+            <label>標題</label>
+            <input id="kTitle" placeholder="例如：晚間運動後補充建議">
+          </div>
+          <div>
+            <label>類型</label>
+            <select id="kType">
+              <option>一般規則</option>
+              <option>情境案例</option>
+              <option>食物替換</option>
+              <option>餐點搭配</option>
+              <option>其他</option>
+            </select>
+          </div>
+          <div>
+            <label>主要情境</label>
+            <select id="kCategory">
+              <option>未分類</option>
+              <option>早餐</option>
+              <option>午餐</option>
+              <option>晚餐</option>
+              <option>下午點心</option>
+              <option>外食</option>
+              <option>便利商店</option>
+              <option>加班</option>
+              <option>運動前</option>
+              <option>運動後</option>
+              <option>減脂</option>
+              <option>其他</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>摘要</label>
+            <textarea id="kSummary" placeholder="平常搜尋列表先看到這一段，建議保持精簡。"></textarea>
+          </div>
+          <div class="full">
+            <label>建議內容</label>
+            <textarea id="kAdvice" placeholder="實際建議怎麼吃、怎麼搭配、怎麼替換。"></textarea>
+          </div>
+          <div class="full">
+            <label>適用條件／情境</label>
+            <textarea id="kConditions" placeholder="例如：晚餐距離運動結束約 5 小時、當天已攝取較多豆漿。"></textarea>
+          </div>
+          <div class="full">
+            <label>注意事項</label>
+            <textarea id="kCaution" placeholder="例如：這是特定當天的判斷，不代表每天都要省略豆漿。"></textarea>
+          </div>
+          <div>
+            <label>原食物</label>
+            <input id="kFromFood" placeholder="例如：雞胸肉">
+          </div>
+          <div>
+            <label>替代食物</label>
+            <input id="kToFood" placeholder="例如：麥克雞塊／茶葉蛋">
+          </div>
+          <div>
+            <label>替代份量</label>
+            <input id="kReplacementQty" placeholder="例如：1 份／100 g">
+          </div>
+          <div>
+            <label>關鍵字</label>
+            <input id="kKeywords" placeholder="用逗號分隔，例如：乳清,香蕉,運動後">
+          </div>
+        </div>
+
+        <div id="knowledgeEditNotice" class="knowledge-editing">目前正在修改既有知識。</div>
+        <div class="btnrow" style="margin-top:10px">
+          <button id="saveKnowledgeBtn" class="primary" type="button" onclick="saveKnowledge()">儲存知識</button>
+          <button id="cancelKnowledgeEditBtn" class="secondary" style="display:none" type="button" onclick="clearKnowledgeForm()">取消修改</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="itemtitle">查詢知識</div>
+    <div class="knowledge-toolbar">
+      <input id="knowledgeSearch" placeholder="搜尋：豆漿、優格、加班、運動後…" oninput="renderKnowledge()">
+      <select id="knowledgeFilter" onchange="renderKnowledge()">
+        <option value="">全部情境</option>
+        <option>早餐</option>
+        <option>午餐</option>
+        <option>晚餐</option>
+        <option>下午點心</option>
+        <option>外食</option>
+        <option>便利商店</option>
+        <option>加班</option>
+        <option>運動前</option>
+        <option>運動後</option>
+        <option>減脂</option>
+        <option>其他</option>
+        <option>未分類</option>
+      </select>
+    </div>
+    <div id="knowledgeCount" class="note" style="margin-top:8px">共 0 筆</div>
+    <div id="knowledgeList"></div>
+  </div>
+</section>
+
 <section id="history" class="section">
 <div class="card">
 <div class="itemtitle">歷史紀錄</div>
@@ -657,6 +821,9 @@ style="margin-top:10px">
 <button class="tabbtn" data-tab="fooddb" onclick="goTab('fooddb')">
 食品庫
 </button>
+<button class="tabbtn" data-tab="knowledge" onclick="goTab('knowledge')">
+知識
+</button>
 <button class="tabbtn" data-tab="history" onclick="goTab('history')">
 紀錄
 </button>
@@ -674,6 +841,8 @@ foods:[],
 body:[],
 exercise:[],
 masters:[],
+knowledge:[],
+deletedKnowledge:[],
 deletedFoods:[],
 settings:{
 goalKcal:'',
@@ -693,6 +862,7 @@ editingFoodId='',
 masterPhoto=null,
 masterPhotoKind='',
 masterPhotoURL=null,
+editingKnowledgeId='',
 returnToFoodAfterMasterCreate=false;
 function load(){
 try{
@@ -822,6 +992,9 @@ await uploadLocalCloud();
 let photoResult={uploaded:0,failed:0,message:''};
 try{photoResult=await uploadAllLocalPhotos();}
 catch(e){photoResult={uploaded:0,failed:1,message:e?.message||String(e)}}
+let knowledgeResult={ok:false,count:(db.knowledge||[]).length,message:''};
+try{knowledgeResult=await syncKnowledgeCloud();}
+catch(e){knowledgeResult={ok:false,count:(db.knowledge||[]).length,message:e?.message||String(e)}}
 cloudSuppress=true;
 await pullCloudTable('food_logs','foods');
 await pullCloudTable('body_logs','body');
@@ -834,11 +1007,15 @@ localStorage.setItem(cloudReadyKey(),'1');
 cloudSuppress=false;
 await renderToday();
 await renderMasters();
+renderKnowledge();
 renderHistory();
 const photoMsg=photoResult.failed
 ?`；照片雲端尚未完成：${photoResult.message||photoResult.failed+' 筆失敗'}`
 :`、照片已同步 ${photoResult.uploaded||0} 筆`;
-setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆${photoMsg}。`);
+const knowledgeMsg=knowledgeResult.ok
+?`、知識 ${knowledgeResult.count||0} 筆`
+:`；知識庫雲端同步暫未完成${knowledgeResult.message?`：${knowledgeResult.message}`:''}`;
+setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆${knowledgeMsg}${photoMsg}。`);
 }catch(e){
 cloudSuppress=false;
 setCloudStatus('同步失敗：'+e.message);
@@ -901,6 +1078,7 @@ document.querySelector(`[data-tab="${id}"]`)?.classList.add('active');
 if(id==='today')renderToday();
 if(id==='exercise')renderExercise();
 if(id==='fooddb')renderMasters();
+if(id==='knowledge')renderKnowledge();
 if(id==='history')renderHistory();
 if(id==='stats')renderStats();
 if(id==='settings')loadSettings();
@@ -2006,6 +2184,328 @@ return;
 }
 setMasterNutritionByFactor(x,factor);
 }
+
+/* ==================================================
+   KNOWLEDGE_V1
+   飲食知識庫：原始聊天保留 + 結構化摘要查詢
+   ================================================== */
+function knowledgeSectionVal(t,key){
+  const keys=['標題','類型','情境','摘要','建議','適用條件','注意事項','原食物','替代食物','替代份量','關鍵字'];
+  const lines=String(t||'').replace(/\r/g,'').split('\n');
+  let start=-1;
+  for(let i=0;i<lines.length;i++){
+    if(new RegExp('^\\s*'+key+'\\s*[:：]').test(lines[i])){start=i;break;}
+  }
+  if(start<0)return '';
+  const first=lines[start].replace(new RegExp('^\\s*'+key+'\\s*[:：]\\s*'),'');
+  const out=[first];
+  for(let i=start+1;i<lines.length;i++){
+    const isNext=keys.some(k=>new RegExp('^\\s*'+k+'\\s*[:：]').test(lines[i]));
+    if(isNext)break;
+    out.push(lines[i]);
+  }
+  return out.join('\n').trim();
+}
+
+function inferKnowledgeCategory(text){
+  const s=String(text||'');
+  const rules=[
+    ['運動後',/運動後|重訓後|有氧後|訓練後/],
+    ['運動前',/運動前|重訓前|有氧前|訓練前/],
+    ['加班',/加班|晚下班/],
+    ['便利商店',/便利商店|超商|7-11|全家/],
+    ['外食',/外食|早餐店|便當店|餐廳/],
+    ['早餐',/早餐/],
+    ['午餐',/午餐|中午/],
+    ['晚餐',/晚餐|晚上/],
+    ['下午點心',/下午點心|點心/],
+    ['減脂',/減脂|減重|熱量赤字/]
+  ];
+  for(const [name,re] of rules)if(re.test(s))return name;
+  return '未分類';
+}
+
+async function copyKnowledgePrompt(){
+  const raw=(document.getElementById('kRaw')?.value||'').trim();
+  if(!raw){alert('請先把原始聊天內容貼進來');return;}
+  const prompt=`請把下面這段飲食聊天整理成可存入「飲食知識庫」的資料。
+
+整理原則：
+1. 不要把特定一天的判斷誤寫成永久規則。
+2. 若內容依賴「當天吃了多少、幾點吃、是否運動」等條件，請清楚寫進「適用條件」。
+3. 「摘要」請保持精簡，方便日後搜尋時快速閱讀。
+4. 「建議」保留實際可執行的食物、份量、時間或替換方式。
+5. 如果內容不是食物替換，原食物／替代食物／替代份量可留白。
+6. 不確定的內容不要自行補寫。
+7. 請只用以下格式輸出：
+
+標題：
+類型：一般規則／情境案例／食物替換／餐點搭配／其他
+情境：早餐／午餐／晚餐／下午點心／外食／便利商店／加班／運動前／運動後／減脂／其他／未分類
+摘要：
+建議：
+適用條件：
+注意事項：
+原食物：
+替代食物：
+替代份量：
+關鍵字：
+
+原始聊天內容：
+${raw}`;
+  const ok=await copyAIFormat(prompt);
+  alert(ok?'已複製整理指令。請貼到 ChatGPT，取得整理結果後再貼回這裡。':'複製失敗，請手動選取文字。');
+}
+
+async function pasteKnowledgeAI(){
+  try{
+    document.getElementById('kAIText').value=await navigator.clipboard.readText();
+  }catch(e){
+    alert('請長按「ChatGPT 整理結果」文字框後選「貼上」');
+  }
+}
+
+function applyKnowledgeAI(){
+  const t=document.getElementById('kAIText').value||'';
+  if(!t.trim()){alert('請先貼上 ChatGPT 整理結果');return;}
+  const map={
+    kTitle:'標題',
+    kType:'類型',
+    kCategory:'情境',
+    kSummary:'摘要',
+    kAdvice:'建議',
+    kConditions:'適用條件',
+    kCaution:'注意事項',
+    kFromFood:'原食物',
+    kToFood:'替代食物',
+    kReplacementQty:'替代份量',
+    kKeywords:'關鍵字'
+  };
+  for(const [id,key] of Object.entries(map)){
+    const el=document.getElementById(id);if(!el)continue;
+    const v=knowledgeSectionVal(t,key);
+    if(v)el.value=v;
+  }
+  if(!kCategory.value || ![...kCategory.options].some(o=>o.value===kCategory.value)){
+    kCategory.value=inferKnowledgeCategory(t+' '+(kRaw.value||''));
+  }
+  alert('已套用整理結果，請快速確認後再儲存。');
+}
+
+function normalizeKnowledgeItem(x){
+  return {
+    id:String(x?.id||uid()),
+    title:String(x?.title||'').trim(),
+    type:String(x?.type||'其他').trim()||'其他',
+    category:String(x?.category||'未分類').trim()||'未分類',
+    summary:String(x?.summary||'').trim(),
+    advice:String(x?.advice||'').trim(),
+    conditions:String(x?.conditions||'').trim(),
+    caution:String(x?.caution||'').trim(),
+    fromFood:String(x?.fromFood||'').trim(),
+    toFood:String(x?.toFood||'').trim(),
+    replacementQty:String(x?.replacementQty||'').trim(),
+    keywords:String(x?.keywords||'').trim(),
+    raw:String(x?.raw||''),
+    createdAt:Number(x?.createdAt)||Date.now(),
+    updatedAt:Number(x?.updatedAt)||Date.now()
+  };
+}
+
+function clearKnowledgeForm(){
+  editingKnowledgeId='';
+  ['kRaw','kAIText','kTitle','kSummary','kAdvice','kConditions','kCaution','kFromFood','kToFood','kReplacementQty','kKeywords'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  if(document.getElementById('kType'))kType.value='一般規則';
+  if(document.getElementById('kCategory'))kCategory.value='未分類';
+  if(document.getElementById('saveKnowledgeBtn'))saveKnowledgeBtn.textContent='儲存知識';
+  if(document.getElementById('cancelKnowledgeEditBtn'))cancelKnowledgeEditBtn.style.display='none';
+  if(document.getElementById('knowledgeEditNotice'))knowledgeEditNotice.style.display='none';
+}
+
+function saveKnowledge(){
+  const title=(kTitle.value||'').trim();
+  const raw=(kRaw.value||'').trim();
+  if(!title && !raw){alert('至少要有標題或原始聊天內容');return;}
+  const now=Date.now();
+  const values=normalizeKnowledgeItem({
+    id:editingKnowledgeId||uid(),
+    title:title || ((kSummary.value||'').trim().slice(0,30) || '未命名飲食知識'),
+    type:kType.value,
+    category:kCategory.value || inferKnowledgeCategory(`${kTitle.value} ${kSummary.value} ${raw}`),
+    summary:kSummary.value,
+    advice:kAdvice.value,
+    conditions:kConditions.value,
+    caution:kCaution.value,
+    fromFood:kFromFood.value,
+    toFood:kToFood.value,
+    replacementQty:kReplacementQty.value,
+    keywords:kKeywords.value,
+    raw,
+    createdAt:now,
+    updatedAt:now
+  });
+  if(!Array.isArray(db.knowledge))db.knowledge=[];
+  const i=db.knowledge.findIndex(x=>String(x.id)===String(values.id));
+  if(i>=0){
+    values.createdAt=db.knowledge[i].createdAt||now;
+    db.knowledge[i]=values;
+  }else{
+    db.knowledge.push(values);
+  }
+  save();
+  clearKnowledgeForm();
+  renderKnowledge();
+  alert(i>=0?'知識已更新':'知識已儲存');
+}
+
+function editKnowledge(id){
+  const x=(db.knowledge||[]).find(v=>String(v.id)===String(id));if(!x)return;
+  editingKnowledgeId=String(x.id);
+  kRaw.value=x.raw||'';
+  kAIText.value='';
+  kTitle.value=x.title||'';
+  kType.value=[...kType.options].some(o=>o.value===x.type)?x.type:'其他';
+  kCategory.value=[...kCategory.options].some(o=>o.value===x.category)?x.category:'未分類';
+  kSummary.value=x.summary||'';
+  kAdvice.value=x.advice||'';
+  kConditions.value=x.conditions||'';
+  kCaution.value=x.caution||'';
+  kFromFood.value=x.fromFood||'';
+  kToFood.value=x.toFood||'';
+  kReplacementQty.value=x.replacementQty||'';
+  kKeywords.value=x.keywords||'';
+  saveKnowledgeBtn.textContent='更新知識';
+  cancelKnowledgeEditBtn.style.display='';
+  knowledgeEditNotice.style.display='block';
+  const d=document.getElementById('knowledgeFormDetails');if(d)d.open=true;
+  goTab('knowledge');
+  setTimeout(()=>d?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+
+function deleteKnowledge(id){
+  const x=(db.knowledge||[]).find(v=>String(v.id)===String(id));if(!x)return;
+  if(!confirm(`確定刪除「${x.title||'這筆知識'}」？`))return;
+  if(!Array.isArray(db.deletedKnowledge))db.deletedKnowledge=[];
+  if(!db.deletedKnowledge.some(v=>String(v.id)===String(x.id))){
+    db.deletedKnowledge.push({id:String(x.id),deletedAt:Date.now()});
+  }
+  db.knowledge=db.knowledge.filter(v=>String(v.id)!==String(id));
+  if(String(editingKnowledgeId)===String(id))clearKnowledgeForm();
+  save();
+  renderKnowledge();
+}
+
+function knowledgeCard(x){
+  const tags=[x.type,x.category,...String(x.keywords||'').split(/[,，、]/).map(s=>s.trim()).filter(Boolean)].filter(Boolean);
+  const replacement=(x.fromFood||x.toFood||x.replacementQty)
+    ?`<div class="knowledge-box"><b>食物替換</b><div>${x.fromFood?esc(x.fromFood):'—'} → ${x.toFood?esc(x.toFood):'—'}${x.replacementQty?`（${esc(x.replacementQty)}）`:''}</div></div>`
+    :'';
+  const raw=x.raw?`<details class="knowledge-detail"><summary>展開完整原始聊天</summary><div class="knowledge-raw">${esc(x.raw)}</div></details>`:'';
+  return `<div class="knowledge-card">
+    <div class="knowledge-title">${esc(x.title||'未命名飲食知識')}</div>
+    <div class="knowledge-meta">${esc(x.type||'')}・${esc(x.category||'未分類')}</div>
+    ${x.summary?`<div class="knowledge-summary">${esc(x.summary)}</div>`:''}
+    <div class="knowledge-tags">${tags.map(t=>`<span class="knowledge-tag">${esc(t)}</span>`).join('')}</div>
+    <div class="knowledge-grid">
+      ${x.advice?`<div class="knowledge-box"><b>建議</b><div>${esc(x.advice)}</div></div>`:''}
+      ${x.conditions?`<div class="knowledge-box"><b>適用條件</b><div>${esc(x.conditions)}</div></div>`:''}
+      ${x.caution?`<div class="knowledge-box"><b>注意事項</b><div>${esc(x.caution)}</div></div>`:''}
+      ${replacement}
+    </div>
+    ${raw}
+    <div class="record-actions"><button class="secondary" onclick="editKnowledge('${x.id}')">修改</button><button class="danger" onclick="deleteKnowledge('${x.id}')">刪除</button></div>
+  </div>`;
+}
+
+function renderKnowledge(){
+  const listEl=document.getElementById('knowledgeList');if(!listEl)return;
+  if(!Array.isArray(db.knowledge))db.knowledge=[];
+  const q=(document.getElementById('knowledgeSearch')?.value||'').trim().toLowerCase();
+  const filter=document.getElementById('knowledgeFilter')?.value||'';
+  let a=[...db.knowledge].map(normalizeKnowledgeItem);
+  a=a.filter(x=>{
+    if(filter && x.category!==filter)return false;
+    if(!q)return true;
+    return `${x.title} ${x.type} ${x.category} ${x.summary} ${x.advice} ${x.conditions} ${x.caution} ${x.fromFood} ${x.toFood} ${x.replacementQty} ${x.keywords} ${x.raw}`.toLowerCase().includes(q);
+  }).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const count=document.getElementById('knowledgeCount');
+  if(count)count.textContent=q||filter?`共 ${a.length} / ${db.knowledge.length} 筆`:`共 ${db.knowledge.length} 筆`;
+  listEl.innerHTML=a.length?a.map(knowledgeCard).join(''):'<div class="empty">尚無符合的飲食知識</div>';
+}
+
+/* Knowledge JSON sync uses the existing private food-photos bucket.
+   If Storage policy does not allow this path, main food/photo sync still continues. */
+function knowledgeCloudPath(){
+  if(!cloudSession?.user?.id)throw new Error('尚未登入 Supabase');
+  return `${safePhotoPart(cloudSession.user.id)}/knowledge/knowledge.json`;
+}
+
+async function downloadKnowledgeCloud(){
+  if(!cloudSession?.user)return null;
+  ensureCloudConfig();await refreshCloudSession();
+  const r=await fetch(`${cloudConfig.url}/storage/v1/object/authenticated/${PHOTO_BUCKET}/${knowledgeCloudPath()}?v=${Date.now()}`,{
+    cache:'no-store',
+    headers:{'apikey':cloudConfig.key,'Authorization':'Bearer '+cloudSession.access_token,'Cache-Control':'no-cache'}
+  });
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error(await photoStorageError(r));
+  return await r.json();
+}
+
+async function uploadKnowledgeCloud(payload){
+  if(!cloudSession?.user)return false;
+  ensureCloudConfig();await refreshCloudSession();
+  const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}/${knowledgeCloudPath()}`,{
+    method:'POST',
+    headers:{
+      'apikey':cloudConfig.key,
+      'Authorization':'Bearer '+cloudSession.access_token,
+      'Content-Type':'application/json; charset=utf-8',
+      'x-upsert':'true',
+      'cache-control':'0'
+    },
+    body:JSON.stringify(payload)
+  });
+  if(!r.ok)throw new Error(await photoStorageError(r));
+  return true;
+}
+
+async function syncKnowledgeCloud(){
+  if(!cloudSession?.user)return {ok:false,message:'尚未登入'};
+  if(!Array.isArray(db.knowledge))db.knowledge=[];
+  if(!Array.isArray(db.deletedKnowledge))db.deletedKnowledge=[];
+  let remote=null;
+  try{remote=await downloadKnowledgeCloud();}catch(e){throw e;}
+  const rKnowledge=Array.isArray(remote?.knowledge)?remote.knowledge.map(normalizeKnowledgeItem):[];
+  const rDeleted=Array.isArray(remote?.deletedKnowledge)?remote.deletedKnowledge:[];
+  const deletedMap=new Map();
+  [...db.deletedKnowledge,...rDeleted].forEach(x=>{
+    const id=String(x?.id||'');if(!id)return;
+    const ts=Number(x?.deletedAt)||0;
+    if(ts>(deletedMap.get(id)||0))deletedMap.set(id,ts);
+  });
+  const map=new Map();
+  [...rKnowledge,...db.knowledge.map(normalizeKnowledgeItem)].forEach(x=>{
+    const del=deletedMap.get(String(x.id))||0;
+    if(del && del>=(Number(x.updatedAt)||0))return;
+    const prev=map.get(String(x.id));
+    if(!prev || (Number(x.updatedAt)||0)>(Number(prev.updatedAt)||0))map.set(String(x.id),x);
+  });
+  db.knowledge=[...map.values()];
+  db.deletedKnowledge=[...deletedMap.entries()].map(([id,deletedAt])=>({id,deletedAt}));
+  persistLocalOnly();
+  await uploadKnowledgeCloud({
+    version:1,
+    updatedAt:Date.now(),
+    knowledge:db.knowledge,
+    deletedKnowledge:db.deletedKnowledge
+  });
+  renderKnowledge();
+  return {ok:true,count:db.knowledge.length};
+}
+
 function saveBody(){
 if(
 !bWeight.value &&
@@ -2326,6 +2826,7 @@ updateFoodQtyLabel();
 autoClass();
 renderToday();
 renderExercise();
+renderKnowledge();
 renderStats();
 loadSettings();
 loadCloudFields();
