@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.28.9 viewport-save-top-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.28.10 history-group-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -192,6 +192,29 @@ button{font:inherit}
 .today-meal-body{padding:0 14px 4px;background:#fff}
 .today-meal-body .item{padding:12px 0}
 .today-meal-body .item:first-child{border-top:0}
+/* 2026-09-28 HISTORY_GROUP_V1: 日期 → 餐別／運動／身體紀錄 */
+.history-day{border:1px solid var(--line);border-radius:16px;margin-top:12px;background:#fff;overflow:hidden}
+.history-day>summary{list-style:none;cursor:pointer;padding:14px 15px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff}
+.history-day>summary::-webkit-details-marker{display:none}
+.history-day[open]>summary{background:var(--soft)}
+.history-day-main{min-width:0;flex:1 1 auto}
+.history-day-title{font-weight:850;font-size:17px;color:var(--text)}
+.history-day-meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}
+.history-day-arrow{font-size:20px;line-height:1;color:var(--muted);transition:transform .18s ease;flex:0 0 auto}
+.history-day[open] .history-day-arrow{transform:rotate(180deg)}
+.history-day-body{padding:0 12px 12px;background:#fff}
+.history-group{border:1px solid var(--line);border-radius:13px;margin-top:10px;background:#fff;overflow:hidden}
+.history-group>summary{list-style:none;cursor:pointer;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--soft)}
+.history-group>summary::-webkit-details-marker{display:none}
+.history-group-title{font-weight:800;font-size:14px;color:var(--text)}
+.history-group-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.history-group-arrow{font-size:16px;line-height:1;color:var(--muted);transition:transform .18s ease}
+.history-group[open] .history-group-arrow{transform:rotate(180deg)}
+.history-group-body{padding:0 12px 4px}
+.history-group-body .history-food:first-child{border-top:0}
+.history-empty{padding:14px 2px;color:var(--muted);font-size:12px}
+.history-filters{margin-top:10px}
+.history-filter-note{font-size:11px;color:var(--muted);margin-top:8px}
 
 /* KYC TOOL CENTER v1.1 */
 .kyc-banner-wrap{position:relative}
@@ -289,7 +312,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.28.9</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.28.10</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -808,6 +831,32 @@ style="margin-top:10px">
 <input id="hEnd" type="date">
 </div>
 </div>
+<div class="grid history-filters">
+<div>
+<label>紀錄類型</label>
+<select id="hType" onchange="historyFilterChanged()">
+<option value="all">全部</option>
+<option value="food">飲食</option>
+<option value="exercise">運動</option>
+<option value="body">體重／體脂</option>
+</select>
+</div>
+<div>
+<label>餐別</label>
+<select id="hMeal" onchange="renderHistory()">
+<option value="all">全部餐別</option>
+<option>早餐</option>
+<option>午餐</option>
+<option>下午點心</option>
+<option>晚餐</option>
+<option>宵夜</option>
+<option>運動前</option>
+<option>運動後</option>
+<option>其他</option>
+</select>
+</div>
+</div>
+<div class="history-filter-note">查詢結果會依「日期 → 餐別／運動／身體紀錄」分類，最新日期預設展開。</div>
 <div class="btnrow" style="margin-top:10px">
 <button class="primary" onclick="renderHistory()">
 查詢
@@ -3225,51 +3274,83 @@ save();
 alert('已儲存');
 afterSaved('add');
 }
+function historyFilterChanged(){
+const foodOnly=hType.value==='food';
+hMeal.disabled=!foodOnly&&hType.value!=='all';
+if(hType.value==='exercise'||hType.value==='body')hMeal.value='all';
+renderHistory();
+}
+function historyWeekday(dateStr){
+if(!dateStr)return '';
+const d=new Date(`${dateStr}T12:00:00`);
+if(Number.isNaN(d.getTime()))return '';
+return ['日','一','二','三','四','五','六'][d.getDay()];
+}
+function historyFoodRow(v){
+return `<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.time||'')} ${v.qty?`・${esc(v.qty)} ${esc(v.unit||'')}`:''}・${esc(v.kcal||'—')} kcal${v.protein?`・蛋白質 ${esc(v.protein)} g`:''}</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`;
+}
+function historyExerciseRow(v){
+return `<div class="history-food"><b>🏃 ${esc(v.type)}</b><div class="small">${exerciseTimeText(v)?`${esc(exerciseTimeText(v))}・`:''}${esc(v.class||'')}・${esc(v.minutes||'—')} 分鐘・${esc(v.kcal||'—')} kcal</div>${v.note?`<div class="small" style="margin-top:4px">${esc(v.note)}</div>`:''}<div class="record-actions"><button class="secondary" onclick="editExercise('${v.id}')">修改</button><button class="danger" onclick="deleteExercise('${v.id}')">刪除</button></div></div>`;
+}
+function historyGroupHtml(title,meta,body,open=false){
+return `<details class="history-group" ${open?'open':''}><summary><div><div class="history-group-title">${title}</div><div class="history-group-meta">${meta}</div></div><span class="history-group-arrow">⌄</span></summary><div class="history-group-body">${body}</div></details>`;
+}
 function renderHistory(){
 let s=hStart.value,e=hEnd.value;
+const type=(typeof hType!=='undefined'&&hType)?hType.value:'all';
+const meal=(typeof hMeal!=='undefined'&&hMeal)?hMeal.value:'all';
 let f=db.foods.filter(x=>x.date>=s&&x.date<=e);
 let ex=db.exercise.filter(x=>x.date>=s&&x.date<=e);
-let days=[...new Set([...f.map(x=>x.date),...ex.map(x=>x.date)])].sort().reverse();
-historyList.innerHTML=days.length?days.map(d=>{
-const foods=f.filter(v=>v.date===d).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
-const exercises=ex.filter(v=>v.date===d).sort((a,b)=>(b.start||'').localeCompare(a.start||''));
-const mins=exercises.reduce((a,b)=>a+num(b.minutes),0);
-return `<div class="item"><b>${d}</b><div class="small">飲食 ${foods.length} 筆・運動 ${mins} 分鐘</div>${foods.map(v=>`<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.meal)}・${esc(v.time||'')}・${esc(v.qty||'')} ${esc(v.unit||'')}・${esc(v.kcal||'—')} kcal</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`).join('')}${exercises.map(v=>`<div class="history-food"><b>🏃 ${esc(v.type)}</b><div class="small">${exerciseTimeText(v)?`${esc(exerciseTimeText(v))}・`:''}${esc(v.class||'')}・${esc(v.minutes||'—')} 分鐘・${esc(v.kcal||'—')} kcal</div><div class="record-actions"><button class="secondary" onclick="editExercise('${v.id}')">修改</button><button class="danger" onclick="deleteExercise('${v.id}')">刪除</button></div></div>`).join('')}</div>`;
-}).join(''):'<div class="empty">無資料</div>';
+let body=db.body.filter(x=>x.date>=s&&x.date<=e);
+if(type==='exercise'){f=[];body=[];}
+if(type==='body'){f=[];ex=[];}
+if(type==='food'){ex=[];body=[];}
+if(meal!=='all'&&(type==='all'||type==='food'))f=f.filter(x=>(x.meal||'其他')===meal);
+const days=[...new Set([...f.map(x=>x.date),...ex.map(x=>x.date),...body.map(x=>x.date)])].sort().reverse();
+const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
+const html=days.map((d,dayIndex)=>{
+const foods=f.filter(v=>v.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+const exercises=ex.filter(v=>v.date===d).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+const bodies=body.filter(v=>v.date===d);
+const totalKcal=Math.round(foods.reduce((a,b)=>a+num(b.kcal),0));
+const totalProtein=foods.reduce((a,b)=>a+num(b.protein),0).toFixed(1).replace('.0','');
+const mins=Math.round(exercises.reduce((a,b)=>a+num(b.minutes),0));
+const exKcal=Math.round(exercises.reduce((a,b)=>a+num(b.kcal),0));
+const dayMeta=[];
+if(foods.length)dayMeta.push(`飲食 ${foods.length} 筆・${totalKcal} kcal・蛋白質 ${totalProtein} g`);
+if(exercises.length)dayMeta.push(`運動 ${mins} 分鐘${exKcal?`・${exKcal} kcal`:''}`);
+if(bodies.length)dayMeta.push(`身體 ${bodies.length} 筆`);
+let groups=[];
+for(const m of mealOrder){
+const items=foods.filter(v=>(mealOrder.includes(v.meal)?v.meal:'其他')===m);
+if(!items.length)continue;
+const mkcal=Math.round(items.reduce((a,b)=>a+num(b.kcal),0));
+const mprotein=items.reduce((a,b)=>a+num(b.protein),0).toFixed(1).replace('.0','');
+groups.push(historyGroupHtml(esc(m),`${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g`,items.map(historyFoodRow).join(''),false));
+}
+if(exercises.length){
+groups.push(historyGroupHtml('🏃 運動',`${exercises.length} 筆・${mins} 分鐘${exKcal?`・${exKcal} kcal`:''}`,exercises.map(historyExerciseRow).join(''),false));
+}
+if(bodies.length){
+const bodyRows=bodies.map(v=>`<div class="history-food"><b>⚖️ 體重／體脂</b><div class="small">體重 ${esc(v.weight||'—')} kg・體脂 ${esc(v.fat||'—')} %・腰圍 ${esc(v.waist||'—')} cm</div></div>`).join('');
+groups.push(historyGroupHtml('⚖️ 身體紀錄',`${bodies.length} 筆`,bodyRows,false));
+}
+return `<details class="history-day" ${dayIndex===0?'open':''}><summary><div class="history-day-main"><div class="history-day-title">${esc(d)}（${historyWeekday(d)}）</div><div class="history-day-meta">${dayMeta.join('<br>')}</div></div><span class="history-day-arrow">⌄</span></summary><div class="history-day-body">${groups.join('')||'<div class="history-empty">無資料</div>'}</div></details>`;
+}).join('');
+historyList.innerHTML=html||'<div class="empty">無資料</div>';
 }
 function printHistory(){
-let s=hStart.value;
-let e=hEnd.value;
-let f=
-db.foods.filter(x=>
-x.date>=s &&
-x.date<=e
-);
-let x=
-db.exercise.filter(x=>
-x.date>=s &&
-x.date<=e
-);
-printContent.innerHTML=
-`<h3>${s}～${e}</h3>
-<h4>飲食</h4>
-${f.map(v=>
-`<div>
-${v.date}
-${esc(v.meal)}
-${esc(v.food)}
-${esc(v.kcal)} kcal
-</div>`
-).join('')}
-<h4>運動</h4>
-${x.map(v=>
-`<div>
-${v.date}
-${esc(v.type)}
-${esc(v.class)}
-${esc(v.minutes)} 分鐘
-</div>`
-).join('')}`;
+let s=hStart.value,e=hEnd.value;
+const type=(typeof hType!=='undefined'&&hType)?hType.value:'all';
+const meal=(typeof hMeal!=='undefined'&&hMeal)?hMeal.value:'all';
+let f=db.foods.filter(x=>x.date>=s&&x.date<=e);
+let x=db.exercise.filter(x=>x.date>=s&&x.date<=e);
+let b=db.body.filter(x=>x.date>=s&&x.date<=e);
+if(type==='exercise'){f=[];b=[];}
+if(type==='body'){f=[];x=[];}
+if(type==='food'){x=[];b=[];}
+if(meal!=='all'&&(type==='all'||type==='food'))f=f.filter(v=>(v.meal||'其他')===meal);
+printContent.innerHTML=`<h3>${s}～${e}</h3>${f.length?`<h4>飲食</h4>${f.map(v=>`<div>${v.date} ${esc(v.meal)} ${esc(v.food)} ${esc(v.kcal)} kcal</div>`).join('')}`:''}${x.length?`<h4>運動</h4>${x.map(v=>`<div>${v.date} ${esc(v.type)} ${esc(v.class)} ${esc(v.minutes)} 分鐘</div>`).join('')}`:''}${b.length?`<h4>體重／體脂</h4>${b.map(v=>`<div>${v.date} 體重 ${esc(v.weight||'—')} kg・體脂 ${esc(v.fat||'—')} %・腰圍 ${esc(v.waist||'—')} cm</div>`).join('')}`:''}`;
 window.print();
 }
 function renderStats(){
