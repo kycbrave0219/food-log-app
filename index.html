@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.27.2 knowledge-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.28.3 knowledge-fold-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -125,7 +125,13 @@ button{font:inherit}
 .knowledge-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
 .knowledge-toolbar input{flex:1 1 220px}
 .knowledge-toolbar select{flex:0 1 180px}
-.knowledge-card{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:10px;background:#fff}
+.knowledge-card{border:1px solid var(--line);border-radius:14px;padding:0;margin-top:10px;background:#fff;overflow:hidden}
+.knowledge-card>summary{list-style:none;cursor:pointer;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff}
+.knowledge-card>summary::-webkit-details-marker{display:none}
+.knowledge-card>summary::after{content:'＋';font-size:22px;line-height:1;color:var(--muted);flex:0 0 auto}
+.knowledge-card[open]>summary::after{content:'−'}
+.knowledge-card-head{min-width:0;flex:1 1 auto}
+.knowledge-card-body{padding:0 14px 14px;border-top:1px solid var(--line)}
 .knowledge-title{font-weight:800;font-size:16px}
 .knowledge-meta{font-size:11px;color:var(--muted);margin-top:4px}
 .knowledge-summary{margin-top:8px;line-height:1.55}
@@ -144,6 +150,32 @@ button{font:inherit}
   .knowledge-grid{grid-template-columns:1fr}
   .tabs{grid-template-columns:repeat(8,1fr)}
   .tabbtn{font-size:9px;padding:9px 1px}
+}
+
+
+/* 2026-09-28 COMMON_FOOD_V1: 輸入天然食物名稱後帶入每100g參考營養 */
+.common-food-hint{
+  display:none;
+  margin-top:7px;
+  padding:9px 10px;
+  border-radius:10px;
+  background:#f8fbff;
+  color:#315170;
+  font-size:12px;
+  line-height:1.45;
+}
+.common-food-hint.show{display:block}
+.common-food-hint.success{background:#eefbf3;color:#166534}
+.common-food-hint.warning{background:#fff7ed;color:#9a3412}
+.common-food-hint button{
+  margin-left:6px;
+  border:0;
+  border-radius:9px;
+  padding:5px 8px;
+  background:#e7eef8;
+  color:#1f2937;
+  font-size:11px;
+  cursor:pointer;
 }
 
 
@@ -190,7 +222,7 @@ button{font:inherit}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.27.2</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.28.3</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -317,7 +349,7 @@ button{font:inherit}
 </select>
 </div>
 <div class="full">
-<div id="fCalcHint" class="note">選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算。</div>
+<div id="fCalcHint" class="note">選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算；同一食品下次會優先帶入最近一次的食用量與單位。</div>
 </div>
 <div>
 <label>熱量 kcal</label>
@@ -449,7 +481,7 @@ button{font:inherit}
 <section id="fooddb" class="section">
 <div class="card">
 <div class="itemtitle">食品主檔</div>
-<div class="note">第一次建立後，下次直接選商品就能帶入營養素。包裝標示優先於網路資料。</div>
+<div class="note">第一次建立後，下次直接選商品就能帶入營養素。包裝標示優先於網路資料。天然食物可直接輸入名稱；若內建有參考資料，會自動帶入每 100 g 營養。</div>
 <div class="btnrow" style="margin-top:10px">
   <button class="secondary" onclick="document.getElementById('smartPhotoCameraInput').click()">📷 拍照辨識</button>
   <button class="secondary" onclick="document.getElementById('smartPhotoLibraryInput').click()">🖼️ 從圖庫選擇</button>
@@ -473,7 +505,8 @@ button{font:inherit}
 </div>
 <div>
 <label>商品名稱</label>
-<input id="mName">
+<input id="mName" autocomplete="off" oninput="scheduleCommonFoodLookup()">
+<div id="commonFoodHint" class="common-food-hint"></div>
 </div>
 <div>
 <label>條碼</label>
@@ -518,6 +551,7 @@ button{font:inherit}
 <option>品牌官網</option>
 <option>網路資料</option>
 <option>AI 辨識</option>
+<option>常見食物資料庫</option>
 <option>手動輸入</option>
 </select>
 </div>
@@ -530,9 +564,11 @@ button{font:inherit}
 <textarea id="mNote"></textarea>
 </div>
 </div>
-<button class="primary" style="margin-top:10px" onclick="saveMaster()">
-儲存食品主檔
-</button>
+<div id="masterEditNotice" class="editing-note">目前正在修改食品主檔；儲存後會更新主檔本身，不會只修改某一餐。</div>
+<div class="btnrow" style="margin-top:10px">
+<button id="saveMasterBtn" class="primary" onclick="saveMaster()">儲存食品主檔</button>
+<button id="cancelMasterEditBtn" class="secondary" type="button" style="display:none" onclick="cancelMasterEdit()">取消修改</button>
+</div>
 </div>
 </details>
 </div>
@@ -893,6 +929,7 @@ masterPhoto=null,
 masterPhotoKind='',
 masterPhotoURL=null,
 editingKnowledgeId='',
+editingMasterId='',
 returnToFoodAfterMasterCreate=false;
 function load(){
 try{
@@ -1338,7 +1375,7 @@ fFood.value='';
 fQty.value='1';
 fUnit.value='份';
 updateFoodQtyLabel();
-if(document.getElementById('fCalcHint'))fCalcHint.textContent='選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算。';
+if(document.getElementById('fCalcHint'))fCalcHint.textContent='選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算；同一食品下次會優先帶入最近一次的食用量與單位。';
 fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value=fNote.value='';
 photo=null;
 photoCameraInput.value='';photoLibraryInput.value='';
@@ -1489,6 +1526,166 @@ ${esc(x.kcal||'—')} kcal
 </div>
 `).join('')
 :'<div class="empty">尚無運動紀錄</div>';
+}
+
+
+/* ==================================================
+   COMMON_FOOD_V1
+   天然食物沒有包裝時，輸入商品名稱可自動帶入每 100 g 參考營養。
+   - 只在營養欄位尚未填寫時自動套用，避免蓋掉包裝／人工資料。
+   - 若欄位已有內容，只顯示「重新帶入」按鈕。
+   - 參考值是食材基準，不等同特定品牌或烹調後數值。
+   ================================================== */
+const COMMON_FOOD_DB=[
+  {
+    id:'sweetpotato-red',
+    name:'紅肉甘藷（地瓜）',
+    aliases:['地瓜','甘藷','番薯','紅肉地瓜','紅肉甘藷','紅地瓜'],
+    serving:'100 g',
+    kcal:'114',
+    protein:'1.8',
+    carb:'25.4',
+    sugar:'5.1',
+    fat:'0.2',
+    fiber:'2.4',
+    sodium:'42',
+    sourceLabel:'衛福部食藥署食品營養成分資料庫（農業試驗所整理）',
+    note:'以紅肉甘藷每100 g可食部分作為「地瓜」預設參考；不同品種、產地與蒸／烤等烹調方式會有差異。'
+  },
+  {
+    id:'sweetpotato-purple',
+    name:'紫肉甘藷（紫地瓜）',
+    aliases:['紫地瓜','紫甘藷','紫番薯','紫肉地瓜','紫肉甘藷'],
+    serving:'100 g',
+    kcal:'122',
+    protein:'1.1',
+    carb:'28.5',
+    sugar:'4.3',
+    fat:'0.1',
+    fiber:'2.8',
+    sodium:'87',
+    sourceLabel:'衛福部食藥署食品營養成分資料庫（農業試驗所整理）',
+    note:'紫肉甘藷每100 g可食部分參考值；不同品種、產地與烹調方式會有差異。'
+  },
+  {
+    id:'sweetpotato-kintoki',
+    name:'金時甘藷',
+    aliases:['金時甘藷','金時地瓜','金時番薯'],
+    serving:'100 g',
+    kcal:'138',
+    protein:'1.6',
+    carb:'31.3',
+    sugar:'5.4',
+    fat:'0.4',
+    fiber:'',
+    sodium:'45',
+    sourceLabel:'衛福部食藥署食品營養成分資料集（整合編號 B0400501）',
+    note:'金時甘藷每100 g可食部分參考值；膳食纖維在目前內建資料未填，保留空白。'
+  }
+];
+
+let commonFoodLookupTimer=0;
+
+function normalizeCommonFoodQuery(v){
+  return String(v||'')
+    .trim()
+    .toLowerCase()
+    .replace(/[（）()【】\[\]\s_-]+/g,'');
+}
+
+function findCommonFoodById(id){
+  return COMMON_FOOD_DB.find(x=>x.id===id)||null;
+}
+
+function findCommonFoodByName(name){
+  const q=normalizeCommonFoodQuery(name);
+  if(!q)return null;
+  for(const x of COMMON_FOOD_DB){
+    const names=[x.name,...(x.aliases||[])].map(normalizeCommonFoodQuery);
+    if(names.includes(q))return x;
+  }
+  return null;
+}
+
+function commonFoodNutritionHasValue(){
+  return [mServing,mKcal,mProtein,mCarb,mSugar,mFat,mFiber,mSodium]
+    .some(el=>String(el?.value||'').trim()!=='');
+}
+
+function setCommonFoodHint(html,type=''){
+  const el=document.getElementById('commonFoodHint');
+  if(!el)return;
+  if(!html){
+    el.innerHTML='';
+    el.className='common-food-hint';
+    return;
+  }
+  el.innerHTML=html;
+  el.className='common-food-hint show'+(type?` ${type}`:'');
+}
+
+function applyCommonFoodReference(id,force=false){
+  const x=findCommonFoodById(id);
+  if(!x)return;
+
+  if(commonFoodNutritionHasValue() && !force){
+    setCommonFoodHint(
+      `找到「${esc(x.name)}」參考值，但目前欄位已有資料，為避免覆蓋沒有自動套用。`+
+      `<button type="button" onclick="applyCommonFoodReference('${x.id}',true)">重新帶入</button>`,
+      'warning'
+    );
+    return;
+  }
+
+  mServing.value=x.serving||'100 g';
+  mKcal.value=x.kcal||'';
+  mProtein.value=x.protein||'';
+  mCarb.value=x.carb||'';
+  mSugar.value=x.sugar||'';
+  mFat.value=x.fat||'';
+  mFiber.value=x.fiber||'';
+  mSodium.value=x.sodium||'';
+  mSource.value='常見食物資料庫';
+  mConfirmed.value=dn();
+
+  const stamp=`常見食物參考：${x.name}；${x.sourceLabel}。${x.note}`;
+  const current=(mNote.value||'').trim();
+  if(!current){
+    mNote.value=stamp;
+  }else if(!current.includes('常見食物參考：')){
+    mNote.value=current+'\n'+stamp;
+  }else{
+    mNote.value=current.replace(/常見食物參考：[\s\S]*$/m,stamp);
+  }
+
+  setCommonFoodHint(
+    `✅ 已依「${esc(x.name)}」帶入每 100 g 參考值。天然食物會因品種與烹調方式不同；若有包裝營養標示，仍以包裝為優先。`,
+    'success'
+  );
+}
+
+function lookupCommonFoodFromName(){
+  const typed=(mName?.value||'').trim();
+  if(!typed){
+    setCommonFoodHint('');
+    return;
+  }
+  const x=findCommonFoodByName(typed);
+  if(!x){
+    setCommonFoodHint('');
+    return;
+  }
+  applyCommonFoodReference(x.id,false);
+}
+
+function scheduleCommonFoodLookup(){
+  clearTimeout(commonFoodLookupTimer);
+  const typed=(mName?.value||'').trim();
+  if(!typed){
+    setCommonFoodHint('');
+    return;
+  }
+  commonFoodLookupTimer=setTimeout(lookupCommonFoodFromName,420);
 }
 
 async function handleSmartRecognitionPhoto(e){
@@ -1802,24 +1999,34 @@ if(!mName.value.trim()){
 alert('請輸入商品名稱');
 return;
 }
-const bc=
-mBarcode.value.trim();
-if(
-bc &&
-db.masters.some(x=>x.barcode===bc)
-){
+const bc=mBarcode.value.trim();
+const existing=editingMasterId
+?db.masters.find(x=>String(x.id)===String(editingMasterId))
+:null;
+
+if(bc && db.masters.some(x=>x.barcode===bc && (!existing || String(x.id)!==String(existing.id)))){
 alert('這個條碼已存在食品主檔');
 return;
 }
-const newMasterId=uid();
-let photoId='',compressed=null,photoCloudWarning='';
+
+const masterId=existing?.id||uid();
+let photoId=existing?.photoId||'';
+let photoIds=Array.isArray(existing?.photoIds)?[...existing.photoIds]:(photoId?[photoId]:[]);
+let compressed=null,photoCloudWarning='';
+
 if(masterPhoto){
 compressed=await compressPhotoBlob(masterPhoto);
-photoId=`m_${safePhotoPart(newMasterId)}_1`;
+const oldFirst=photoIds[0]||'';
+photoId=`m_${safePhotoPart(masterId)}_1_${Date.now().toString(36)}`;
 await putP(photoId,compressed);
+photoIds[0]=photoId;
+photoIds=photoIds.filter(Boolean).slice(0,2);
+if(oldFirst && oldFirst!==photoId){try{await delP(oldFirst)}catch{}}
+try{await delP(localPhotoCacheId('master',masterId,1))}catch{}
+masterPhotoKeyCache=null;
 }
-db.masters.push({
-id:newMasterId,
+
+const values={
 brand:mBrand.value.trim(),
 name:mName.value.trim(),
 barcode:bc,
@@ -1834,19 +2041,38 @@ sodium:mSodium.value,
 source:mSource.value,
 confirmed:mConfirmed.value,
 note:mNote.value.trim(),
-photoId,
-photoIds: photoId ? [photoId] : []
-});
-const shouldReturnToFood=returnToFoodAfterMasterCreate;
+photoId:photoIds[0]||photoId||'',
+photoIds
+};
+
+if(existing){
+Object.assign(existing,values);
+}else{
+db.masters.push({id:masterId,...values});
+}
+
+const shouldReturnToFood=!existing && returnToFoodAfterMasterCreate;
 returnToFoodAfterMasterCreate=false;
 save();
-if(compressed&&cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('master',newMasterId,1),compressed,true)}catch(e){photoCloudWarning=e?.message||String(e)}}
+
+if(compressed&&cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('master',masterId,1),compressed,true)}
+catch(e){photoCloudWarning=e?.message||String(e)}
+}
+
+const wasEdit=!!existing;
 clearMaster();
 await renderMasters();
-alert('食品主檔已儲存'+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
-if(shouldReturnToFood)useMaster(newMasterId);
+alert((wasEdit?'食品主檔已更新':'食品主檔已儲存')+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
+if(shouldReturnToFood)useMaster(masterId);
 }
 function clearMaster(){
+editingMasterId='';
+clearTimeout(commonFoodLookupTimer);
+setCommonFoodHint('');
+if(document.getElementById('saveMasterBtn'))saveMasterBtn.textContent='儲存食品主檔';
+if(document.getElementById('cancelMasterEditBtn'))cancelMasterEditBtn.style.display='none';
+if(document.getElementById('masterEditNotice'))masterEditNotice.style.display='none';
 [
 mBrand,
 mName,
@@ -1874,6 +2100,59 @@ masterPhotoPreview.style.display='none';
 ['smartPhotoCameraInput','smartPhotoLibraryInput','barcodePhotoInput','barcodePhotoLibraryInput','pkgPhotoInput','pkgPhotoLibraryInput','nutritionPhotoInput','nutritionPhotoLibraryInput'].forEach(id=>{
 const el=document.getElementById(id);if(el)el.value='';
 });
+}
+
+
+async function editMaster(id){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+
+editingMasterId=String(x.id);
+returnToFoodAfterMasterCreate=false;
+masterPhoto=null;
+masterPhotoKind='';
+
+mBrand.value=x.brand||'';
+mName.value=x.name||'';
+mBarcode.value=x.barcode||'';
+mServing.value=x.serving||'';
+mKcal.value=x.kcal||'';
+mProtein.value=x.protein||'';
+mCarb.value=x.carb||'';
+mSugar.value=x.sugar||'';
+mFat.value=x.fat||'';
+mFiber.value=x.fiber||'';
+mSodium.value=x.sodium||'';
+mSource.value=[...mSource.options].some(o=>o.value===x.source)?x.source:'手動輸入';
+mConfirmed.value=x.confirmed||dn();
+mNote.value=x.note||'';
+masterAIText.value='';
+
+if(masterPhotoURL){URL.revokeObjectURL(masterPhotoURL);masterPhotoURL=null;}
+const b=await getMasterPhotoBlob(x,0);
+if(b){
+masterPhotoURL=URL.createObjectURL(b);
+masterPhotoPreview.src=masterPhotoURL;
+masterPhotoPreview.style.display='block';
+}else{
+masterPhotoPreview.removeAttribute('src');
+masterPhotoPreview.style.display='none';
+}
+
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+if(document.getElementById('saveMasterBtn'))saveMasterBtn.textContent='更新食品主檔';
+if(document.getElementById('cancelMasterEditBtn'))cancelMasterEditBtn.style.display='';
+if(document.getElementById('masterEditNotice'))masterEditNotice.style.display='block';
+
+goTab('fooddb');
+setTimeout(()=>detail?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+
+function cancelMasterEdit(){
+clearMaster();
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=false;
 }
 
 function openImageZoom(src){
@@ -1975,6 +2254,7 @@ ${photoHtml}
 </div>
 <div class="btnrow" style="margin-top:8px">
 <button class="secondary" onclick="useMaster('${x.id}')">加入飲食</button>
+<button class="secondary" onclick="editMaster('${x.id}')">修改食品</button>
 ${addPhotoButton}
 <button class="danger" onclick="deleteMaster('${x.id}')">刪除食品</button>
 </div>
@@ -2130,14 +2410,32 @@ ${esc(x.kcal||'—')} kcal/份
 :'<div class="empty">找不到食品</div>';
 }
 function useMaster(id){
-const x=
-db.masters.find(v=>String(v.id)===String(id));
+const x=db.masters.find(v=>String(v.id)===String(id));
 if(!x)return;
+
 selectedMasterId=String(id);
 fMasterName.value=masterDisplayName(x);
 fFood.value=fMasterName.value;
+
+const previous=[...(db.foods||[])]
+.filter(v=>String(v.masterId||'')===String(id))
+.sort((a,b)=>`${b.date||''} ${b.time||''} ${b.id||''}`.localeCompare(`${a.date||''} ${a.time||''} ${a.id||''}`))[0];
+
+if(previous && previous.qty && previous.unit){
+fQty.value=previous.qty;
+fUnit.value=[...fUnit.options].some(o=>o.value===previous.unit)?previous.unit:'份';
+}else{
+const candidates=servingCandidates(x.serving);
+const preferred=candidates.find(v=>v.unit==='g'||v.unit==='ml')||candidates[0];
+if(preferred && [...fUnit.options].some(o=>o.value===preferred.unit)){
+fQty.value=String(preferred.amount);
+fUnit.value=preferred.unit;
+}else{
 fQty.value='1';
 fUnit.value='份';
+}
+}
+
 updateFoodQtyLabel();
 recalcMaster();
 closeMasterDropdown();
@@ -2491,22 +2789,31 @@ function knowledgeCard(x){
     ?`<div class="knowledge-box"><b>食物替換</b><div>${x.fromFood?esc(x.fromFood):'—'} → ${x.toFood?esc(x.toFood):'—'}${x.replacementQty?`（${esc(x.replacementQty)}）`:''}</div></div>`
     :'';
   const raw=x.raw?`<details class="knowledge-detail"><summary>展開完整原始聊天</summary><div class="knowledge-raw">${esc(x.raw)}</div></details>`:'';
-  return `<div class="knowledge-card">
-    <div class="knowledge-title">${esc(x.title||'未命名飲食知識')}</div>
-    <div class="knowledge-meta">${esc(x.type||'')}・${esc(x.category||'未分類')}</div>
-    ${x.summary?`<div class="knowledge-summary">${esc(x.summary)}</div>`:''}
-    <div class="knowledge-tags">${tags.map(t=>`<span class="knowledge-tag">${esc(t)}</span>`).join('')}</div>
-    <div class="knowledge-grid">
-      ${x.advice?`<div class="knowledge-box"><b>建議</b><div>${esc(x.advice)}</div></div>`:''}
-      ${x.conditions?`<div class="knowledge-box"><b>適用條件</b><div>${esc(x.conditions)}</div></div>`:''}
-      ${x.caution?`<div class="knowledge-box"><b>注意事項</b><div>${esc(x.caution)}</div></div>`:''}
-      ${replacement}
-    </div>
-    ${raw}
-    <div class="record-actions"><button class="secondary" onclick="editKnowledge('${x.id}')">修改</button><button class="danger" onclick="deleteKnowledge('${x.id}')">刪除</button></div>
-  </div>`;
-}
 
+  return `<details class="knowledge-card">
+    <summary>
+      <div class="knowledge-card-head">
+        <div class="knowledge-title">${esc(x.title||'未命名飲食知識')}</div>
+        <div class="knowledge-meta">${esc(x.type||'')}・${esc(x.category||'未分類')}</div>
+      </div>
+    </summary>
+    <div class="knowledge-card-body">
+      ${x.summary?`<div class="knowledge-summary">${esc(x.summary)}</div>`:''}
+      <div class="knowledge-tags">${tags.map(t=>`<span class="knowledge-tag">${esc(t)}</span>`).join('')}</div>
+      <div class="knowledge-grid">
+        ${x.advice?`<div class="knowledge-box"><b>建議</b><div>${esc(x.advice)}</div></div>`:''}
+        ${x.conditions?`<div class="knowledge-box"><b>適用條件</b><div>${esc(x.conditions)}</div></div>`:''}
+        ${x.caution?`<div class="knowledge-box"><b>注意事項</b><div>${esc(x.caution)}</div></div>`:''}
+        ${replacement}
+      </div>
+      ${raw}
+      <div class="record-actions">
+        <button class="secondary" type="button" onclick="event.stopPropagation();editKnowledge('${x.id}')">修改</button>
+        <button class="danger" type="button" onclick="event.stopPropagation();deleteKnowledge('${x.id}')">刪除</button>
+      </div>
+    </div>
+  </details>`;
+}
 function renderKnowledge(){
   const listEl=document.getElementById('knowledgeList');if(!listEl)return;
   if(!Array.isArray(db.knowledge))db.knowledge=[];
