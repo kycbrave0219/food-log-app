@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.28.7 workout-meal-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.28.8 exercise-edit-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -236,7 +236,7 @@ button{font:inherit}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.28.7</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.28.8</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -483,9 +483,12 @@ button{font:inherit}
 <textarea id="eNote"></textarea>
 </div>
 </div>
-<button class="primary" style="margin-top:10px" onclick="saveExercise()">
-儲存運動
-</button>
+<div id="exerciseEditNotice" class="editing-note">目前正在修改既有運動紀錄；修改完成後請按「更新運動」。</div>
+<div class="btnrow" style="margin-top:10px">
+<button id="saveExerciseBtn" class="primary" type="button" onclick="saveExercise()">儲存運動</button>
+<button id="cancelExerciseEditBtn" class="secondary" type="button" style="display:none" onclick="cancelExerciseEdit()">取消修改</button>
+</div>
+<div id="exerciseSaveStatus" role="status" aria-live="polite" style="display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#eefbf3;color:#166534;font-size:13px;font-weight:700"></div>
 <div class="note" style="margin-top:10px">
 目前 PWA 不能直接讀 Apple Health / Apple Watch；未來原生 iPhone App 可用 HealthKit 匯入。
 </div>
@@ -927,6 +930,7 @@ masters:[],
 knowledge:[],
 deletedKnowledge:[],
 deletedFoods:[],
+deletedExercises:[],
 settings:{
 goalKcal:'',
 goalProtein:'',
@@ -942,6 +946,7 @@ photo=null,
 photoURL=null,
 selectedMasterId='',
 editingFoodId='',
+editingExerciseId='',
 masterPhoto=null,
 masterPhotoKind='',
 masterPhotoURL=null,
@@ -1063,15 +1068,68 @@ note:FOOD_DELETE_MARK
 }
 if(rows.length)await cloudFetch('/rest/v1/food_logs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
 }
+const EXERCISE_DELETE_MARK='__KYC_EXERCISE_DELETED_V1__';
+function deletedExerciseIds(){return new Set((db.deletedExercises||[]).map(x=>String(x.id)))}
+async function pullCloudExerciseDeletions(){
+if(!cloudSession?.user)return;
+const rows=await cloudFetch(`/rest/v1/exercise_logs?select=legacy_id,note&note=eq.${encodeURIComponent(EXERCISE_DELETE_MARK)}`);
+if(!Array.isArray(db.deletedExercises))db.deletedExercises=[];
+for(const r of rows||[]){
+const id=String(r.legacy_id||'');
+if(!id)continue;
+if(!db.deletedExercises.some(x=>String(x.id)===id))db.deletedExercises.push({id,remote:true});
+db.exercise=db.exercise.filter(x=>String(x.id)!==id);
+}
+}
+async function uploadExerciseDeleteTombstones(){
+if(!cloudSession?.user || !Array.isArray(db.deletedExercises) || !db.deletedExercises.length)return;
+const u=cloudSession.user.id;
+const rows=[];
+for(const x of db.deletedExercises){
+if(x.remote)continue;
+const legacy=String(x.id||'');
+if(!legacy)continue;
+rows.push({
+id:await stableCloudId(u,'exercise_logs',legacy),user_id:u,legacy_id:legacy,
+log_date:x.date||null,exercise_type:x.type||'',exercise_class:x.class||null,
+start_time:x.start||null,end_time:x.end||null,minutes:x.minutes||null,kcal:x.kcal||null,
+note:EXERCISE_DELETE_MARK
+});
+}
+if(rows.length)await cloudFetch('/rest/v1/exercise_logs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
+}
 async function uploadLocalCloud(){if(!cloudSession?.user)throw new Error('請先登入。');for(const g of await localRowsWithIds()){if(!g.rows.length)continue;await cloudFetch(`/rest/v1/${g.table}?on_conflict=id`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(g.rows)})}const s=db.settings;await cloudFetch('/rest/v1/user_settings?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:cloudSession.user.id,goal_kcal:s.goalKcal||null,goal_protein:s.goalProtein||null,warn_percent:s.warnPercent||80,summary_time:s.summaryTime||'20:30'})})}
 function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,weight:r.weight,fat:r.fat,waist:r.waist};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,note:r.note};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
-async function pullCloudTable(table,key){const rows=await cloudFetch(`/rest/v1/${table}?select=*`);const local=db[key];const deleted=deletedFoodIds();for(const r of rows){if(table==='food_logs' && r.note===FOOD_DELETE_MARK){const id=String(r.legacy_id||r.id||'');if(id){if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}continue;}const x=cloudLocalRow(table,r);if(table==='food_logs' && deleted.has(String(x.id)))continue;const i=local.findIndex(v=>String(v.id)===String(x.id));if(i<0)local.push(x)} }
+async function pullCloudTable(table,key){
+const rows=await cloudFetch(`/rest/v1/${table}?select=*`);
+const local=db[key];
+const deletedFoods=deletedFoodIds();
+const deletedExercises=deletedExerciseIds();
+for(const r of rows){
+if(table==='food_logs' && r.note===FOOD_DELETE_MARK){
+const id=String(r.legacy_id||r.id||'');
+if(id){if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}
+continue;
+}
+if(table==='exercise_logs' && r.note===EXERCISE_DELETE_MARK){
+const id=String(r.legacy_id||r.id||'');
+if(id){if(!db.deletedExercises.some(x=>String(x.id)===id))db.deletedExercises.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}
+continue;
+}
+const x=cloudLocalRow(table,r);
+if(table==='food_logs' && deletedFoods.has(String(x.id)))continue;
+if(table==='exercise_logs' && deletedExercises.has(String(x.id)))continue;
+const i=local.findIndex(v=>String(v.id)===String(x.id));if(i<0)local.push(x)
+}
+}
 async function syncCloud(){
 try{
 if(!cloudSession?.user)throw new Error('請先登入，再執行同步。');
 setCloudStatus('同步中…本機資料會合併到雲端，不會清空任何一邊。');
 await pullCloudFoodDeletions();
 await uploadFoodDeleteTombstones();
+await pullCloudExerciseDeletions();
+await uploadExerciseDeleteTombstones();
 await uploadLocalCloud();
 let photoResult={uploaded:0,failed:0,message:''};
 try{photoResult=await uploadAllLocalPhotos();}
@@ -1505,14 +1563,19 @@ e.length
 :'<div class="empty">今天還沒有運動紀錄</div>';
 renderReminder();
 }
+function exerciseTimeText(x){
+const start=String(x?.start||'').trim();
+const end=String(x?.end||'').trim();
+if(start&&end)return `${start}～${end}`;
+return start||end||'';
+}
 function exHtml(x){
+const time=exerciseTimeText(x);
 return `<div class="item">
 <b>${esc(x.type)}</b>
-<div class="small">
-${esc(x.class)}・
-${esc(x.minutes)} 分鐘・
-${esc(x.kcal||'—')} kcal
-</div>
+<div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.minutes||'—')} 分鐘・${esc(x.kcal||'—')} kcal</div>
+${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}
+<div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div>
 </div>`;
 }
 function autoClass(){
@@ -1532,9 +1595,36 @@ let m=(eh*60+em)-(sh*60+sm);
 if(m<0)m+=1440;
 eMinutes.value=m;
 }
-function saveExercise(){
-db.exercise.push({
-id:uid(),
+function setExerciseStatus(text){
+const el=document.getElementById('exerciseSaveStatus');
+if(!el)return;
+el.textContent=text||'';
+el.style.display=text?'block':'none';
+}
+function clearExerciseForm(keepStatus=false){
+editingExerciseId='';
+eDate.value=dn();
+eType.value='快走';
+autoClass();
+eStart.value=tn();
+eEnd.value='';
+eMinutes.value='';
+eKcal.value='';
+eNote.value='';
+if(document.getElementById('saveExerciseBtn'))saveExerciseBtn.textContent='儲存運動';
+if(document.getElementById('cancelExerciseEditBtn'))cancelExerciseEditBtn.style.display='none';
+if(document.getElementById('exerciseEditNotice'))exerciseEditNotice.style.display='none';
+if(!keepStatus)setExerciseStatus('');
+}
+function cancelExerciseEdit(){
+clearExerciseForm(false);
+setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
+async function saveExercise(){
+if(!eDate.value){alert('請先選擇日期');return;}
+const existing=editingExerciseId?db.exercise.find(x=>String(x.id)===String(editingExerciseId)):null;
+const recordId=existing?.id||uid();
+const values={
 date:eDate.value,
 type:eType.value,
 class:eClass.value,
@@ -1543,27 +1633,64 @@ end:eEnd.value,
 minutes:eMinutes.value,
 kcal:eKcal.value,
 note:eNote.value
-});
+};
+if(existing)Object.assign(existing,values);else db.exercise.push({id:recordId,...values});
+save();
+const wasEdit=!!existing;
+clearExerciseForm(true);
+renderExercise();
+await renderToday();
+renderHistory();
+renderStats();
+setExerciseStatus(wasEdit?'✅ 運動紀錄已更新':'✅ 運動已儲存');
+setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+function editExercise(id){
+const x=db.exercise.find(v=>String(v.id)===String(id));if(!x)return;
+editingExerciseId=String(x.id);
+eDate.value=x.date||dn();
+eType.value=[...eType.options].some(o=>o.value===x.type)?x.type:'其他';
+eClass.value=[...eClass.options].some(o=>o.value===x.class)?x.class:'混合';
+eStart.value=x.start||'';
+eEnd.value=x.end||'';
+eMinutes.value=x.minutes||'';
+eKcal.value=x.kcal||'';
+eNote.value=x.note||'';
+setExerciseStatus('');
+if(document.getElementById('saveExerciseBtn'))saveExerciseBtn.textContent='更新運動';
+if(document.getElementById('cancelExerciseEditBtn'))cancelExerciseEditBtn.style.display='';
+if(document.getElementById('exerciseEditNotice'))exerciseEditNotice.style.display='block';
+goTab('exercise');
+setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+async function deleteExercise(id){
+const x=db.exercise.find(v=>String(v.id)===String(id));if(!x)return;
+if(!confirm(`確定刪除「${x.type||'這筆運動'}」紀錄？`))return;
+if(!Array.isArray(db.deletedExercises))db.deletedExercises=[];
+if(!db.deletedExercises.some(v=>String(v.id)===String(x.id)))db.deletedExercises.push({...x});
+db.exercise=db.exercise.filter(v=>String(v.id)!==String(id));
+if(String(editingExerciseId)===String(id))clearExerciseForm(false);
 save();
 renderExercise();
-renderToday();
-alert('運動已儲存');
+await renderToday();
+renderHistory();
+renderStats();
+setExerciseStatus('✅ 運動紀錄已刪除');
 }
 function renderExercise(){
 let a=[...db.exercise]
-.sort((x,y)=>(y.date+y.start).localeCompare(x.date+x.start));
+.sort((x,y)=>(`${y.date||''}${y.start||''}`).localeCompare(`${x.date||''}${x.start||''}`));
 exerciseList.innerHTML=
 a.length
-?a.map(x=>`
-<div class="item">
-<b>${x.date}｜${esc(x.type)}</b>
-<div class="small">
-${esc(x.class)}・
-${esc(x.minutes)} 分鐘・
-${esc(x.kcal||'—')} kcal
-</div>
-</div>
-`).join('')
+?a.map(x=>{
+const time=exerciseTimeText(x);
+return `<div class="item">
+<b>${esc(x.date)}｜${esc(x.type)}</b>
+<div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.minutes||'—')} 分鐘・${esc(x.kcal||'—')} kcal</div>
+${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}
+<div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div>
+</div>`;
+}).join('')
 :'<div class="empty">尚無運動紀錄</div>';
 }
 
@@ -3018,8 +3145,9 @@ let ex=db.exercise.filter(x=>x.date>=s&&x.date<=e);
 let days=[...new Set([...f.map(x=>x.date),...ex.map(x=>x.date)])].sort().reverse();
 historyList.innerHTML=days.length?days.map(d=>{
 const foods=f.filter(v=>v.date===d).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
-const mins=ex.filter(v=>v.date===d).reduce((a,b)=>a+num(b.minutes),0);
-return `<div class="item"><b>${d}</b><div class="small">飲食 ${foods.length} 筆・運動 ${mins} 分鐘</div>${foods.map(v=>`<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.meal)}・${esc(v.time||'')}・${esc(v.qty||'')} ${esc(v.unit||'')}・${esc(v.kcal||'—')} kcal</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`).join('')}</div>`;
+const exercises=ex.filter(v=>v.date===d).sort((a,b)=>(b.start||'').localeCompare(a.start||''));
+const mins=exercises.reduce((a,b)=>a+num(b.minutes),0);
+return `<div class="item"><b>${d}</b><div class="small">飲食 ${foods.length} 筆・運動 ${mins} 分鐘</div>${foods.map(v=>`<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.meal)}・${esc(v.time||'')}・${esc(v.qty||'')} ${esc(v.unit||'')}・${esc(v.kcal||'—')} kcal</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`).join('')}${exercises.map(v=>`<div class="history-food"><b>🏃 ${esc(v.type)}</b><div class="small">${exerciseTimeText(v)?`${esc(exerciseTimeText(v))}・`:''}${esc(v.class||'')}・${esc(v.minutes||'—')} 分鐘・${esc(v.kcal||'—')} kcal</div><div class="record-actions"><button class="secondary" onclick="editExercise('${v.id}')">修改</button><button class="danger" onclick="deleteExercise('${v.id}')">刪除</button></div></div>`).join('')}</div>`;
 }).join(''):'<div class="empty">無資料</div>';
 }
 function printHistory(){
@@ -3302,6 +3430,7 @@ eStart.value=
 tn();
 updateFoodQtyLabel();
 autoClass();
+setExerciseStatus('');
 renderToday();
 renderExercise();
 renderKnowledge();
