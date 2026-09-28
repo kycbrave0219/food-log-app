@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.28.3 knowledge-fold-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.28.4 food-recalc-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -222,7 +222,7 @@ button{font:inherit}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.28.3</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.28.4</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -384,9 +384,10 @@ button{font:inherit}
 <textarea id="fNote"></textarea>
 </div>
 </div>
-<div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若不重新選照片，會保留原照片。</div>
+<div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若食品主檔曾修正，可按「依目前食品主檔重新計算」更新本次營養值。若不重新選照片，會保留原照片。</div>
 <div class="btnrow" style="margin-top:10px">
 <button id="saveFoodBtn" class="primary" onclick="saveFood()">儲存這一餐</button>
+<button id="recalcFoodFromMasterBtn" class="secondary" type="button" style="display:none" onclick="recalcFoodFromCurrentMaster()">🔄 依目前食品主檔重新計算</button>
 <button id="cancelFoodEditBtn" class="secondary" style="display:none" onclick="cancelFoodEdit()">取消修改</button>
 </div>
 </div>
@@ -1382,6 +1383,7 @@ photoCameraInput.value='';photoLibraryInput.value='';
 if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
 photoPreview.removeAttribute('src');photoPreview.style.display='none';
 if(saveFoodBtn)saveFoodBtn.textContent='儲存這一餐';
+if(document.getElementById('recalcFoodFromMasterBtn'))recalcFoodFromMasterBtn.style.display='none';
 if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='none';
 if(foodEditNotice)foodEditNotice.style.display='none';
 }
@@ -1421,6 +1423,7 @@ photo=null;
 if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
 {const b=await getFoodPhotoBlob(x);if(b){photoURL=URL.createObjectURL(b);photoPreview.src=photoURL;photoPreview.style.display='block';}else{photoPreview.style.display='none';}}
 if(saveFoodBtn)saveFoodBtn.textContent='更新這一餐';
+if(document.getElementById('recalcFoodFromMasterBtn'))recalcFoodFromMasterBtn.style.display=m?'':'none';
 if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='';
 if(foodEditNotice)foodEditNotice.style.display='block';
 goTab('add');
@@ -2483,6 +2486,51 @@ fSodium.value=fmt(x.sodium);
 function clearCalculatedNutrition(){
 fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value='';
 }
+
+function recalcFoodFromCurrentMaster(){
+const x=db.masters.find(v=>String(v.id)===String(selectedMasterId));
+if(!x){
+alert('這筆飲食沒有連結到食品主檔，無法自動重新計算。');
+return;
+}
+
+const q=num(fQty.value);
+const unit=normalizeFoodUnit(fUnit.value);
+
+if(!q || q<=0){
+alert('請先輸入正確的實際食用量。');
+return;
+}
+
+const candidates=servingCandidates(x.serving);
+let factor=null;
+let formula='';
+
+if(unit==='份'){
+factor=q;
+formula=`${q} 份`;
+}else{
+const match=candidates.find(v=>v.unit===unit);
+if(!match){
+alert(`目前食品主檔每份為「${x.serving||'未填'}」，無法直接換算成 ${unit}。請先到「食品庫 → 修改食品」修正每份重量／容量。`);
+return;
+}
+factor=q/match.amount;
+formula=`${q} ${unit} ÷ ${match.amount} ${unit} = ${factor.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')} 份`;
+}
+
+setMasterNutritionByFactor(x,factor);
+
+const hint=document.getElementById('fCalcHint');
+if(hint){
+hint.textContent=`已依目前食品主檔重新計算：${formula}。（主檔每份：${x.serving||'未填'}）`;
+}
+
+alert(
+`已重新計算。\n\n食品主檔：${masterDisplayName(x)}\n每份：${x.serving||'未填'}\n實際食用：${q} ${unit}\n\n目前換算結果：\n熱量 ${fKcal.value||'—'} kcal\n蛋白質 ${fProtein.value||'—'} g`
+);
+}
+
 function recalcMaster(){
 const x=
 db.masters.find(v=>v.id===selectedMasterId);
