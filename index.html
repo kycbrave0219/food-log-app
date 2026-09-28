@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.28.8 exercise-edit-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.28.9 viewport-save-top-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -206,6 +206,59 @@ button{font:inherit}
   .kyc-home-btn{position:static;display:inline-flex;margin:0 auto 10px;padding:9px 12px}
 }
 
+/* 2026-09-28 VIEWPORT_SAVE_TOP_V1: 全系統依可視螢幕自適應，儲存後回到目前功能最上方 */
+html{
+  width:100%;
+  min-height:100%;
+  background:var(--bg);
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+body{
+  width:100%;
+  max-width:100vw;
+  min-height:100vh;
+  min-height:100dvh;
+  overflow-x:hidden;
+  overscroll-behavior-x:none;
+}
+.app{
+  width:100%;
+  max-width:900px;
+  min-height:var(--kyc-visible-height,100vh);
+  min-height:var(--kyc-visible-height,100dvh);
+  padding-top:max(16px,env(safe-area-inset-top));
+  padding-left:max(14px,env(safe-area-inset-left));
+  padding-right:max(14px,env(safe-area-inset-right));
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
+}
+.section,.card,.grid>*{min-width:0;max-width:100%}
+.section{scroll-margin-top:8px}
+input,select,textarea{min-width:0;max-width:100%;font-size:16px}
+img,svg,video,canvas{max-width:100%;height:auto}
+.tabs{
+  z-index:60;
+  width:100%;
+  max-width:100vw;
+  padding-left:max(5px,env(safe-area-inset-left));
+  padding-right:max(5px,env(safe-area-inset-right));
+}
+.picker{height:100vh;height:100dvh}
+.pickerbox{
+  max-height:calc(100vh - 20px);
+  max-height:calc(100dvh - 20px);
+  padding-bottom:calc(18px + env(safe-area-inset-bottom));
+}
+@media(max-width:700px){
+  .app{
+    padding-top:max(12px,env(safe-area-inset-top));
+    padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right));
+    padding-bottom:calc(92px + env(safe-area-inset-bottom));
+  }
+  .card{padding:14px;border-radius:16px}
+}
+
 </style>
 </head>
 <body>
@@ -236,7 +289,7 @@ button{font:inherit}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.28.8</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.28.9</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -864,7 +917,7 @@ style="margin-top:10px">
 <div><label for="cloudPassword">密碼</label><input id="cloudPassword" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
 </div>
 <div class="btnrow" style="margin-top:10px">
-<button class="secondary" onclick="saveCloudConfig()">儲存連線設定</button>
+<button class="secondary" onclick="saveCloudConfig(true)">儲存連線設定</button>
 <button class="secondary" onclick="cloudSignUp()">建立帳號</button>
 <button class="primary" onclick="cloudSignIn()">登入</button>
 <button class="secondary" onclick="cloudSignOut()">登出</button>
@@ -1002,12 +1055,14 @@ let cloudSuppress=false,cloudSyncTimer=0;
 function cloudReadyKey(){return 'foodlog_cloud_ready_'+(cloudSession?.user?.id||'')}
 function setCloudStatus(s){if(document.getElementById('cloudStatus'))cloudStatus.textContent=s}
 function loadCloudFields(){cloudUrl.value=cloudConfig.url||DEFAULT_CLOUD_URL;cloudKey.value=cloudConfig.key||'';if(cloudSession?.user?.email)cloudEmail.value=cloudSession.user.email;setCloudStatus(cloudSession?.user?`已登入：${cloudSession.user.email||cloudSession.user.id}`:'尚未登入 Supabase。')}
-function saveCloudConfig(){
+function saveCloudConfig(scrollAfter=false){
 const url=(cloudUrl.value||'').trim().replace(/\/$/,'');
 const key=(cloudKey.value||'').trim();
 if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key){alert('請填入有效的 Supabase Project URL 和 publishable / anon key。');return}
 cloudConfig={url,key};localStorage.setItem(CLOUD_CONFIG_KEY,JSON.stringify(cloudConfig));setCloudStatus('連線設定已儲存在這台裝置。');
+if(scrollAfter)afterSaved('settings');
 }
+
 function ensureCloudConfig(){if(!cloudConfig.url||!cloudConfig.key){saveCloudConfig();if(!cloudConfig.url||!cloudConfig.key)throw new Error('請先儲存 Supabase 連線設定。')}}
 async function cloudFetch(path,options={},auth=true){
 ensureCloudConfig();
@@ -1208,6 +1263,30 @@ return String(s??'').replace(/[&<>"']/g,m=>({
 "'":'&#039;'
 }[m]))
 }
+function syncVisibleViewport(){
+  const h=Math.round(window.visualViewport?.height||window.innerHeight||document.documentElement.clientHeight||0);
+  if(h>0)document.documentElement.style.setProperty('--kyc-visible-height',`${h}px`);
+}
+function afterSaved(sectionId){
+  try{document.activeElement?.blur()}catch{}
+  syncVisibleViewport();
+  const target=document.getElementById(sectionId)||document.querySelector('.section.active');
+  setTimeout(()=>{
+    syncVisibleViewport();
+    if(target&&target.classList.contains('active')){
+      target.scrollIntoView({behavior:'smooth',block:'start'});
+    }else{
+      window.scrollTo({top:0,left:0,behavior:'smooth'});
+    }
+  },90);
+}
+syncVisibleViewport();
+window.addEventListener('resize',syncVisibleViewport,{passive:true});
+window.addEventListener('orientationchange',()=>setTimeout(syncVisibleViewport,120),{passive:true});
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',syncVisibleViewport,{passive:true});
+}
+
 function goTab(id){
 if(returnToFoodAfterMasterCreate && id!=='fooddb' && id!=='add')returnToFoodAfterMasterCreate=false;
 document.querySelectorAll('.section')
@@ -1484,6 +1563,7 @@ clearFoodEntryForm();
 fDate.value=dn();fTime.value=tn();
 await renderToday();renderHistory();renderStats();
 alert((wasEdit?'飲食紀錄已更新':'已儲存這一餐')+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
+afterSaved('add');
 }
 async function editFood(id){
 const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
@@ -1643,7 +1723,7 @@ await renderToday();
 renderHistory();
 renderStats();
 setExerciseStatus(wasEdit?'✅ 運動紀錄已更新':'✅ 運動已儲存');
-setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+afterSaved('exercise');
 }
 function editExercise(id){
 const x=db.exercise.find(v=>String(v.id)===String(id));if(!x)return;
@@ -2230,7 +2310,12 @@ const wasEdit=!!existing;
 clearMaster();
 await renderMasters();
 alert((wasEdit?'食品主檔已更新':'食品主檔已儲存')+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
-if(shouldReturnToFood)useMaster(masterId);
+if(shouldReturnToFood){
+  useMaster(masterId);
+  afterSaved('add');
+}else{
+  afterSaved('fooddb');
+}
 }
 function clearMaster(){
 editingMasterId='';
@@ -2954,6 +3039,7 @@ function saveKnowledge(){
   clearKnowledgeForm();
   renderKnowledge();
   alert(i>=0?'知識已更新':'知識已儲存');
+  afterSaved('knowledge');
 }
 
 function editKnowledge(id){
@@ -3137,6 +3223,7 @@ waist:bWaist.value
 }
 save();
 alert('已儲存');
+afterSaved('add');
 }
 function renderHistory(){
 let s=hStart.value,e=hEnd.value;
@@ -3290,6 +3377,7 @@ lockMinutes.value||'5';
 save();
 renderReminder();
 alert('已儲存');
+afterSaved('settings');
 }
 async function hashPin(v){
 let h=
