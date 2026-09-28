@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.28.4 food-recalc-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.28.7 workout-meal-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -179,6 +179,20 @@ button{font:inherit}
 }
 
 
+/* 2026-09-28 TODAY_MEAL_FOLD_V1: 今日飲食依餐別摺疊 */
+/* 2026-09-28 WORKOUT_MEAL_V1: 餐別新增「運動前／運動後」，今日飲食同步分組 */
+.today-meal-group{border:1px solid var(--line);border-radius:14px;margin-top:10px;background:#fff;overflow:hidden}
+.today-meal-group>summary{list-style:none;cursor:pointer;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--soft)}
+.today-meal-group>summary::-webkit-details-marker{display:none}
+.today-meal-summary-main{min-width:0;flex:1 1 auto}
+.today-meal-name{font-weight:800;font-size:15px;color:var(--text)}
+.today-meal-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.today-meal-arrow{font-size:18px;line-height:1;color:var(--muted);transition:transform .18s ease;flex:0 0 auto}
+.today-meal-group[open] .today-meal-arrow{transform:rotate(180deg)}
+.today-meal-body{padding:0 14px 4px;background:#fff}
+.today-meal-body .item{padding:12px 0}
+.today-meal-body .item:first-child{border-top:0}
+
 /* KYC TOOL CENTER v1.1 */
 .kyc-banner-wrap{position:relative}
 .kyc-home-btn{
@@ -222,7 +236,7 @@ button{font:inherit}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.28.4</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.28.7</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -311,6 +325,8 @@ button{font:inherit}
 <option>下午點心</option>
 <option>晚餐</option>
 <option>宵夜</option>
+<option>運動前</option>
+<option>運動後</option>
 <option>其他</option>
 </select>
 </div>
@@ -1459,10 +1475,30 @@ exerciseMin.textContent=
 Math.round(e.reduce((a,b)=>a+num(b.minutes),0));
 exerciseKcal.textContent=
 Math.round(e.reduce((a,b)=>a+num(b.kcal),0));
-foodToday.innerHTML=
-f.length
-?(await Promise.all(f.map(foodHtml))).join('')
-:'<div class="empty">今天還沒有飲食紀錄</div>';
+
+if(f.length){
+const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
+const known=new Set(mealOrder);
+const grouped=new Map(mealOrder.map(name=>[name,[]]));
+for(const x of f){
+const meal=known.has(x.meal)?x.meal:'其他';
+grouped.get(meal).push(x);
+}
+const groups=[];
+for(const meal of mealOrder){
+const items=grouped.get(meal)||[];
+if(!items.length)continue;
+items.sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+const kcal=Math.round(items.reduce((sum,x)=>sum+num(x.kcal),0));
+const protein=items.reduce((sum,x)=>sum+num(x.protein),0).toFixed(1).replace('.0','');
+const body=(await Promise.all(items.map(foodHtml))).join('');
+groups.push(`<details class="today-meal-group"><summary><div class="today-meal-summary-main"><div class="today-meal-name">${esc(meal)}</div><div class="today-meal-meta">${items.length} 筆・${kcal} kcal・蛋白質 ${protein} g</div></div><span class="today-meal-arrow">⌄</span></summary><div class="today-meal-body">${body}</div></details>`);
+}
+foodToday.innerHTML=groups.join('');
+}else{
+foodToday.innerHTML='<div class="empty">今天還沒有飲食紀錄</div>';
+}
+
 exerciseToday.innerHTML=
 e.length
 ?e.map(exHtml).join('')
@@ -2322,7 +2358,6 @@ closeMasterDropdown();
 }else{
 renderMasterDropdown();
 el.classList.add('show');
-fMasterName.focus({preventScroll:true});
 }
 }
 function onMasterSearchInput(){
