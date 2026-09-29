@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.09.28.10 history-group-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.09.29.11 master-clear-cancel-v1 · Tool Center</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -312,7 +312,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.09.28.10</div>
+  <div class="note" style="margin-top:3px">版本 v2026.09.29.11</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -663,7 +663,8 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div id="masterEditNotice" class="editing-note">目前正在修改食品主檔；儲存後會更新主檔本身，不會只修改某一餐。</div>
 <div class="btnrow" style="margin-top:10px">
 <button id="saveMasterBtn" class="primary" onclick="saveMaster()">儲存食品主檔</button>
-<button id="cancelMasterEditBtn" class="secondary" type="button" style="display:none" onclick="cancelMasterEdit()">取消修改</button>
+<button id="clearMasterBtn" class="secondary" type="button" onclick="clearMasterForm()">清除</button>
+<button id="cancelMasterEditBtn" class="secondary" type="button" onclick="cancelMasterEdit()">取消</button>
 </div>
 </div>
 </details>
@@ -2371,7 +2372,6 @@ editingMasterId='';
 clearTimeout(commonFoodLookupTimer);
 setCommonFoodHint('');
 if(document.getElementById('saveMasterBtn'))saveMasterBtn.textContent='儲存食品主檔';
-if(document.getElementById('cancelMasterEditBtn'))cancelMasterEditBtn.style.display='none';
 if(document.getElementById('masterEditNotice'))masterEditNotice.style.display='none';
 [
 mBrand,
@@ -2442,17 +2442,56 @@ masterPhotoPreview.style.display='none';
 const detail=document.getElementById('masterFormDetails');
 if(detail)detail.open=true;
 if(document.getElementById('saveMasterBtn'))saveMasterBtn.textContent='更新食品主檔';
-if(document.getElementById('cancelMasterEditBtn'))cancelMasterEditBtn.style.display='';
 if(document.getElementById('masterEditNotice'))masterEditNotice.style.display='block';
 
 goTab('fooddb');
 setTimeout(()=>detail?.scrollIntoView({behavior:'smooth',block:'start'}),80);
 }
 
+function masterFormHasContent(){
+return !!(
+(masterPhoto) ||
+[
+mBrand,mName,mBarcode,mServing,mKcal,mProtein,mCarb,mSugar,mFat,mFiber,mSodium,mNote,masterAIText
+].some(el=>String(el?.value||'').trim()!=='')
+);
+}
+
+function clearMasterForm(){
+const wasEdit=!!editingMasterId;
+if(masterFormHasContent()){
+const msg=wasEdit
+?'確定要清除目前表單內容嗎？\n\n已建立的食品主檔不會被刪除，但會退出目前的修改狀態。'
+:'確定要清除目前輸入內容嗎？\n\n尚未儲存的文字、AI 辨識結果與暫存照片都會清空。';
+if(!confirm(msg))return;
+}
+const keepReturnToFood=returnToFoodAfterMasterCreate;
+clearMaster();
+returnToFoodAfterMasterCreate=keepReturnToFood;
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+setTimeout(()=>detail?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
+
 function cancelMasterEdit(){
+const wasEdit=!!editingMasterId;
+const shouldReturnToFood=returnToFoodAfterMasterCreate;
+if(masterFormHasContent()){
+const msg=wasEdit
+?'確定取消這次修改嗎？\n\n目前尚未儲存的變更會放棄，原本食品主檔保持不變。'
+:'確定取消這次新增嗎？\n\n目前尚未儲存的內容不會保留。';
+if(!confirm(msg))return;
+}
+returnToFoodAfterMasterCreate=false;
 clearMaster();
 const detail=document.getElementById('masterFormDetails');
 if(detail)detail.open=false;
+if(shouldReturnToFood){
+goTab('add');
+setTimeout(()=>document.getElementById('add')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}else{
+setTimeout(()=>document.getElementById('fooddb')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
 }
 
 function openImageZoom(src){
