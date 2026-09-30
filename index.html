@@ -282,6 +282,44 @@ img,svg,video,canvas{max-width:100%;height:auto}
   .card{padding:14px;border-radius:16px}
 }
 
+
+/* 2026-09-30 PRINT_INLINE_PREVIEW_V2: 不開新視窗，避免 iPhone/PWA 封鎖 window.open */
+#printPreviewOverlay{display:none;position:fixed;inset:0;z-index:10000;background:#f3f4f6;overflow:auto;-webkit-overflow-scrolling:touch;color:#111827}
+#printPreviewOverlay.show{display:block}
+.print-preview-toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px max(10px,env(safe-area-inset-right)) 10px max(10px,env(safe-area-inset-left));background:rgba(255,255,255,.97);border-bottom:1px solid #e5e7eb}
+.print-preview-toolbar button{border:0;border-radius:11px;padding:11px 14px;font:inherit;font-weight:750;touch-action:manipulation}
+.print-preview-do{background:#111827;color:#fff}
+.print-preview-back{background:#eef2f7;color:#111827}
+.print-preview-help{font-size:12px;color:#6b7280;flex:1 1 220px}
+.print-preview-sheet{width:min(210mm,calc(100% - 20px));min-height:297mm;margin:12px auto 24px;background:#fff;padding:14mm 12mm;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.print-preview-sheet .pp-title{font-size:24px;margin:0 0 4px}
+.print-preview-sheet .pp-period{font-size:14px;color:#4b5563;margin-bottom:4px}
+.print-preview-sheet .pp-filter{font-size:12px;color:#6b7280;margin-bottom:14px}
+.print-preview-sheet .pp-day{margin-top:14px;border-top:2px solid #111827;padding-top:10px}
+.print-preview-sheet .pp-day:first-of-type{margin-top:0}
+.print-preview-sheet .pp-day-head h2{font-size:18px;margin:0 0 3px}
+.print-preview-sheet .pp-day-head div{font-size:12px;color:#6b7280}
+.print-preview-sheet .pp-group{margin-top:10px}
+.print-preview-sheet .pp-group h3{font-size:14px;margin:0 0 5px;padding:7px 8px;background:#f3f4f6;border-radius:7px}
+.print-preview-sheet .pp-group h3 span{font-weight:400;color:#6b7280;margin-left:8px;font-size:11px}
+.print-preview-sheet table{width:100%;border-collapse:collapse;font-size:11px}
+.print-preview-sheet th,.print-preview-sheet td{border-bottom:1px solid #e5e7eb;padding:6px 5px;text-align:left;vertical-align:top}
+.print-preview-sheet th{color:#4b5563;font-weight:700}
+.print-preview-sheet .pp-num{text-align:right;white-space:nowrap}
+.print-preview-sheet .pp-note-row td{font-size:10px;color:#6b7280;padding-top:2px}
+.print-preview-sheet .pp-empty{text-align:center;color:#6b7280;padding:40px 0}
+@media(max-width:700px){.print-preview-sheet{width:100%;min-height:0;margin:0;padding:18px 12px 28px;box-shadow:none}.print-preview-help{width:100%;flex-basis:100%}}
+@media print{
+  body.kyc-printing{background:#fff!important}
+  body.kyc-printing .app,body.kyc-printing>.tabs,body.kyc-printing>.lock,body.kyc-printing>.picker,body.kyc-printing>.zoom-backdrop{display:none!important}
+  body.kyc-printing #printPreviewOverlay{display:block!important;position:static!important;inset:auto!important;overflow:visible!important;background:#fff!important}
+  body.kyc-printing .print-preview-toolbar{display:none!important}
+  body.kyc-printing .print-preview-sheet{width:auto!important;min-height:0!important;margin:0!important;padding:0!important;box-shadow:none!important}
+  body.kyc-printing .pp-day{break-inside:auto}
+  body.kyc-printing .pp-group,body.kyc-printing table,body.kyc-printing tr{break-inside:avoid}
+  @page{size:A4;margin:10mm}
+}
+
 </style>
 </head>
 <body>
@@ -3378,97 +3416,100 @@ return `<details class="history-day" ${dayIndex===0?'open':''}><summary><div cla
 }).join('');
 historyList.innerHTML=html||'<div class="empty">無資料</div>';
 }
-/* 2026-09-30 PRINT_PREVIEW_V1
-   - 電腦：開啟 A4 列印預覽後自動叫出列印視窗
-   - iPhone / PWA：就算自動列印被 Safari 限制，仍會看到預覽頁，可再按「列印／存成 PDF」
-   - 避免只呼叫 window.print() 時在 iOS 沒有任何反應
+/* 2026-09-30 PRINT_INLINE_PREVIEW_V2
+   iPhone/PWA 不再用 window.open()，先在同一頁顯示 A4 預覽。
+   第二次由使用者直接點「列印／存成 PDF」呼叫 window.print()，避免彈出視窗被封鎖。
 */
-function printHistory(){
-const startEl=document.getElementById('hStart');
-const endEl=document.getElementById('hEnd');
-const typeEl=document.getElementById('hType');
-const mealEl=document.getElementById('hMeal');
-let s=startEl?.value||'',e=endEl?.value||'';
-if(!s||!e){alert('請先選擇開始日期與結束日期。');return;}
-if(s>e){const t=s;s=e;e=t;if(startEl)startEl.value=s;if(endEl)endEl.value=e;}
-const type=typeEl?.value||'all';
-const meal=mealEl?.value||'all';
-let foods=db.foods.filter(v=>v.date>=s&&v.date<=e);
-let exercises=db.exercise.filter(v=>v.date>=s&&v.date<=e);
-let bodies=db.body.filter(v=>v.date>=s&&v.date<=e);
-if(type==='exercise'){foods=[];bodies=[];}
-if(type==='body'){foods=[];exercises=[];}
-if(type==='food'){exercises=[];bodies=[];}
-if(meal!=='all'&&(type==='all'||type==='food'))foods=foods.filter(v=>(v.meal||'其他')===meal);
-
-/* 必須由使用者點擊事件直接開啟，iPhone/Safari 才不容易把它當成彈出視窗封鎖。 */
-const w=window.open('','_blank');
-
-const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
-const days=[...new Set([...foods.map(v=>v.date),...exercises.map(v=>v.date),...bodies.map(v=>v.date)])].sort();
-const fmt1=v=>num(v).toFixed(1).replace('.0','');
-const typeLabel=type==='food'?'飲食':type==='exercise'?'運動':type==='body'?'體重／體脂':'全部';
-const filterLabel=`紀錄類型：${typeLabel}${(type==='all'||type==='food')&&meal!=='all'?`｜餐別：${meal}`:''}`;
-
-const dayHtml=days.map(d=>{
-  const df=foods.filter(v=>v.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
-  const de=exercises.filter(v=>v.date===d).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
-  const dbd=bodies.filter(v=>v.date===d);
-  const totalKcal=Math.round(df.reduce((a,v)=>a+num(v.kcal),0));
-  const totalProtein=fmt1(df.reduce((a,v)=>a+num(v.protein),0));
-  const totalMin=Math.round(de.reduce((a,v)=>a+num(v.minutes),0));
-  const totalExKcal=Math.round(de.reduce((a,v)=>a+num(v.kcal),0));
-  const meta=[];
-  if(df.length)meta.push(`飲食 ${df.length} 筆・${totalKcal} kcal・蛋白質 ${totalProtein} g`);
-  if(de.length)meta.push(`運動 ${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}`);
-  if(dbd.length)meta.push(`身體 ${dbd.length} 筆`);
-
-  const mealSections=mealOrder.map(m=>{
-    const items=df.filter(v=>(mealOrder.includes(v.meal)?v.meal:'其他')===m);
-    if(!items.length)return '';
-    const mkcal=Math.round(items.reduce((a,v)=>a+num(v.kcal),0));
-    const mprotein=fmt1(items.reduce((a,v)=>a+num(v.protein),0));
-    const rows=items.map(v=>`<tr><td>${esc(v.time||'')}</td><td>${esc(v.food||'')}</td><td>${v.qty?`${esc(v.qty)} ${esc(v.unit||'')}`:'—'}</td><td class="num">${esc(v.kcal||'—')}</td><td class="num">${esc(v.protein||'—')}</td></tr>`).join('');
-    return `<section class="group"><h3>${esc(m)} <span>${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g</span></h3><table><thead><tr><th>時間</th><th>食物／餐點</th><th>份量</th><th class="num">kcal</th><th class="num">蛋白質 g</th></tr></thead><tbody>${rows}</tbody></table></section>`;
-  }).join('');
-
-  const exerciseSection=de.length?`<section class="group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="num">分鐘</th><th class="num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="num">${esc(v.minutes||'—')}</td><td class="num">${esc(v.kcal||'—')}</td></tr>${v.note?`<tr class="note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
-
-  const bodySection=dbd.length?`<section class="group"><h3>體重／體脂</h3><table><thead><tr><th>體重 kg</th><th>體脂 %</th><th>腰圍 cm</th></tr></thead><tbody>${dbd.map(v=>`<tr><td>${esc(v.weight||'—')}</td><td>${esc(v.fat||'—')}</td><td>${esc(v.waist||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
-
-  return `<article class="day"><div class="day-head"><h2>${esc(d)}（${historyWeekday(d)}）</h2><div>${meta.join('｜')}</div></div>${mealSections}${exerciseSection}${bodySection}</article>`;
-}).join('');
-
-const content=dayHtml||'<div class="empty">這個查詢範圍沒有資料。</div>';
-const doc=`<!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>KYC 飲食與運動紀錄 ${esc(s)}～${esc(e)}</title>
-<style>
-:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif}.toolbar{position:sticky;top:0;z-index:10;display:flex;gap:8px;align-items:center;justify-content:center;padding:10px;background:rgba(255,255,255,.96);border-bottom:1px solid #e5e7eb}.toolbar button{border:0;border-radius:10px;padding:10px 14px;font:inherit;font-weight:700}.print-btn{background:#111827;color:#fff}.close-btn{background:#eef2f7;color:#111827}.hint{font-size:12px;color:#6b7280}.sheet{width:min(210mm,100%);min-height:297mm;margin:16px auto;background:#fff;padding:14mm 12mm;box-shadow:0 6px 24px rgba(0,0,0,.08)}.title{font-size:24px;margin:0 0 4px}.period{font-size:14px;color:#4b5563;margin-bottom:4px}.filter{font-size:12px;color:#6b7280;margin-bottom:14px}.day{break-inside:avoid;margin-top:14px;border-top:2px solid #111827;padding-top:10px}.day:first-of-type{margin-top:0}.day-head h2{font-size:18px;margin:0 0 3px}.day-head div{font-size:12px;color:#6b7280}.group{margin-top:10px;break-inside:avoid}.group h3{font-size:14px;margin:0 0 5px;padding:7px 8px;background:#f3f4f6;border-radius:7px}.group h3 span{font-weight:400;color:#6b7280;margin-left:8px;font-size:11px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border-bottom:1px solid #e5e7eb;padding:6px 5px;text-align:left;vertical-align:top}th{color:#4b5563;font-weight:700}.num{text-align:right;white-space:nowrap}.note-row td{font-size:10px;color:#6b7280;padding-top:2px}.empty{text-align:center;color:#6b7280;padding:40px 0}@page{size:A4;margin:10mm}@media print{body{background:#fff}.toolbar{display:none!important}.sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}.day{break-inside:auto}.group,table,tr{break-inside:avoid}}
-</style></head><body><div class="toolbar"><button class="print-btn" onclick="window.print()">🖨️ 列印／存成 PDF</button><button class="close-btn" onclick="window.close()">返回</button><span class="hint">iPhone 若未自動跳出列印畫面，請按左側「列印／存成 PDF」</span></div><main class="sheet"><h1 class="title">KYC 飲食與運動紀錄</h1><div class="period">${esc(s)} ～ ${esc(e)}</div><div class="filter">${esc(filterLabel)}</div>${content}</main><script>setTimeout(function(){try{window.focus();window.print();}catch(e){}},450);<\/script></body></html>`;
-
-if(w && w.document){
+function ensurePrintPreviewOverlay(){
+  let overlay=document.getElementById('printPreviewOverlay');
+  if(overlay)return overlay;
+  overlay=document.createElement('div');
+  overlay.id='printPreviewOverlay';
+  overlay.setAttribute('role','dialog');
+  overlay.setAttribute('aria-modal','true');
+  overlay.innerHTML=`<div class="print-preview-toolbar"><button class="print-preview-do" type="button" onclick="runPrintPreview()">🖨️ 列印／存成 PDF</button><button class="print-preview-back" type="button" onclick="closePrintPreview()">← 返回紀錄</button><div class="print-preview-help">iPhone：先看到這個預覽後，再按一次「列印／存成 PDF」。</div></div><main id="printPreviewSheet" class="print-preview-sheet"></main>`;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+function closePrintPreview(){
+  const overlay=document.getElementById('printPreviewOverlay');
+  if(overlay)overlay.classList.remove('show');
+  document.body.classList.remove('kyc-printing');
+  document.documentElement.style.overflow='';
+}
+function runPrintPreview(){
+  document.body.classList.add('kyc-printing');
   try{
-    w.document.open();
-    w.document.write(doc);
-    w.document.close();
-    return;
-  }catch(err){
-    try{w.close();}catch(_){ }
+    if(typeof window.print!=='function')throw new Error('print unavailable');
+    window.print();
+  }catch(e){
+    document.body.classList.remove('kyc-printing');
+    alert('這個開啟方式不支援直接列印。請改用 Safari 開啟同一個網址，再從「紀錄 → 列印」進入預覽後列印。');
   }
 }
+window.addEventListener('afterprint',()=>document.body.classList.remove('kyc-printing'));
 
-/* 彈出頁被封鎖時的備援：改用原本頁面的 printArea。 */
-const printEl=document.getElementById('printContent');
-if(printEl){
-  printEl.innerHTML=`<h2>KYC 飲食與運動紀錄</h2><div>${esc(s)} ～ ${esc(e)}</div><div style="margin:6px 0 14px;color:#6b7280">${esc(filterLabel)}</div>${content}`;
-  setTimeout(()=>{
-    try{window.print();}
-    catch(err){alert('瀏覽器限制了自動列印。請改用 Safari 開啟網站，再按「列印」。');}
-  },80);
-}else{
-  alert('無法建立列印預覽，請重新整理頁面後再試一次。');
+function printHistory(){
+  const startEl=document.getElementById('hStart');
+  const endEl=document.getElementById('hEnd');
+  const typeEl=document.getElementById('hType');
+  const mealEl=document.getElementById('hMeal');
+  let s=startEl?.value||'',e=endEl?.value||'';
+  if(!s||!e){alert('請先選擇開始日期與結束日期。');return;}
+  if(s>e){const t=s;s=e;e=t;if(startEl)startEl.value=s;if(endEl)endEl.value=e;}
+  const type=typeEl?.value||'all';
+  const meal=mealEl?.value||'all';
+  let foods=db.foods.filter(v=>v.date>=s&&v.date<=e);
+  let exercises=db.exercise.filter(v=>v.date>=s&&v.date<=e);
+  let bodies=db.body.filter(v=>v.date>=s&&v.date<=e);
+  if(type==='exercise'){foods=[];bodies=[];}
+  if(type==='body'){foods=[];exercises=[];}
+  if(type==='food'){exercises=[];bodies=[];}
+  if(meal!=='all'&&(type==='all'||type==='food'))foods=foods.filter(v=>(v.meal||'其他')===meal);
+
+  const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
+  const days=[...new Set([...foods.map(v=>v.date),...exercises.map(v=>v.date),...bodies.map(v=>v.date)])].sort();
+  const fmt1=v=>num(v).toFixed(1).replace('.0','');
+  const typeLabel=type==='food'?'飲食':type==='exercise'?'運動':type==='body'?'體重／體脂':'全部';
+  const filterLabel=`紀錄類型：${typeLabel}${(type==='all'||type==='food')&&meal!=='all'?`｜餐別：${meal}`:''}`;
+
+  const dayHtml=days.map(d=>{
+    const df=foods.filter(v=>v.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+    const de=exercises.filter(v=>v.date===d).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+    const dbd=bodies.filter(v=>v.date===d);
+    const totalKcal=Math.round(df.reduce((a,v)=>a+num(v.kcal),0));
+    const totalProtein=fmt1(df.reduce((a,v)=>a+num(v.protein),0));
+    const totalMin=Math.round(de.reduce((a,v)=>a+num(v.minutes),0));
+    const totalExKcal=Math.round(de.reduce((a,v)=>a+num(v.kcal),0));
+    const meta=[];
+    if(df.length)meta.push(`飲食 ${df.length} 筆・${totalKcal} kcal・蛋白質 ${totalProtein} g`);
+    if(de.length)meta.push(`運動 ${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}`);
+    if(dbd.length)meta.push(`身體 ${dbd.length} 筆`);
+
+    const mealSections=mealOrder.map(m=>{
+      const items=df.filter(v=>(mealOrder.includes(v.meal)?v.meal:'其他')===m);
+      if(!items.length)return '';
+      const mkcal=Math.round(items.reduce((a,v)=>a+num(v.kcal),0));
+      const mprotein=fmt1(items.reduce((a,v)=>a+num(v.protein),0));
+      const rows=items.map(v=>`<tr><td>${esc(v.time||'')}</td><td>${esc(v.food||'')}</td><td>${v.qty?`${esc(v.qty)} ${esc(v.unit||'')}`:'—'}</td><td class="pp-num">${esc(v.kcal||'—')}</td><td class="pp-num">${esc(v.protein||'—')}</td></tr>`).join('');
+      return `<section class="pp-group"><h3>${esc(m)} <span>${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g</span></h3><table><thead><tr><th>時間</th><th>食物／餐點</th><th>份量</th><th class="pp-num">kcal</th><th class="pp-num">蛋白質 g</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+    }).join('');
+
+    const exerciseSection=de.length?`<section class="pp-group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="pp-num">分鐘</th><th class="pp-num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="pp-num">${esc(v.minutes||'—')}</td><td class="pp-num">${esc(v.kcal||'—')}</td></tr>${v.note?`<tr class="pp-note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
+
+    const bodySection=dbd.length?`<section class="pp-group"><h3>體重／體脂</h3><table><thead><tr><th>體重 kg</th><th>體脂 %</th><th>腰圍 cm</th></tr></thead><tbody>${dbd.map(v=>`<tr><td>${esc(v.weight||'—')}</td><td>${esc(v.fat||'—')}</td><td>${esc(v.waist||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
+
+    return `<article class="pp-day"><div class="pp-day-head"><h2>${esc(d)}（${historyWeekday(d)}）</h2><div>${meta.join('｜')}</div></div>${mealSections}${exerciseSection}${bodySection}</article>`;
+  }).join('');
+
+  const overlay=ensurePrintPreviewOverlay();
+  const sheet=document.getElementById('printPreviewSheet');
+  sheet.innerHTML=`<h1 class="pp-title">KYC 飲食與運動紀錄</h1><div class="pp-period">${esc(s)} ～ ${esc(e)}</div><div class="pp-filter">${esc(filterLabel)}</div>${dayHtml||'<div class="pp-empty">這個查詢範圍沒有資料。</div>'}`;
+  overlay.classList.add('show');
+  document.documentElement.style.overflow='hidden';
+  overlay.scrollTop=0;
 }
-}
+
 function renderStats(){
 statFoods.textContent=
 db.foods.length;
