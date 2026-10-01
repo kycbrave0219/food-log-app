@@ -1,0 +1,4203 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- PHOTO_STORAGE_V3 2026-09-26: IndexedDB cache + Supabase Storage; no base64 in localStorage -->
+<meta name="theme-color" content="#f5f6f8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="飲食紀錄">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.PNG">
+<title>KYC 飲食與運動紀錄 v2026.10.01.16 hard-day-pagebreak-v2 · Tool Center</title>
+<!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;background:var(--bg);color:var(--text)}
+.app{max-width:900px;margin:auto;padding:16px 14px 96px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.tabs{display:grid;grid-template-columns:repeat(8,1fr);position:fixed;left:0;right:0;bottom:0;background:#f5f6f8f2;padding:8px 5px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.tabbtn{border:0;background:transparent;padding:9px 3px;border-radius:12px;font-size:10px;color:var(--muted)}
+.tabbtn.active{background:var(--accent);color:#fff}
+.section{display:none}
+.section.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.full{grid-column:1/-1}
+label{display:block;color:var(--muted);font-size:13px;margin-bottom:5px}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+textarea{min-height:78px}
+button{font:inherit}
+.primary,.secondary,.danger{border:0;border-radius:12px;padding:11px 14px}
+.primary{background:var(--accent);color:#fff}
+.secondary{background:var(--soft)}
+.danger{background:#fee2e2;color:var(--danger)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kpi{background:var(--soft);padding:10px;border-radius:12px}
+.kpi b{display:block;font-size:18px}
+.kpi span,.small,.note{font-size:12px;color:var(--muted)}
+.item{border-top:1px solid var(--line);padding:12px 0}
+.item:first-child{border-top:0}
+.itemtitle{font-weight:800}
+.photo{width:130px;height:95px;object-fit:cover;border-radius:12px;margin-top:8px}
+.photoPreview{display:none;width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-top:8px}
+.lock{position:fixed;inset:0;background:var(--bg);z-index:99;display:none;align-items:center;justify-content:center;padding:20px}
+.lock.show{display:flex}
+.lockbox{background:#fff;padding:20px;border-radius:20px;width:min(420px,100%);text-align:center}
+.pin{text-align:center;letter-spacing:8px;font-size:24px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.master-card{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+.master-title{font-weight:800}
+.master-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.nutrition div{background:var(--soft);padding:7px;border-radius:10px;text-align:center}
+.nutrition b{display:block;font-size:13px}
+.nutrition span{font-size:9px;color:var(--muted)}
+.picker{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:80;display:none;align-items:flex-end}
+.picker.show{display:flex}
+.pickerbox{background:#fff;width:100%;max-height:85vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px}
+.empty{text-align:center;padding:22px;color:var(--muted)}
+@media(max-width:700px){
+.grid{grid-template-columns:1fr}
+.kpis{grid-template-columns:repeat(2,1fr)}
+}
+@media print{
+.tabs,.no-print,.lock{display:none!important}
+.app{padding:0}
+.section{display:none!important}
+#printArea{display:block!important}
+}
+
+/* 2026-09-26 PHOTO_THUMB_V2: food master photos fixed small on right + tap to zoom */
+/* 2026-09-26 UI restore: long KYC banner + collapsible food-library sections */
+.kyc-banner-wrap{margin:0 0 14px;text-align:center}
+.kyc-banner{display:block;width:100%;max-width:620px;height:auto;margin:0 auto;object-fit:contain}
+.kyc-banner-fallback{display:none;font-weight:800;font-size:clamp(22px,5vw,31px);padding:12px 0}
+.fold{border:1px solid var(--line);border-radius:14px;margin-top:12px;background:#fff;overflow:hidden}
+.fold>summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:800;background:var(--soft);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::after{content:'＋';font-size:21px;line-height:1;color:var(--muted)}
+.fold[open]>summary::after{content:'−'}
+.fold-body{padding:14px}
+.master-count{font-size:13px;color:var(--muted);font-weight:600;margin-left:8px}
+.master-card{position:relative}
+.master-card.has-photo{padding-right:12px;min-height:0}
+.master-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.master-head-info{min-width:0;flex:1 1 auto}
+.master-photo-wrap{display:flex;align-items:flex-start;gap:6px;flex:0 0 auto}
+.master-photo-slot{display:flex;flex-direction:column;align-items:center;gap:2px}
+.master-photo-wrap.one .master-thumb{width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important}
+.master-photo-wrap.two .master-thumb{width:52px!important;height:52px!important;max-width:52px!important;max-height:52px!important}
+.master-thumb{position:static!important;object-fit:cover!important;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0!important;display:block!important}
+.master-photo-actions{display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+.master-photo-mini{border:0;background:transparent;color:var(--muted);padding:1px 3px;font-size:9px;line-height:1.2;cursor:pointer}
+.master-photo-mini.delete{color:#d33}
+.master-photo-swap{align-self:center;border:0;background:var(--soft);color:var(--text);border-radius:999px;width:26px;height:26px;padding:0;font-size:15px;line-height:26px;cursor:pointer}
+.record-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.record-actions button{padding:7px 11px;border-radius:10px;font-size:12px}
+.history-food{margin-top:8px;padding:10px 0 2px;border-top:1px dashed var(--line)}
+.editing-note{display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:12px}
+.master-photo-action{border:0;background:var(--soft);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--text);cursor:pointer}
+.zoom-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:120;display:none;align-items:center;justify-content:center;padding:24px}
+.zoom-backdrop.show{display:flex}
+.zoom-backdrop img{max-width:min(94vw,900px);max-height:88vh;border-radius:16px;background:#fff}
+.zoom-close{position:absolute;top:calc(14px + env(safe-area-inset-top));right:16px;width:44px;height:44px;border:0;border-radius:999px;background:#fff;font-size:28px;line-height:1}
+.pickerbox{position:relative}
+.picker-head{position:sticky;top:-18px;z-index:3;background:#fff;padding:18px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}
+.picker-close{border:0;background:var(--soft);border-radius:999px;width:40px;height:40px;font-size:22px;line-height:1;flex:0 0 auto}
+
+/* 2026-09-26 MASTER_DROPDOWN_V1: searchable food-master dropdown in add-food form */
+.master-combobox{position:relative;z-index:12}
+.master-combobox-row{display:flex;align-items:stretch;gap:6px}
+.master-combobox-row input{flex:1 1 auto;min-width:0}
+.master-drop-toggle{flex:0 0 44px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--muted);font-size:22px;line-height:1;padding:0;cursor:pointer}
+.master-dropdown{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:70;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(17,24,39,.14);max-height:310px;overflow:auto;-webkit-overflow-scrolling:touch}
+.master-dropdown.show{display:block}
+.master-dropdown-head{padding:9px 12px;background:var(--soft);font-size:11px;color:var(--muted);position:sticky;top:0;z-index:1}
+.master-option{padding:11px 12px;border-top:1px solid var(--line);cursor:pointer;background:#fff}
+.master-option:first-of-type{border-top:0}
+.master-option-title{font-weight:750;font-size:14px}
+.master-option-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.master-option-add{padding:12px;border-top:1px solid var(--line);font-weight:750;color:#0a84ff;background:#f8fbff;cursor:pointer;position:sticky;bottom:0}
+.master-option-empty{padding:14px 12px;color:var(--muted);font-size:12px;text-align:center}
+
+
+/* 2026-09-27 KNOWLEDGE_V1: 飲食知識庫／聊天內容整理 */
+.knowledge-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.knowledge-toolbar input{flex:1 1 220px}
+.knowledge-toolbar select{flex:0 1 180px}
+.knowledge-card{border:1px solid var(--line);border-radius:14px;padding:0;margin-top:10px;background:#fff;overflow:hidden}
+.knowledge-card>summary{list-style:none;cursor:pointer;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff}
+.knowledge-card>summary::-webkit-details-marker{display:none}
+.knowledge-card>summary::after{content:'＋';font-size:22px;line-height:1;color:var(--muted);flex:0 0 auto}
+.knowledge-card[open]>summary::after{content:'−'}
+.knowledge-card-head{min-width:0;flex:1 1 auto}
+.knowledge-card-body{padding:0 14px 14px;border-top:1px solid var(--line)}
+.knowledge-title{font-weight:800;font-size:16px}
+.knowledge-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.knowledge-summary{margin-top:8px;line-height:1.55}
+.knowledge-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.knowledge-box{background:var(--soft);border-radius:12px;padding:10px}
+.knowledge-box b{display:block;font-size:12px;margin-bottom:4px}
+.knowledge-box div{white-space:pre-wrap;line-height:1.5;font-size:13px}
+.knowledge-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.knowledge-tag{display:inline-block;background:var(--soft);border-radius:999px;padding:4px 8px;font-size:11px;color:var(--muted)}
+.knowledge-detail{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.knowledge-detail summary{cursor:pointer;font-size:12px;color:var(--muted);font-weight:700}
+.knowledge-raw{white-space:pre-wrap;line-height:1.55;font-size:13px;margin-top:8px;background:#fafafa;border-radius:10px;padding:10px}
+.knowledge-form-note{padding:10px;border-radius:12px;background:#f8fbff;color:#315170;font-size:12px;line-height:1.5}
+.knowledge-editing{display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:12px}
+@media(max-width:700px){
+  .knowledge-grid{grid-template-columns:1fr}
+  .tabs{grid-template-columns:repeat(8,1fr)}
+  .tabbtn{font-size:9px;padding:9px 1px}
+}
+
+
+/* 2026-09-28 COMMON_FOOD_V1: 輸入天然食物名稱後帶入每100g參考營養 */
+.common-food-hint{
+  display:none;
+  margin-top:7px;
+  padding:9px 10px;
+  border-radius:10px;
+  background:#f8fbff;
+  color:#315170;
+  font-size:12px;
+  line-height:1.45;
+}
+.common-food-hint.show{display:block}
+.common-food-hint.success{background:#eefbf3;color:#166534}
+.common-food-hint.warning{background:#fff7ed;color:#9a3412}
+.common-food-hint button{
+  margin-left:6px;
+  border:0;
+  border-radius:9px;
+  padding:5px 8px;
+  background:#e7eef8;
+  color:#1f2937;
+  font-size:11px;
+  cursor:pointer;
+}
+
+
+/* 2026-09-28 TODAY_MEAL_FOLD_V1: 今日飲食依餐別摺疊 */
+/* 2026-09-28 WORKOUT_MEAL_V1: 餐別新增「運動前／運動後」，今日飲食同步分組 */
+.today-meal-group{border:1px solid var(--line);border-radius:14px;margin-top:10px;background:#fff;overflow:hidden}
+.today-meal-group>summary{list-style:none;cursor:pointer;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--soft)}
+.today-meal-group>summary::-webkit-details-marker{display:none}
+.today-meal-summary-main{min-width:0;flex:1 1 auto}
+.today-meal-name{font-weight:800;font-size:15px;color:var(--text)}
+.today-meal-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.today-meal-arrow{font-size:18px;line-height:1;color:var(--muted);transition:transform .18s ease;flex:0 0 auto}
+.today-meal-group[open] .today-meal-arrow{transform:rotate(180deg)}
+.today-meal-body{padding:0 14px 4px;background:#fff}
+.today-meal-body .item{padding:12px 0}
+.today-meal-body .item:first-child{border-top:0}
+/* 2026-09-28 HISTORY_GROUP_V1: 日期 → 餐別／運動／身體紀錄 */
+.history-day{border:1px solid var(--line);border-radius:16px;margin-top:12px;background:#fff;overflow:hidden}
+.history-day>summary{list-style:none;cursor:pointer;padding:14px 15px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff}
+.history-day>summary::-webkit-details-marker{display:none}
+.history-day[open]>summary{background:var(--soft)}
+.history-day-main{min-width:0;flex:1 1 auto}
+.history-day-title{font-weight:850;font-size:17px;color:var(--text)}
+.history-day-meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}
+.history-day-arrow{font-size:20px;line-height:1;color:var(--muted);transition:transform .18s ease;flex:0 0 auto}
+.history-day[open] .history-day-arrow{transform:rotate(180deg)}
+.history-day-body{padding:0 12px 12px;background:#fff}
+.history-group{border:1px solid var(--line);border-radius:13px;margin-top:10px;background:#fff;overflow:hidden}
+.history-group>summary{list-style:none;cursor:pointer;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--soft)}
+.history-group>summary::-webkit-details-marker{display:none}
+.history-group-title{font-weight:800;font-size:14px;color:var(--text)}
+.history-group-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.history-group-arrow{font-size:16px;line-height:1;color:var(--muted);transition:transform .18s ease}
+.history-group[open] .history-group-arrow{transform:rotate(180deg)}
+.history-group-body{padding:0 12px 4px}
+.history-group-body .history-food:first-child{border-top:0}
+.history-empty{padding:14px 2px;color:var(--muted);font-size:12px}
+.history-filters{margin-top:10px}
+.history-filter-note{font-size:11px;color:var(--muted);margin-top:8px}
+
+/* KYC TOOL CENTER v1.1 */
+.kyc-banner-wrap{position:relative}
+.kyc-home-btn{
+  position:absolute;left:0;top:0;z-index:8;
+  border:1px solid var(--line);background:rgba(255,255,255,.94);color:var(--text);
+  border-radius:12px;padding:9px 11px;font-weight:750;font-size:13px;
+  box-shadow:0 5px 16px rgba(15,23,42,.10);cursor:pointer
+}
+.kyc-home-btn:active{transform:scale(.98)}
+@media(max-width:700px){
+  .kyc-home-btn{position:static;display:inline-flex;margin:0 auto 10px;padding:9px 12px}
+}
+
+/* 2026-09-28 VIEWPORT_SAVE_TOP_V1: 全系統依可視螢幕自適應，儲存後回到目前功能最上方 */
+html{
+  width:100%;
+  min-height:100%;
+  background:var(--bg);
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+body{
+  width:100%;
+  max-width:100vw;
+  min-height:100vh;
+  min-height:100dvh;
+  overflow-x:hidden;
+  overscroll-behavior-x:none;
+}
+.app{
+  width:100%;
+  max-width:900px;
+  min-height:var(--kyc-visible-height,100vh);
+  min-height:var(--kyc-visible-height,100dvh);
+  padding-top:max(16px,env(safe-area-inset-top));
+  padding-left:max(14px,env(safe-area-inset-left));
+  padding-right:max(14px,env(safe-area-inset-right));
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
+}
+.section,.card,.grid>*{min-width:0;max-width:100%}
+.section{scroll-margin-top:8px}
+input,select,textarea{min-width:0;max-width:100%;font-size:16px}
+img,svg,video,canvas{max-width:100%;height:auto}
+.tabs{
+  z-index:60;
+  width:100%;
+  max-width:100vw;
+  padding-left:max(5px,env(safe-area-inset-left));
+  padding-right:max(5px,env(safe-area-inset-right));
+}
+.picker{height:100vh;height:100dvh}
+.pickerbox{
+  max-height:calc(100vh - 20px);
+  max-height:calc(100dvh - 20px);
+  padding-bottom:calc(18px + env(safe-area-inset-bottom));
+}
+@media(max-width:700px){
+  .app{
+    padding-top:max(12px,env(safe-area-inset-top));
+    padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right));
+    padding-bottom:calc(92px + env(safe-area-inset-bottom));
+  }
+  .card{padding:14px;border-radius:16px}
+}
+
+
+/* 2026-09-30 PRINT_INLINE_PREVIEW_V3: 不開新視窗，避免 iPhone/PWA 封鎖 window.open */
+#printPreviewOverlay{display:none;position:fixed;inset:0;z-index:10000;background:#f3f4f6;overflow:auto;-webkit-overflow-scrolling:touch;color:#111827}
+#printPreviewOverlay.show{display:block}
+.print-preview-toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px max(10px,env(safe-area-inset-right)) 10px max(10px,env(safe-area-inset-left));background:rgba(255,255,255,.97);border-bottom:1px solid #e5e7eb}
+.print-preview-toolbar button{border:0;border-radius:11px;padding:11px 14px;font:inherit;font-weight:750;touch-action:manipulation}
+.print-preview-do{background:#111827;color:#fff}
+.print-preview-back{background:#eef2f7;color:#111827}
+.print-preview-help{font-size:12px;color:#6b7280;flex:1 1 220px}
+.print-preview-sheet{width:min(210mm,calc(100% - 20px));min-height:297mm;margin:12px auto 24px;background:#fff;padding:14mm 12mm;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.print-preview-sheet .pp-title{font-size:24px;margin:0 0 4px}
+.print-preview-sheet .pp-period{font-size:14px;color:#4b5563;margin-bottom:4px}
+.print-preview-sheet .pp-filter{font-size:12px;color:#6b7280;margin-bottom:14px}
+.print-preview-sheet .pp-day{margin-top:14px;border-top:2px solid #111827;padding-top:10px}
+.print-preview-sheet .pp-day:first-of-type{margin-top:0}
+.print-preview-sheet .pp-day-head h2{font-size:18px;margin:0 0 3px}
+.print-preview-sheet .pp-day-head div{font-size:12px;color:#6b7280}
+.print-preview-sheet .pp-group{margin-top:10px}
+.print-preview-sheet .pp-group h3{font-size:14px;margin:0 0 5px;padding:7px 8px;background:#f3f4f6;border-radius:7px}
+.print-preview-sheet .pp-group h3 span{font-weight:400;color:#6b7280;margin-left:8px;font-size:11px}
+.print-preview-sheet table{width:100%;border-collapse:collapse;font-size:11px}
+.print-preview-sheet th,.print-preview-sheet td{border-bottom:1px solid #e5e7eb;padding:6px 5px;text-align:left;vertical-align:top}
+.print-preview-sheet th{color:#4b5563;font-weight:700}
+.print-preview-sheet .pp-num{text-align:right;white-space:nowrap}
+.print-preview-sheet .pp-note-row td{font-size:10px;color:#6b7280;padding-top:2px}
+.print-preview-sheet .pp-empty{text-align:center;color:#6b7280;padding:40px 0}
+/* 2026-10-01 PRINT_DAY_PER_PAGE_V2: 強制每個日期從新頁開始。
+   html2pdf 對 break-before 的支援在部分 iPhone/WebKit 情境不穩定，
+   因此在日期之間插入實體 html2pdf__page-break 分頁節點，並同時保留 CSS 分頁規則。 */
+.print-preview-sheet .pp-hard-break{
+  display:block!important;
+  height:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  clear:both!important;
+  break-after:page!important;
+  page-break-after:always!important;
+}
+.print-preview-sheet .pp-day-next{
+  break-before:page!important;
+  page-break-before:always!important;
+}
+.print-preview-sheet .pp-day-head{
+  break-after:avoid!important;
+  page-break-after:avoid!important;
+}
+@media(max-width:700px){.print-preview-sheet{width:100%;min-height:0;margin:0;padding:18px 12px 28px;box-shadow:none}.print-preview-help{width:100%;flex-basis:100%}}
+@media print{
+  body.kyc-printing{background:#fff!important}
+  body.kyc-printing .app,body.kyc-printing>.tabs,body.kyc-printing>.lock,body.kyc-printing>.picker,body.kyc-printing>.zoom-backdrop{display:none!important}
+  body.kyc-printing #printPreviewOverlay{display:block!important;position:static!important;inset:auto!important;overflow:visible!important;background:#fff!important}
+  body.kyc-printing .print-preview-toolbar{display:none!important}
+  body.kyc-printing .print-preview-sheet{width:auto!important;min-height:0!important;margin:0!important;padding:0!important;box-shadow:none!important}
+  body.kyc-printing .pp-day{break-inside:auto}
+  body.kyc-printing .pp-hard-break{display:block!important;height:0!important;margin:0!important;padding:0!important;border:0!important;break-after:page!important;page-break-after:always!important}
+  body.kyc-printing .pp-day-next{break-before:page!important;page-break-before:always!important}
+  body.kyc-printing .pp-day-head{break-after:avoid!important;page-break-after:avoid!important}
+  body.kyc-printing .pp-group,body.kyc-printing table,body.kyc-printing tr{break-inside:avoid}
+  @page{size:A4;margin:10mm}
+}
+
+</style>
+</head>
+<body>
+<div id="lock" class="lock">
+  <div class="lockbox">
+    <h2>🔒 已鎖定</h2>
+    <input id="unlockPin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="••••">
+    <div class="btnrow" style="justify-content:center;margin-top:10px">
+      <button class="primary" onclick="unlockApp()">解鎖</button>
+      <button class="danger" onclick="forgotPin()">忘記 PIN</button>
+    </div>
+  </div>
+</div>
+<div id="foodPicker" class="picker" onclick="if(event.target===this)closePicker()">
+  <div class="pickerbox" onclick="event.stopPropagation()">
+    <div class="picker-head"><div class="itemtitle">從食品主檔選擇</div><button class="picker-close" type="button" aria-label="關閉" onclick="closePicker()">×</button></div>
+    <input id="pickerSearch" placeholder="搜尋品牌、商品或條碼" oninput="renderPicker()" style="margin-top:10px">
+    <div id="pickerList"></div>
+  </div>
+</div>
+<div id="imageZoom" class="zoom-backdrop" onclick="closeImageZoom()">
+  <button class="zoom-close" type="button" aria-label="關閉" onclick="closeImageZoom();event.stopPropagation()">×</button>
+  <img id="imageZoomImg" alt="食品照片放大預覽" onclick="event.stopPropagation()">
+</div>
+<div class="app">
+<div class="no-print kyc-banner-wrap">
+  <button class="kyc-home-btn" type="button" onclick="goToolCenter()" aria-label="返回工具中心">⌂ 工具中心</button>
+  <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
+  <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
+  <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.01.16</div>
+</div>
+<section id="today" class="section active">
+<div class="card">
+  <div class="itemtitle" id="todayLabel"></div>
+  <div class="kpis" style="margin-top:10px">
+    <div class="kpi">
+      <b id="kcalToday">0</b>
+      <span>飲食 kcal</span>
+    </div>
+    <div class="kpi">
+      <b id="proteinToday">0</b>
+      <span>蛋白質 g</span>
+    </div>
+    <div class="kpi">
+      <b id="exerciseMin">0</b>
+      <span>運動分鐘</span>
+    </div>
+    <div class="kpi">
+      <b id="exerciseKcal">0</b>
+      <span>運動消耗 kcal</span>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="itemtitle">🔔 今日提醒</div>
+  <div id="reminder" class="note" style="margin-top:8px"></div>
+</div>
+<div class="card">
+  <div class="itemtitle">今日飲食</div>
+  <div id="foodToday"></div>
+</div>
+<div class="card">
+  <div class="itemtitle">今日運動</div>
+  <div id="exerciseToday"></div>
+</div>
+</section>
+<section id="add" class="section">
+<div class="card">
+<div class="itemtitle">新增飲食</div>
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary" type="button" onclick="startNewMasterFromFood()">＋ 建立新食品</button>
+</div>
+<label style="margin-top:10px">餐點照片</label>
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary"
+    onclick="document.getElementById('photoCameraInput').click()">
+    📷 拍餐點照片
+  </button>
+  <button class="secondary"
+    onclick="document.getElementById('photoLibraryInput').click()">
+    🖼️ 從圖庫選餐點照片
+  </button>
+</div>
+<!-- 拍照：保留 capture -->
+<input
+  id="photoCameraInput"
+  type="file"
+  accept="image/*"
+  capture="environment"
+  style="display:none"
+  onchange="handlePhoto(event)"
+>
+<!-- 圖庫：不要 capture -->
+<input
+  id="photoLibraryInput"
+  type="file"
+  accept="image/*"
+  style="display:none"
+  onchange="handlePhoto(event)"
+>
+<img id="photoPreview" class="photoPreview">
+<div class="grid" style="margin-top:10px">
+<div>
+<label>日期</label>
+<input id="fDate" type="date">
+</div>
+<div>
+<label>時間</label>
+<input id="fTime" type="time">
+</div>
+<div>
+<label>餐別</label>
+<select id="fMeal">
+<option>早餐</option>
+<option>午餐</option>
+<option>下午點心</option>
+<option>晚餐</option>
+<option>宵夜</option>
+<option>運動前</option>
+<option>運動後</option>
+<option>其他</option>
+</select>
+</div>
+<div class="master-combobox">
+<label>食品主檔</label>
+<div class="master-combobox-row">
+<input id="fMasterName" placeholder="搜尋或選擇食品" autocomplete="off"
+  onfocus="openMasterDropdown()"
+  oninput="onMasterSearchInput()"
+  onkeydown="handleMasterSearchKey(event)"
+  onblur="setTimeout(closeMasterDropdown,180)">
+<button class="master-drop-toggle" type="button" aria-label="展開食品主檔" onclick="toggleMasterDropdown()">⌄</button>
+</div>
+<div id="masterDropdown" class="master-dropdown"></div>
+</div>
+<div>
+<label>食物／餐點</label>
+<input id="fFood">
+</div>
+<div>
+<label id="fQtyLabel">吃了幾份</label>
+<input id="fQty" value="1" inputmode="decimal" oninput="recalcMaster()">
+</div>
+<div>
+<label>單位</label>
+<select id="fUnit" onchange="updateFoodQtyLabel();recalcMaster()">
+<option>份</option>
+<option>g</option>
+<option>ml</option>
+<option>顆</option>
+<option>片</option>
+<option>碗</option>
+<option>杯</option>
+<option>個</option>
+<option>包</option>
+</select>
+</div>
+<div class="full">
+<div id="fCalcHint" class="note">選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算；同一食品下次會優先帶入最近一次的食用量與單位。</div>
+</div>
+<div>
+<label>熱量 kcal</label>
+<input id="fKcal">
+</div>
+<div>
+<label>蛋白質 g</label>
+<input id="fProtein">
+</div>
+<div>
+<label>碳水 g</label>
+<input id="fCarb">
+</div>
+<div>
+<label>糖 g</label>
+<input id="fSugar">
+</div>
+<div>
+<label>脂肪 g</label>
+<input id="fFat">
+</div>
+<div>
+<label>纖維 g</label>
+<input id="fFiber">
+</div>
+<div>
+<label>鈉 mg</label>
+<input id="fSodium">
+</div>
+<div class="full">
+<label>備註</label>
+<textarea id="fNote"></textarea>
+</div>
+</div>
+<div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若食品主檔曾修正，可按「依目前食品主檔重新計算」更新本次營養值。若不重新選照片，會保留原照片。</div>
+<div class="btnrow" style="margin-top:10px">
+<button id="saveFoodBtn" class="primary" onclick="saveFood()">儲存這一餐</button>
+<button id="recalcFoodFromMasterBtn" class="secondary" type="button" style="display:none" onclick="recalcFoodFromCurrentMaster()">🔄 依目前食品主檔重新計算</button>
+<button id="cancelFoodEditBtn" class="secondary" style="display:none" onclick="cancelFoodEdit()">取消修改</button>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">體重／體脂</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>日期</label>
+<input id="bDate" type="date">
+</div>
+<div>
+<label>體重 kg</label>
+<input id="bWeight">
+</div>
+<div>
+<label>體脂 %</label>
+<input id="bFat">
+</div>
+<div>
+<label>腰圍 cm</label>
+<input id="bWaist">
+</div>
+</div>
+<button class="primary" style="margin-top:10px" onclick="saveBody()">
+儲存
+</button>
+</div>
+</section>
+<section id="exercise" class="section">
+<div class="card">
+<div class="itemtitle">新增運動</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>日期</label>
+<input id="eDate" type="date">
+</div>
+<div>
+<label>類型</label>
+<select id="eType" onchange="autoClass()">
+<option>快走</option>
+<option>跑步</option>
+<option>單車</option>
+<option>橢圓機</option>
+<option>游泳</option>
+<option>傳統重量訓練</option>
+<option>功能性肌力訓練</option>
+<option>HIIT</option>
+<option>其他</option>
+</select>
+</div>
+<div>
+<label>分類</label>
+<select id="eClass">
+<option>有氧</option>
+<option>無氧</option>
+<option>混合</option>
+</select>
+</div>
+<div>
+<label>開始</label>
+<input id="eStart" type="time">
+</div>
+<div>
+<label>結束</label>
+<input id="eEnd" type="time" onchange="calcMin()">
+</div>
+<div>
+<label>分鐘</label>
+<input id="eMinutes">
+</div>
+<div>
+<label>消耗 kcal</label>
+<input id="eKcal">
+</div>
+<div class="full">
+<label>備註</label>
+<textarea id="eNote"></textarea>
+</div>
+</div>
+<div id="exerciseEditNotice" class="editing-note">目前正在修改既有運動紀錄；修改完成後請按「更新運動」。</div>
+<div class="btnrow" style="margin-top:10px">
+<button id="saveExerciseBtn" class="primary" type="button" onclick="saveExercise()">儲存運動</button>
+<button id="cancelExerciseEditBtn" class="secondary" type="button" style="display:none" onclick="cancelExerciseEdit()">取消修改</button>
+</div>
+<div id="exerciseSaveStatus" role="status" aria-live="polite" style="display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#eefbf3;color:#166534;font-size:13px;font-weight:700"></div>
+<div class="note" style="margin-top:10px">
+目前 PWA 不能直接讀 Apple Health / Apple Watch；未來原生 iPhone App 可用 HealthKit 匯入。
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">運動紀錄</div>
+<div id="exerciseList"></div>
+</div>
+</section>
+<section id="fooddb" class="section">
+<div class="card">
+<div class="itemtitle">食品主檔</div>
+<div class="note">第一次建立後，下次直接選商品就能帶入營養素。包裝標示優先於網路資料。天然食物可直接輸入名稱；若內建有參考資料，會自動帶入每 100 g 營養。</div>
+<div class="btnrow" style="margin-top:10px">
+  <button class="secondary" onclick="document.getElementById('smartPhotoCameraInput').click()">📷 拍照辨識</button>
+  <button class="secondary" onclick="document.getElementById('smartPhotoLibraryInput').click()">🖼️ 從圖庫選擇</button>
+</div>
+<input id="smartPhotoCameraInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleSmartRecognitionPhoto(event)">
+<input id="smartPhotoLibraryInput" type="file" accept="image/*" style="display:none" onchange="handleSmartRecognitionPhoto(event)">
+<details id="masterFormDetails" class="fold">
+<summary>辨識結果／填寫食品資料</summary>
+<div class="fold-body">
+<img id="masterPhotoPreview" class="photoPreview">
+<div class="btnrow" style="margin-top:10px">
+<button class="secondary" onclick="shareMasterPhotoToAI()">傳給 ChatGPT 辨識</button>
+<button class="secondary" onclick="pasteMasterAI()">貼上辨識結果</button>
+</div>
+<textarea id="masterAIText" placeholder="品牌：\n品名：\n條碼：\n每份：\n熱量： kcal\n蛋白質： g\n碳水： g\n糖： g\n脂肪： g\n纖維： g\n鈉： mg" style="margin-top:10px"></textarea>
+<button class="primary" style="margin-top:8px" onclick="applyMasterAI()">套用辨識結果</button>
+<div class="grid" style="margin-top:14px">
+<div>
+<label>品牌</label>
+<input id="mBrand">
+</div>
+<div>
+<label>商品名稱</label>
+<input id="mName" autocomplete="off" oninput="scheduleCommonFoodLookup()">
+<div id="commonFoodHint" class="common-food-hint"></div>
+</div>
+<div>
+<label>條碼</label>
+<input id="mBarcode" inputmode="numeric">
+</div>
+<div>
+<label>每份重量/容量</label>
+<input id="mServing" placeholder="例如 400 ml">
+</div>
+<div>
+<label>熱量 kcal</label>
+<input id="mKcal">
+</div>
+<div>
+<label>蛋白質 g</label>
+<input id="mProtein">
+</div>
+<div>
+<label>碳水 g</label>
+<input id="mCarb">
+</div>
+<div>
+<label>糖 g</label>
+<input id="mSugar">
+</div>
+<div>
+<label>脂肪 g</label>
+<input id="mFat">
+</div>
+<div>
+<label>膳食纖維 g</label>
+<input id="mFiber">
+</div>
+<div>
+<label>鈉 mg</label>
+<input id="mSodium">
+</div>
+<div>
+<label>資料來源</label>
+<select id="mSource">
+<option>包裝營養標示</option>
+<option>品牌官網</option>
+<option>網路資料</option>
+<option>AI 辨識</option>
+<option>常見食物資料庫</option>
+<option>手動輸入</option>
+</select>
+</div>
+<div>
+<label>最後確認日期</label>
+<input id="mConfirmed" type="date">
+</div>
+<div class="full">
+<label>備註</label>
+<textarea id="mNote"></textarea>
+</div>
+</div>
+<div id="masterEditNotice" class="editing-note">目前正在修改食品主檔；儲存後會更新主檔本身，不會只修改某一餐。</div>
+<div class="btnrow" style="margin-top:10px">
+<button id="saveMasterBtn" class="primary" onclick="saveMaster()">儲存食品主檔</button>
+<button id="clearMasterBtn" class="secondary" type="button" onclick="clearMasterForm()">清除</button>
+<button id="cancelMasterEditBtn" class="secondary" type="button" onclick="cancelMasterEdit()">取消</button>
+</div>
+</div>
+</details>
+</div>
+<div class="card">
+<div class="itemtitle">已建立食品</div>
+<input
+id="masterSearch"
+placeholder="搜尋品牌、商品或條碼"
+oninput="renderMasters()"
+style="margin-top:10px">
+<details id="masterListDetails" class="fold">
+<summary><span>食品列表<span id="masterCount" class="master-count">共 0 筆</span></span></summary>
+<div class="fold-body"><div id="masterList"></div></div>
+</details>
+</div>
+</section>
+
+<section id="knowledge" class="section">
+  <div class="card">
+    <div class="itemtitle">🧠 飲食知識庫</div>
+    <div class="note" style="margin-top:6px">
+      以前和 ChatGPT 討論過的飲食建議可直接貼進來。保留完整原文，同時整理成「摘要／情境／適用條件／注意事項」，之後搜尋會比較快。
+    </div>
+
+    <details id="knowledgeFormDetails" class="fold">
+      <summary>新增／整理一筆飲食知識</summary>
+      <div class="fold-body">
+        <div class="knowledge-form-note">
+          最省事的方式：把原本聊天內容完整貼到「原始聊天內容」，按「複製給 ChatGPT 整理」；ChatGPT 回覆後貼到「整理結果」，再按「套用整理結果」。原始聊天不會被刪掉。
+        </div>
+
+        <label style="margin-top:12px">原始聊天內容（可很長）</label>
+        <textarea id="kRaw" style="min-height:180px" placeholder="直接貼上以前和 ChatGPT 的完整聊天內容，不用先自己整理。"></textarea>
+
+        <div class="btnrow" style="margin-top:8px">
+          <button class="secondary" type="button" onclick="copyKnowledgePrompt()">📋 複製給 ChatGPT 整理</button>
+          <button class="secondary" type="button" onclick="pasteKnowledgeAI()">貼上整理結果</button>
+        </div>
+
+        <label style="margin-top:12px">ChatGPT 整理結果</label>
+        <textarea id="kAIText" style="min-height:150px" placeholder="標題：
+類型：
+情境：
+摘要：
+建議：
+適用條件：
+注意事項：
+原食物：
+替代食物：
+替代份量：
+關鍵字："></textarea>
+        <button class="primary" style="margin-top:8px" type="button" onclick="applyKnowledgeAI()">套用整理結果</button>
+
+        <div class="grid" style="margin-top:14px">
+          <div class="full">
+            <label>標題</label>
+            <input id="kTitle" placeholder="例如：晚間運動後補充建議">
+          </div>
+          <div>
+            <label>類型</label>
+            <select id="kType">
+              <option>一般規則</option>
+              <option>情境案例</option>
+              <option>食物替換</option>
+              <option>餐點搭配</option>
+              <option>其他</option>
+            </select>
+          </div>
+          <div>
+            <label>主要情境</label>
+            <select id="kCategory">
+              <option>未分類</option>
+              <option>早餐</option>
+              <option>午餐</option>
+              <option>晚餐</option>
+              <option>下午點心</option>
+              <option>外食</option>
+              <option>便利商店</option>
+              <option>加班</option>
+              <option>運動前</option>
+              <option>運動後</option>
+              <option>減脂</option>
+              <option>其他</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>摘要</label>
+            <textarea id="kSummary" placeholder="平常搜尋列表先看到這一段，建議保持精簡。"></textarea>
+          </div>
+          <div class="full">
+            <label>建議內容</label>
+            <textarea id="kAdvice" placeholder="實際建議怎麼吃、怎麼搭配、怎麼替換。"></textarea>
+          </div>
+          <div class="full">
+            <label>適用條件／情境</label>
+            <textarea id="kConditions" placeholder="例如：晚餐距離運動結束約 5 小時、當天已攝取較多豆漿。"></textarea>
+          </div>
+          <div class="full">
+            <label>注意事項</label>
+            <textarea id="kCaution" placeholder="例如：這是特定當天的判斷，不代表每天都要省略豆漿。"></textarea>
+          </div>
+          <div>
+            <label>原食物</label>
+            <input id="kFromFood" placeholder="例如：雞胸肉">
+          </div>
+          <div>
+            <label>替代食物</label>
+            <input id="kToFood" placeholder="例如：麥克雞塊／茶葉蛋">
+          </div>
+          <div>
+            <label>替代份量</label>
+            <input id="kReplacementQty" placeholder="例如：1 份／100 g">
+          </div>
+          <div>
+            <label>關鍵字</label>
+            <input id="kKeywords" placeholder="用逗號分隔，例如：乳清,香蕉,運動後">
+          </div>
+        </div>
+
+        <div id="knowledgeEditNotice" class="knowledge-editing">目前正在修改既有知識。</div>
+        <div class="btnrow" style="margin-top:10px">
+          <button id="saveKnowledgeBtn" class="primary" type="button" onclick="saveKnowledge()">儲存知識</button>
+          <button id="cancelKnowledgeEditBtn" class="secondary" style="display:none" type="button" onclick="clearKnowledgeForm()">取消修改</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="itemtitle">查詢知識</div>
+    <div class="knowledge-toolbar">
+      <input id="knowledgeSearch" placeholder="搜尋：豆漿、優格、加班、運動後…" oninput="renderKnowledge()">
+      <select id="knowledgeFilter" onchange="renderKnowledge()">
+        <option value="">全部情境</option>
+        <option>早餐</option>
+        <option>午餐</option>
+        <option>晚餐</option>
+        <option>下午點心</option>
+        <option>外食</option>
+        <option>便利商店</option>
+        <option>加班</option>
+        <option>運動前</option>
+        <option>運動後</option>
+        <option>減脂</option>
+        <option>其他</option>
+        <option>未分類</option>
+      </select>
+    </div>
+    <div id="knowledgeCount" class="note" style="margin-top:8px">共 0 筆</div>
+    <div id="knowledgeList"></div>
+  </div>
+</section>
+
+<section id="history" class="section">
+<div class="card">
+<div class="itemtitle">歷史紀錄</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>開始日期</label>
+<input id="hStart" type="date">
+</div>
+<div>
+<label>結束日期</label>
+<input id="hEnd" type="date">
+</div>
+</div>
+<div class="grid history-filters">
+<div>
+<label>紀錄類型</label>
+<select id="hType" onchange="historyFilterChanged()">
+<option value="all">全部</option>
+<option value="food">飲食</option>
+<option value="exercise">運動</option>
+<option value="body">體重／體脂</option>
+</select>
+</div>
+<div>
+<label>餐別</label>
+<select id="hMeal" onchange="renderHistory()">
+<option value="all">全部餐別</option>
+<option>早餐</option>
+<option>午餐</option>
+<option>下午點心</option>
+<option>晚餐</option>
+<option>宵夜</option>
+<option>運動前</option>
+<option>運動後</option>
+<option>其他</option>
+</select>
+</div>
+</div>
+<div class="history-filter-note">查詢結果會依「日期 → 餐別／運動／身體紀錄」分類，最新日期預設展開。</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="primary" onclick="renderHistory()">
+查詢
+</button>
+<button class="secondary" onclick="printHistory()">
+列印
+</button>
+</div>
+</div>
+<div class="card">
+<div id="historyList"></div>
+</div>
+</section>
+<section id="stats" class="section">
+<div class="card">
+<div class="itemtitle">統計</div>
+<div class="kpis" style="margin-top:10px">
+<div class="kpi">
+<b id="statFoods">0</b>
+<span>餐數</span>
+</div>
+<div class="kpi">
+<b id="statDays">0</b>
+<span>飲食天數</span>
+</div>
+<div class="kpi">
+<b id="statEx">0</b>
+<span>運動分鐘</span>
+</div>
+<div class="kpi">
+<b id="statBody">0</b>
+<span>身體紀錄</span>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">體重／體脂歷史</div>
+<div id="bodyList"></div>
+</div>
+</section>
+<section id="settings" class="section">
+<div class="card">
+<div class="itemtitle">智慧提醒</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>每日熱量目標</label>
+<input id="goalKcal">
+</div>
+<div>
+<label>每日蛋白質目標 g</label>
+<input id="goalProtein">
+</div>
+<div>
+<label>接近目標提醒 %</label>
+<input id="warnPercent">
+</div>
+<div>
+<label>晚間總結時間</label>
+<input id="summaryTime" type="time">
+</div>
+</div>
+<button class="primary" style="margin-top:10px" onclick="saveSettings()">
+儲存設定
+</button>
+</div>
+<div class="card">
+<div class="itemtitle">🔒 本機 PIN 鎖</div>
+<div class="grid" style="margin-top:10px">
+<div>
+<label>4～6 位 PIN</label>
+<input id="newPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" autocorrect="off" spellcheck="false">
+</div>
+<div>
+<label>離開幾分鐘後鎖定</label>
+<input id="lockMinutes" value="5">
+</div>
+</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="primary" onclick="setPin()">
+啟用／更新 PIN
+</button>
+<button class="danger" onclick="disablePin()">
+停用 PIN
+</button>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">備份</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="primary" onclick="exportBackup()">
+匯出 JSON
+</button>
+<label class="secondary" style="padding:11px 14px;border-radius:12px">
+匯入 JSON
+<input type="file" accept=".json" style="display:none" onchange="importBackup(event)">
+</label>
+</div>
+</div>
+<div class="card">
+<div class="itemtitle">☁️ 跨裝置雲端同步</div>
+<div class="note" style="margin-top:6px">首次登入成功後會記住登入狀態；之後開啟網頁、回到網頁及新增／修改資料時會自動雙向同步。既有資料不會被清空；照片會壓縮後保存在本機快取，並同步到 Supabase Storage（food-photos）。</div>
+<!-- 2026-09-26 iPhone/Safari AUTOFILL: email + current-password; PIN/key stay out of autofill -->
+<div class="grid" style="margin-top:10px">
+<div class="full"><label for="cloudUrl">Supabase Project URL</label><input id="cloudUrl" name="cloud-url" type="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://你的專案.supabase.co"></div>
+<div class="full"><label for="cloudKey">Publishable / anon key</label><input id="cloudKey" name="supabase-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="貼上 Supabase 的公開用戶端金鑰"></div>
+<div><label for="cloudEmail">登入 Email</label><input id="cloudEmail" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+<div><label for="cloudPassword">密碼</label><input id="cloudPassword" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+</div>
+<div class="btnrow" style="margin-top:10px">
+<button class="secondary" onclick="saveCloudConfig(true)">儲存連線設定</button>
+<button class="secondary" onclick="cloudSignUp()">建立帳號</button>
+<button class="primary" onclick="cloudSignIn()">登入</button>
+<button class="secondary" onclick="cloudSignOut()">登出</button>
+<button class="primary" onclick="syncCloud()">立即雙向同步</button>
+</div>
+<div id="cloudStatus" class="note" role="status" aria-live="polite" style="margin-top:10px">尚未登入 Supabase。</div>
+<div class="note" style="margin-top:6px">照片雲端需建立私人 Storage bucket：<b>food-photos</b>。照片會自動縮至最長邊 1200px 後上傳，本機只保留 IndexedDB 快取，不再把 Base64 圖片塞進 localStorage。</div>
+</div>
+</section>
+<section id="printArea" class="section">
+<h2>飲食與運動紀錄</h2>
+<div id="printContent"></div>
+</section>
+</div>
+<nav class="tabs no-print">
+<button class="tabbtn active" data-tab="today" onclick="goTab('today')">
+今天
+</button>
+<button class="tabbtn" data-tab="add" onclick="goTab('add')">
+飲食
+</button>
+<button class="tabbtn" data-tab="exercise" onclick="goTab('exercise')">
+運動
+</button>
+<button class="tabbtn" data-tab="fooddb" onclick="goTab('fooddb')">
+食品庫
+</button>
+<button class="tabbtn" data-tab="knowledge" onclick="goTab('knowledge')">
+知識
+</button>
+<button class="tabbtn" data-tab="history" onclick="goTab('history')">
+紀錄
+</button>
+<button class="tabbtn" data-tab="stats" onclick="goTab('stats')">
+統計
+</button>
+<button class="tabbtn" data-tab="settings" onclick="goTab('settings')">
+設定
+</button>
+</nav>
+<script>
+
+function goToolCenter(){
+  let home='';
+  try{home=localStorage.getItem('kyc_tool_center_home_v1')||'';}catch(e){}
+  if(home){
+    location.href=home;
+    return;
+  }
+  if(location.protocol==='http:' || location.protocol==='https:'){
+    location.href=location.origin + '/kyc-tools/';
+    return;
+  }
+  alert('尚未找到工具中心網址。請先從 KYC 工具中心開啟一次，再回到本系統。');
+}
+
+const K='foodlog_v6';
+const D={
+foods:[],
+body:[],
+exercise:[],
+masters:[],
+knowledge:[],
+deletedKnowledge:[],
+deletedFoods:[],
+deletedExercises:[],
+settings:{
+goalKcal:'',
+goalProtein:'',
+warnPercent:'80',
+summaryTime:'20:30',
+pinHash:'',
+lockMinutes:'5',
+lastHidden:0
+}
+};
+let db=load(),
+photo=null,
+photoURL=null,
+selectedMasterId='',
+editingFoodId='',
+editingExerciseId='',
+masterPhoto=null,
+masterPhotoKind='',
+masterPhotoURL=null,
+editingKnowledgeId='',
+editingMasterId='',
+returnToFoodAfterMasterCreate=false;
+function load(){
+try{
+return {
+...D,
+...JSON.parse(localStorage.getItem(K)||'{}'),
+settings:{
+...D.settings,
+...(JSON.parse(localStorage.getItem(K)||'{}').settings||{})
+}
+}
+}catch{
+return JSON.parse(JSON.stringify(D))
+}
+}
+function localStoragePayload(){
+return JSON.stringify(db,(key,value)=>
+(key==='photoData'||key==='photoDatas')?undefined:value
+);
+}
+function persistLocalOnly(){
+try{
+localStorage.setItem(K,localStoragePayload());
+return true;
+}catch(e){
+console.error('本機資料儲存失敗',e);
+return false;
+}
+}
+function save(){
+const ok=persistLocalOnly();
+if(!ok){
+alert('本機資料儲存空間不足。照片已改用 IndexedDB／Supabase Storage，請重新整理後再試一次。');
+return;
+}
+if(!cloudSuppress && cloudSession && localStorage.getItem(cloudReadyKey())){
+clearTimeout(cloudSyncTimer);
+cloudSyncTimer=setTimeout(()=>syncCloud(),1200)
+}
+}
+const DEFAULT_CLOUD_URL='https://tfyffsondjlvxbezsckr.supabase.co';
+const CLOUD_CONFIG_KEY='foodlog_cloud_config_v1';
+const CLOUD_SESSION_KEY='foodlog_cloud_session_v1';
+let cloudConfig={},cloudSession=null;
+try{cloudConfig=JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY)||'{}')||{}}catch{}
+try{cloudSession=JSON.parse(localStorage.getItem(CLOUD_SESSION_KEY)||'null')}catch{}
+let cloudSuppress=false,cloudSyncTimer=0;
+function cloudReadyKey(){return 'foodlog_cloud_ready_'+(cloudSession?.user?.id||'')}
+function setCloudStatus(s){if(document.getElementById('cloudStatus'))cloudStatus.textContent=s}
+function loadCloudFields(){cloudUrl.value=cloudConfig.url||DEFAULT_CLOUD_URL;cloudKey.value=cloudConfig.key||'';if(cloudSession?.user?.email)cloudEmail.value=cloudSession.user.email;setCloudStatus(cloudSession?.user?`已登入：${cloudSession.user.email||cloudSession.user.id}`:'尚未登入 Supabase。')}
+function saveCloudConfig(scrollAfter=false){
+const url=(cloudUrl.value||'').trim().replace(/\/$/,'');
+const key=(cloudKey.value||'').trim();
+if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key){alert('請填入有效的 Supabase Project URL 和 publishable / anon key。');return}
+cloudConfig={url,key};localStorage.setItem(CLOUD_CONFIG_KEY,JSON.stringify(cloudConfig));setCloudStatus('連線設定已儲存在這台裝置。');
+if(scrollAfter)afterSaved('settings');
+}
+
+function ensureCloudConfig(){if(!cloudConfig.url||!cloudConfig.key){saveCloudConfig();if(!cloudConfig.url||!cloudConfig.key)throw new Error('請先儲存 Supabase 連線設定。')}}
+async function cloudFetch(path,options={},auth=true){
+ensureCloudConfig();
+const headers={'apikey':cloudConfig.key,'Content-Type':'application/json',...(options.headers||{})};
+if(auth){await refreshCloudSession();headers.Authorization='Bearer '+cloudSession.access_token}
+const r=await fetch(cloudConfig.url+path,{...options,headers});
+const body=await r.text();let data;try{data=body?JSON.parse(body):null}catch{data=body}
+if(!r.ok)throw new Error(data?.msg||data?.message||data?.hint||data?.error_description||data?.error||`HTTP ${r.status}`);
+return data
+}
+function persistCloudSession(s){cloudSession=s;localStorage.setItem(CLOUD_SESSION_KEY,JSON.stringify(s));setCloudStatus(s?.user?`已登入：${s.user.email||s.user.id}`:'尚未登入 Supabase。')}
+async function refreshCloudSession(){
+if(!cloudSession?.access_token)throw new Error('請先登入 Supabase。');
+if(cloudSession.expires_at && Date.now()<cloudSession.expires_at-60000)return;
+if(!cloudSession.refresh_token)throw new Error('登入已逾期，請重新登入。');
+const s=await cloudFetch('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:JSON.stringify({refresh_token:cloudSession.refresh_token})},false);
+persistCloudSession({...s,expires_at:Date.now()+(s.expires_in||3600)*1000});
+}
+async function cloudSignUp(){try{saveCloudConfig();if(!cloudConfig.key)return;const email=cloudEmail.value.trim(),password=cloudPassword.value;if(!email||password.length<8)throw new Error('請輸入 Email，密碼至少 8 個字元。');const s=await cloudFetch('/auth/v1/signup',{method:'POST',body:JSON.stringify({email,password})},false);if(s.access_token)persistCloudSession({...s,expires_at:Date.now()+(s.expires_in||3600)*1000});else setCloudStatus('帳號已建立；請先到 Email 收信完成驗證，再回來登入。');}catch(e){setCloudStatus('建立帳號失敗：'+e.message)}}
+async function cloudSignIn(){try{saveCloudConfig();if(!cloudConfig.key)return;const email=cloudEmail.value.trim(),password=cloudPassword.value;if(!email||!password)throw new Error('請輸入 Email 和密碼。');const s=await cloudFetch('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})},false);persistCloudSession({...s,expires_at:Date.now()+(s.expires_in||3600)*1000});cloudPassword.value='';await syncCloud();}catch(e){setCloudStatus('登入失敗：'+e.message)}}
+function cloudSignOut(){persistCloudSession(null);setCloudStatus('已登出；本機資料仍保留。')}
+async function stableCloudId(userId,table,legacyId){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${userId}:${table}:${legacyId}`));const h=[...new Uint8Array(bytes)].slice(0,16);h[6]=(h[6]&15)|80;h[8]=(h[8]&63)|128;const s=[...h].map(x=>x.toString(16).padStart(2,'0')).join('');return `${s.slice(0,8)}-${s.slice(8,12)}-${s.slice(12,16)}-${s.slice(16,20)}-${s.slice(20)}`}
+function cloudRows(){const u=cloudSession.user.id;return [
+['food_logs',db.foods,x=>({log_date:x.date,meal_time:x.time,meal:x.meal,master_legacy_id:x.masterId||null,food:x.food,qty:x.qty,unit:x.unit,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,note:x.note})],
+['body_logs',db.body,x=>({log_date:x.date,weight:x.weight,fat:x.fat,waist:x.waist})],
+['exercise_logs',db.exercise,x=>({log_date:x.date,exercise_type:x.type,exercise_class:x.class,start_time:x.start,end_time:x.end,minutes:x.minutes,kcal:x.kcal,note:x.note})],
+['food_masters',db.masters,x=>({brand:x.brand,name:x.name,barcode:x.barcode,serving:x.serving,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,source:x.source,confirmed:!!x.confirmed,note:x.note})]
+].map(([table,items,convert])=>({table,rows:items.map(x=>({user_id:u,legacy_id:String(x.id||uid()),...convert(x)}))}))}
+async function localRowsWithIds(){const u=cloudSession.user.id,out=cloudRows();for(const group of out){const local=group.table==='food_logs'?db.foods:group.table==='body_logs'?db.body:group.table==='exercise_logs'?db.exercise:db.masters;for(let i=0;i<group.rows.length;i++)group.rows[i].id=await stableCloudId(u,group.table,group.rows[i].legacy_id)}return out}
+const FOOD_DELETE_MARK='__KYC_DELETED_V1__';
+function deletedFoodIds(){return new Set((db.deletedFoods||[]).map(x=>String(x.id)))}
+async function pullCloudFoodDeletions(){
+if(!cloudSession?.user)return;
+const rows=await cloudFetch(`/rest/v1/food_logs?select=legacy_id,note&note=eq.${encodeURIComponent(FOOD_DELETE_MARK)}`);
+if(!Array.isArray(db.deletedFoods))db.deletedFoods=[];
+for(const r of rows||[]){
+const id=String(r.legacy_id||'');
+if(!id)continue;
+if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});
+db.foods=db.foods.filter(x=>String(x.id)!==id);
+}
+}
+async function uploadFoodDeleteTombstones(){
+if(!cloudSession?.user || !Array.isArray(db.deletedFoods) || !db.deletedFoods.length)return;
+const u=cloudSession.user.id;
+const rows=[];
+for(const x of db.deletedFoods){
+if(x.remote)continue;
+const legacy=String(x.id||'');
+if(!legacy)continue;
+rows.push({
+id:await stableCloudId(u,'food_logs',legacy),user_id:u,legacy_id:legacy,
+log_date:x.date||null,meal_time:x.time||null,meal:x.meal||null,master_legacy_id:x.masterId||null,
+food:x.food||'',qty:x.qty||null,unit:x.unit||null,kcal:x.kcal||null,protein:x.protein||null,
+carb:x.carb||null,sugar:x.sugar||null,fat:x.fat||null,fiber:x.fiber||null,sodium:x.sodium||null,
+note:FOOD_DELETE_MARK
+});
+}
+if(rows.length)await cloudFetch('/rest/v1/food_logs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
+}
+const EXERCISE_DELETE_MARK='__KYC_EXERCISE_DELETED_V1__';
+function deletedExerciseIds(){return new Set((db.deletedExercises||[]).map(x=>String(x.id)))}
+async function pullCloudExerciseDeletions(){
+if(!cloudSession?.user)return;
+const rows=await cloudFetch(`/rest/v1/exercise_logs?select=legacy_id,note&note=eq.${encodeURIComponent(EXERCISE_DELETE_MARK)}`);
+if(!Array.isArray(db.deletedExercises))db.deletedExercises=[];
+for(const r of rows||[]){
+const id=String(r.legacy_id||'');
+if(!id)continue;
+if(!db.deletedExercises.some(x=>String(x.id)===id))db.deletedExercises.push({id,remote:true});
+db.exercise=db.exercise.filter(x=>String(x.id)!==id);
+}
+}
+async function uploadExerciseDeleteTombstones(){
+if(!cloudSession?.user || !Array.isArray(db.deletedExercises) || !db.deletedExercises.length)return;
+const u=cloudSession.user.id;
+const rows=[];
+for(const x of db.deletedExercises){
+if(x.remote)continue;
+const legacy=String(x.id||'');
+if(!legacy)continue;
+rows.push({
+id:await stableCloudId(u,'exercise_logs',legacy),user_id:u,legacy_id:legacy,
+log_date:x.date||null,exercise_type:x.type||'',exercise_class:x.class||null,
+start_time:x.start||null,end_time:x.end||null,minutes:x.minutes||null,kcal:x.kcal||null,
+note:EXERCISE_DELETE_MARK
+});
+}
+if(rows.length)await cloudFetch('/rest/v1/exercise_logs?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
+}
+async function uploadLocalCloud(){if(!cloudSession?.user)throw new Error('請先登入。');for(const g of await localRowsWithIds()){if(!g.rows.length)continue;await cloudFetch(`/rest/v1/${g.table}?on_conflict=id`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(g.rows)})}const s=db.settings;await cloudFetch('/rest/v1/user_settings?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:cloudSession.user.id,goal_kcal:s.goalKcal||null,goal_protein:s.goalProtein||null,warn_percent:s.warnPercent||80,summary_time:s.summaryTime||'20:30'})})}
+function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,weight:r.weight,fat:r.fat,waist:r.waist};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,note:r.note};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
+async function pullCloudTable(table,key){
+const rows=await cloudFetch(`/rest/v1/${table}?select=*`);
+const local=db[key];
+const deletedFoods=deletedFoodIds();
+const deletedExercises=deletedExerciseIds();
+for(const r of rows){
+if(table==='food_logs' && r.note===FOOD_DELETE_MARK){
+const id=String(r.legacy_id||r.id||'');
+if(id){if(!db.deletedFoods.some(x=>String(x.id)===id))db.deletedFoods.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}
+continue;
+}
+if(table==='exercise_logs' && r.note===EXERCISE_DELETE_MARK){
+const id=String(r.legacy_id||r.id||'');
+if(id){if(!db.deletedExercises.some(x=>String(x.id)===id))db.deletedExercises.push({id,remote:true});const i=local.findIndex(v=>String(v.id)===id);if(i>=0)local.splice(i,1);}
+continue;
+}
+const x=cloudLocalRow(table,r);
+if(table==='food_logs' && deletedFoods.has(String(x.id)))continue;
+if(table==='exercise_logs' && deletedExercises.has(String(x.id)))continue;
+const i=local.findIndex(v=>String(v.id)===String(x.id));if(i<0)local.push(x)
+}
+}
+async function syncCloud(){
+try{
+if(!cloudSession?.user)throw new Error('請先登入，再執行同步。');
+setCloudStatus('同步中…本機資料會合併到雲端，不會清空任何一邊。');
+await pullCloudFoodDeletions();
+await uploadFoodDeleteTombstones();
+await pullCloudExerciseDeletions();
+await uploadExerciseDeleteTombstones();
+await uploadLocalCloud();
+let photoResult={uploaded:0,failed:0,message:''};
+try{photoResult=await uploadAllLocalPhotos();}
+catch(e){photoResult={uploaded:0,failed:1,message:e?.message||String(e)}}
+let knowledgeResult={ok:false,count:(db.knowledge||[]).length,message:''};
+try{knowledgeResult=await syncKnowledgeCloud();}
+catch(e){knowledgeResult={ok:false,count:(db.knowledge||[]).length,message:e?.message||String(e)}}
+cloudSuppress=true;
+await pullCloudTable('food_logs','foods');
+await pullCloudTable('body_logs','body');await pullCloudTable('exercise_logs','exercise');
+await pullCloudTable('food_masters','masters');
+const settings=await cloudFetch('/rest/v1/user_settings?select=*&limit=1');
+if(settings?.[0])db.settings={...db.settings,goalKcal:settings[0].goal_kcal??db.settings.goalKcal,goalProtein:settings[0].goal_protein??db.settings.goalProtein,warnPercent:settings[0].warn_percent??db.settings.warnPercent,summaryTime:settings[0].summary_time??db.settings.summaryTime};
+persistLocalOnly();
+localStorage.setItem(cloudReadyKey(),'1');
+cloudSuppress=false;
+await renderToday();
+await renderMasters();
+renderKnowledge();
+renderHistory();
+const photoMsg=photoResult.failed
+?`；照片雲端尚未完成：${photoResult.message||photoResult.failed+' 筆失敗'}`
+:`、照片已同步 ${photoResult.uploaded||0} 筆`;
+const knowledgeMsg=knowledgeResult.ok
+?`、知識 ${knowledgeResult.count||0} 筆`
+:`；知識庫雲端同步暫未完成${knowledgeResult.message?`：${knowledgeResult.message}`:''}`;
+setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆${knowledgeMsg}${photoMsg}。`);
+}catch(e){
+cloudSuppress=false;
+setCloudStatus('同步失敗：'+e.message);
+}
+}
+
+let cloudAutoSyncRunning=false;
+async function autoRestoreAndSyncCloud(reason='自動'){
+if(cloudAutoSyncRunning || !cloudSession?.refresh_token && !cloudSession?.access_token)return;
+if(!cloudConfig?.url || !cloudConfig?.key)return;
+cloudAutoSyncRunning=true;
+try{
+await refreshCloudSession();
+await syncCloud();
+}catch(e){
+setCloudStatus(`${reason}同步暫未完成：${e.message}`);
+}finally{
+cloudAutoSyncRunning=false;
+}
+}
+window.addEventListener('pageshow',()=>setTimeout(()=>autoRestoreAndSyncCloud('開啟網頁'),250));
+window.addEventListener('focus',()=>setTimeout(()=>autoRestoreAndSyncCloud('回到網頁'),250));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>autoRestoreAndSyncCloud('回到網頁'),250)});
+setInterval(()=>{if(!document.hidden)autoRestoreAndSyncCloud('定期')},120000);
+
+function p(n){
+return String(n).padStart(2,'0')
+}
+function dn(){
+let d=new Date();
+return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`
+}
+function tn(){
+let d=new Date();
+return `${p(d.getHours())}:${p(d.getMinutes())}`
+}
+function num(v){
+let x=parseFloat(v);
+return isFinite(x)?x:0
+}
+function uid(){
+return Date.now().toString(36)+Math.random().toString(36).slice(2,7)
+}
+function esc(s){
+return String(s??'').replace(/[&<>"']/g,m=>({
+'&':'&amp;','<':'&lt;',
+'>':'&gt;',
+'"':'&quot;',
+"'":'&#039;'
+}[m]))
+}
+function syncVisibleViewport(){
+  const h=Math.round(window.visualViewport?.height||window.innerHeight||document.documentElement.clientHeight||0);
+  if(h>0)document.documentElement.style.setProperty('--kyc-visible-height',`${h}px`);
+}
+function afterSaved(sectionId){
+  try{document.activeElement?.blur()}catch{}
+  syncVisibleViewport();
+  const target=document.getElementById(sectionId)||document.querySelector('.section.active');
+  setTimeout(()=>{
+    syncVisibleViewport();
+    if(target&&target.classList.contains('active')){
+      target.scrollIntoView({behavior:'smooth',block:'start'});
+    }else{
+      window.scrollTo({top:0,left:0,behavior:'smooth'});
+    }
+  },90);
+}
+syncVisibleViewport();
+window.addEventListener('resize',syncVisibleViewport,{passive:true});
+window.addEventListener('orientationchange',()=>setTimeout(syncVisibleViewport,120),{passive:true});
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',syncVisibleViewport,{passive:true});
+}
+
+function goTab(id){
+if(returnToFoodAfterMasterCreate && id!=='fooddb' && id!=='add')returnToFoodAfterMasterCreate=false;
+document.querySelectorAll('.section')
+.forEach(x=>x.classList.remove('active'));
+document.querySelectorAll('.tabbtn')
+.forEach(x=>x.classList.remove('active'));
+document.getElementById(id).classList.add('active');
+document.querySelector(`[data-tab="${id}"]`)?.classList.add('active');
+if(id==='today')renderToday();
+if(id==='exercise')renderExercise();
+if(id==='fooddb')renderMasters();
+if(id==='knowledge')renderKnowledge();
+if(id==='history')renderHistory();
+if(id==='stats')renderStats();
+if(id==='settings')loadSettings();
+}
+function pdb(){
+return new Promise((a,b)=>{
+let r=indexedDB.open('foodphotos',1);
+r.onupgradeneeded=e=>
+e.target.result.createObjectStore('p');
+r.onsuccess=e=>a(e.target.result);
+r.onerror=e=>b(e.target.error);
+})
+}
+async function putP(id,b){
+let d=await pdb();
+return new Promise((a,c)=>{
+let t=d.transaction('p','readwrite');
+t.objectStore('p').put(b,id);
+t.oncomplete=a;
+t.onerror=()=>c(t.error);
+})
+}
+async function getP(id){
+if(!id)return null;
+let d=await pdb();
+return new Promise((a,c)=>{
+let r=d.transaction('p').objectStore('p').get(id);
+r.onsuccess=()=>a(r.result||null);
+r.onerror=()=>c(r.error);
+})
+}
+async function delP(id){
+if(!id)return;
+let d=await pdb();
+return new Promise((a,c)=>{
+let t=d.transaction('p','readwrite');
+t.objectStore('p').delete(id);
+t.oncomplete=a;
+t.onerror=()=>c(t.error);
+})
+}
+
+/* ==================================================
+   PHOTO_STORAGE_V3
+   - localStorage 只存文字與照片索引，不再存 Base64 圖片
+   - 圖片本機快取：IndexedDB
+   - 圖片雲端：Supabase Storage / food-photos
+   ================================================== */
+const PHOTO_BUCKET='food-photos';
+const PHOTO_UPLOAD_STATE_KEY='foodlog_photo_upload_state_v1';
+const cloudPhotoMisses=new Set();
+function safePhotoPart(v){return String(v??'').replace(/[^A-Za-z0-9._-]/g,'_')}
+function photoStoragePath(kind,recordId,slot=1){
+if(!cloudSession?.user?.id)throw new Error('尚未登入 Supabase');
+const folder=kind==='master'?'masters':'foods';
+return `${safePhotoPart(cloudSession.user.id)}/${folder}/${safePhotoPart(recordId)}/${Number(slot)||1}.jpg`;
+}
+function localPhotoCacheId(kind,recordId,slot=1){
+return `cloud_${kind}_${safePhotoPart(recordId)}_${Number(slot)||1}`;
+}
+function getPhotoUploadState(){
+try{return JSON.parse(localStorage.getItem(PHOTO_UPLOAD_STATE_KEY)||'{}')||{}}catch{return {}}
+}
+function photoAlreadyUploaded(path){return !!getPhotoUploadState()[path]}
+function markPhotoUploaded(path){
+const s=getPhotoUploadState();s[path]=Date.now();
+try{localStorage.setItem(PHOTO_UPLOAD_STATE_KEY,JSON.stringify(s))}catch{}
+cloudPhotoMisses.delete(path);
+}
+async function photoStorageError(r){
+let msg='';try{const t=await r.text();try{const j=JSON.parse(t);msg=j.message||j.error||j.msg||t}catch{msg=t}}catch{}
+if(r.status===404)return '找不到 food-photos 儲存桶或照片檔案';
+if(r.status===403)return 'Supabase Storage 權限不足，請建立 food-photos 的 RLS 權限';
+return msg||`HTTP ${r.status}`;
+}
+async function uploadPhotoBlob(path,blob,force=false){
+if(!cloudSession?.user||!blob)return false;
+if(!force && photoAlreadyUploaded(path))return false;
+ensureCloudConfig();await refreshCloudSession();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}/${path}`,{
+method:'POST',
+headers:{
+'apikey':cloudConfig.key,
+'Authorization':'Bearer '+cloudSession.access_token,
+'Content-Type':'image/jpeg',
+'x-upsert':'true',
+'cache-control':'0'
+},
+body:blob
+});
+if(!r.ok)throw new Error(await photoStorageError(r));
+markPhotoUploaded(path);return true;
+}
+async function downloadPhotoBlob(path){
+if(!cloudSession?.user||cloudPhotoMisses.has(path))return null;
+ensureCloudConfig();await refreshCloudSession();
+const bust=Date.now();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/authenticated/${PHOTO_BUCKET}/${path}?v=${bust}`,{
+cache:'no-store',
+headers:{'apikey':cloudConfig.key,'Authorization':'Bearer '+cloudSession.access_token,'Cache-Control':'no-cache'}
+});
+if(r.status===404){cloudPhotoMisses.add(path);return null;}
+if(!r.ok)throw new Error(await photoStorageError(r));
+return await r.blob();
+}
+async function deletePhotoBlob(path){
+if(!cloudSession?.user||!path)return false;
+ensureCloudConfig();await refreshCloudSession();
+const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}`,{
+method:'DELETE',
+headers:{
+'apikey':cloudConfig.key,
+'Authorization':'Bearer '+cloudSession.access_token,
+'Content-Type':'application/json'
+},
+body:JSON.stringify({prefixes:[path]})
+});
+if(!r.ok)throw new Error(await photoStorageError(r));
+const state=getPhotoUploadState();delete state[path];
+try{localStorage.setItem(PHOTO_UPLOAD_STATE_KEY,JSON.stringify(state))}catch{}
+cloudPhotoMisses.add(path);
+return true;
+}
+async function compressPhotoBlob(file,maxSide=1200,quality=.82){
+if(!file)return null;
+try{
+const img=await new Promise((resolve,reject)=>{
+const u=URL.createObjectURL(file),im=new Image();
+im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};
+im.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('圖片讀取失敗'))};
+im.src=u;
+});
+let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+const scale=Math.min(1,maxSide/Math.max(w,h));
+w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+const c=document.createElement('canvas');c.width=w;c.height=h;
+const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
+const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg',quality));
+return blob||file;
+}catch(e){console.warn('照片壓縮失敗，改存原圖',e);return file}
+}
+function dataUrlToBlob(dataUrl){
+try{
+const [meta,data]=String(dataUrl||'').split(',');if(!data)return null;
+const mime=(meta.match(/data:([^;]+)/)||[])[1]||'image/jpeg';
+const bin=atob(data),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+return new Blob([arr],{type:mime});
+}catch{return null}
+}
+async function migrateLegacyPhotoData(){
+let changed=false;
+for(const x of db.masters||[]){
+let ids=Array.isArray(x.photoIds)?x.photoIds.filter(Boolean):[];
+if(!ids.length&&x.photoId)ids=[x.photoId];
+let datas=Array.isArray(x.photoDatas)?x.photoDatas.filter(Boolean):[];
+if(!datas.length&&x.photoData)datas=[x.photoData];
+for(let i=0;i<Math.min(2,datas.length);i++){
+const b=dataUrlToBlob(datas[i]);if(!b)continue;
+const pid=ids[i]||`m_${safePhotoPart(x.id)}_${i+1}`;
+try{await putP(pid,b);ids[i]=pid}catch(e){console.warn('舊照片搬移失敗',e)}
+}
+x.photoIds=ids.slice(0,2);x.photoId=x.photoIds[0]||'';
+if('photoData'in x){delete x.photoData;changed=true}
+if('photoDatas'in x){delete x.photoDatas;changed=true}
+}
+if(changed)persistLocalOnly();
+}
+async function getMasterPhotoBlob(x,index){
+const p=normalizeMasterPhotos(x),localId=p.ids[index]||'';
+if(localId){const b=await getP(localId);if(b)return b;}
+const cacheId=localPhotoCacheId('master',x.id,index+1);
+const cached=await getP(cacheId);if(cached)return cached;
+if(!cloudSession?.user)return null;
+try{
+const path=photoStoragePath('master',x.id,index+1),b=await downloadPhotoBlob(path);
+if(b){await putP(cacheId,b);return b;}
+}catch(e){console.warn('主檔照片下載失敗',e)}
+return null;
+}
+async function getFoodPhotoBlob(x){
+if(x.photoId){const b=await getP(x.photoId);if(b)return b;}
+const cacheId=localPhotoCacheId('food',x.id,1);
+const cached=await getP(cacheId);if(cached)return cached;
+if(!cloudSession?.user)return null;
+try{
+const path=photoStoragePath('food',x.id,1),b=await downloadPhotoBlob(path);
+if(b){await putP(cacheId,b);return b;}
+}catch(e){console.warn('飲食照片下載失敗',e)}
+return null;
+}
+async function uploadAllLocalPhotos(){
+if(!cloudSession?.user)return {uploaded:0,failed:0,message:''};
+let uploaded=0,failed=0,last='';
+for(const x of db.foods||[]){
+try{
+let b=x.photoId?await getP(x.photoId):null;
+if(!b)b=await getP(localPhotoCacheId('food',x.id,1));
+if(b && await uploadPhotoBlob(photoStoragePath('food',x.id,1),b,false))uploaded++;
+}catch(e){failed++;last=e?.message||String(e)}
+}
+for(const x of db.masters||[]){
+const p=normalizeMasterPhotos(x);
+for(let i=0;i<2;i++){
+try{
+let b=p.ids[i]?await getP(p.ids[i]):null;
+if(!b)b=await getP(localPhotoCacheId('master',x.id,i+1));
+if(b && await uploadPhotoBlob(photoStoragePath('master',x.id,i+1),b,false))uploaded++;
+}catch(e){failed++;last=e?.message||String(e)}
+}
+}
+return {uploaded,failed,message:last};
+}
+async function handlePhoto(e){
+photo=e.target.files[0];
+if(!photo)return;
+if(photoURL)
+URL.revokeObjectURL(photoURL);
+photoURL=URL.createObjectURL(photo);
+photoPreview.src=photoURL;
+photoPreview.style.display='block';
+}
+function clearFoodEntryForm(){
+selectedMasterId='';
+editingFoodId='';
+closeMasterDropdown();
+fMasterName.value='';
+fFood.value='';
+fQty.value='1';
+fUnit.value='份';
+updateFoodQtyLabel();
+if(document.getElementById('fCalcHint'))fCalcHint.textContent='選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算；同一食品下次會優先帶入最近一次的食用量與單位。';
+fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value=fNote.value='';
+photo=null;
+photoCameraInput.value='';photoLibraryInput.value='';
+if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
+photoPreview.removeAttribute('src');photoPreview.style.display='none';
+if(saveFoodBtn)saveFoodBtn.textContent='儲存這一餐';
+if(document.getElementById('recalcFoodFromMasterBtn'))recalcFoodFromMasterBtn.style.display='none';
+if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='none';
+if(foodEditNotice)foodEditNotice.style.display='none';
+}
+function cancelFoodEdit(){clearFoodEntryForm();fDate.value=dn();fTime.value=tn();}
+async function saveFood(){
+if(!fFood.value.trim()){alert('請輸入食物／餐點');return;}
+let existing=editingFoodId?db.foods.find(x=>String(x.id)===String(editingFoodId)):null;
+const recordId=existing?.id||uid();
+let photoId=existing?.photoId||'';
+let compressed=null,photoCloudWarning='';
+if(photo){
+compressed=await compressPhotoBlob(photo);
+photoId=`p_${safePhotoPart(recordId)}_1`;
+await putP(photoId,compressed);
+}
+const values={date:fDate.value,time:fTime.value,meal:fMeal.value,masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
+if(existing){Object.assign(existing,values);}else{db.foods.push({id:recordId,...values});}
+save();
+if(compressed&&cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('food',recordId,1),compressed,true)}catch(e){photoCloudWarning=e?.message||String(e)}
+}
+const wasEdit=!!existing;
+clearFoodEntryForm();
+fDate.value=dn();fTime.value=tn();
+await renderToday();renderHistory();renderStats();
+alert((wasEdit?'飲食紀錄已更新':'已儲存這一餐')+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
+afterSaved('add');
+}
+async function editFood(id){
+const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
+editingFoodId=String(x.id);selectedMasterId=x.masterId||'';
+fDate.value=x.date||dn();fTime.value=x.time||tn();fMeal.value=x.meal||'早餐';
+const m=db.masters.find(v=>String(v.id)===String(x.masterId||''));
+fMasterName.value=m?((m.brand?m.brand+' ':'')+m.name):'';
+fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';updateFoodQtyLabel();
+fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
+photo=null;
+if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
+{const b=await getFoodPhotoBlob(x);if(b){photoURL=URL.createObjectURL(b);photoPreview.src=photoURL;photoPreview.style.display='block';}else{photoPreview.style.display='none';}}
+if(saveFoodBtn)saveFoodBtn.textContent='更新這一餐';
+if(document.getElementById('recalcFoodFromMasterBtn'))recalcFoodFromMasterBtn.style.display=m?'':'none';
+if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='';
+if(foodEditNotice)foodEditNotice.style.display='block';
+goTab('add');
+setTimeout(()=>document.getElementById('add')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+async function deleteFood(id){
+const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
+if(!confirm(`確定刪除「${x.food||'這筆飲食'}」？`))return;
+if(!Array.isArray(db.deletedFoods))db.deletedFoods=[];
+if(!db.deletedFoods.some(v=>String(v.id)===String(x.id)))db.deletedFoods.push({...x});
+db.foods=db.foods.filter(v=>String(v.id)!==String(id));
+if(String(editingFoodId)===String(id))clearFoodEntryForm();
+save();
+await renderToday();renderHistory();renderStats();
+}
+async function foodHtml(x){
+let pic='';
+{let b=await getFoodPhotoBlob(x);if(b)pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;}
+return `<div class="item"><b>${esc(x.food)}</b><div class="small">${esc(x.meal)}・${esc(x.time)}${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}</div>${pic}<div class="small">${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g・碳水 ${esc(x.carb||'—')} g・脂肪 ${esc(x.fat||'—')} g・糖 ${esc(x.sugar||'—')} g・鈉 ${esc(x.sodium||'—')} mg</div><div class="record-actions"><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
+}
+async function renderToday(){
+let d=dn();
+let f=db.foods.filter(x=>x.date===d);
+let e=db.exercise.filter(x=>x.date===d);
+todayLabel.textContent=`今天 ${d}`;
+kcalToday.textContent=
+Math.round(f.reduce((a,b)=>a+num(b.kcal),0));
+proteinToday.textContent=
+f.reduce((a,b)=>a+num(b.protein),0)
+.toFixed(1)
+.replace('.0','');
+exerciseMin.textContent=
+Math.round(e.reduce((a,b)=>a+num(b.minutes),0));
+exerciseKcal.textContent=
+Math.round(e.reduce((a,b)=>a+num(b.kcal),0));
+
+if(f.length){
+const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
+const known=new Set(mealOrder);
+const grouped=new Map(mealOrder.map(name=>[name,[]]));
+for(const x of f){
+const meal=known.has(x.meal)?x.meal:'其他';
+grouped.get(meal).push(x);
+}
+const groups=[];
+for(const meal of mealOrder){
+const items=grouped.get(meal)||[];
+if(!items.length)continue;
+items.sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+const kcal=Math.round(items.reduce((sum,x)=>sum+num(x.kcal),0));
+const protein=items.reduce((sum,x)=>sum+num(x.protein),0).toFixed(1).replace('.0','');
+const body=(await Promise.all(items.map(foodHtml))).join('');
+groups.push(`<details class="today-meal-group"><summary><div class="today-meal-summary-main"><div class="today-meal-name">${esc(meal)}</div><div class="today-meal-meta">${items.length} 筆・${kcal} kcal・蛋白質 ${protein} g</div></div><span class="today-meal-arrow">⌄</span></summary><div class="today-meal-body">${body}</div></details>`);
+}
+foodToday.innerHTML=groups.join('');
+}else{
+foodToday.innerHTML='<div class="empty">今天還沒有飲食紀錄</div>';
+}
+
+exerciseToday.innerHTML=
+e.length
+?e.map(exHtml).join('')
+:'<div class="empty">今天還沒有運動紀錄</div>';
+renderReminder();
+}
+function exerciseTimeText(x){
+const start=String(x?.start||'').trim();
+const end=String(x?.end||'').trim();
+if(start&&end)return `${start}～${end}`;
+return start||end||'';
+}
+function exHtml(x){
+const time=exerciseTimeText(x);
+return `<div class="item">
+<b>${esc(x.type)}</b>
+<div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.minutes||'—')} 分鐘・${esc(x.kcal||'—')} kcal</div>
+${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}
+<div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div>
+</div>`;
+}
+function autoClass(){
+let t=eType.value;
+eClass.value=
+['快走','跑步','單車','橢圓機','游泳'].includes(t)
+?'有氧'
+:['傳統重量訓練','功能性肌力訓練'].includes(t)
+?'無氧'
+:'混合';
+}
+function calcMin(){
+if(!eStart.value||!eEnd.value)return;
+let [sh,sm]=eStart.value.split(':').map(Number);
+let [eh,em]=eEnd.value.split(':').map(Number);
+let m=(eh*60+em)-(sh*60+sm);
+if(m<0)m+=1440;
+eMinutes.value=m;
+}
+function setExerciseStatus(text){
+const el=document.getElementById('exerciseSaveStatus');
+if(!el)return;
+el.textContent=text||'';
+el.style.display=text?'block':'none';
+}
+function clearExerciseForm(keepStatus=false){
+editingExerciseId='';
+eDate.value=dn();
+eType.value='快走';
+autoClass();
+eStart.value=tn();
+eEnd.value='';
+eMinutes.value='';
+eKcal.value='';
+eNote.value='';
+if(document.getElementById('saveExerciseBtn'))saveExerciseBtn.textContent='儲存運動';
+if(document.getElementById('cancelExerciseEditBtn'))cancelExerciseEditBtn.style.display='none';
+if(document.getElementById('exerciseEditNotice'))exerciseEditNotice.style.display='none';
+if(!keepStatus)setExerciseStatus('');
+}
+function cancelExerciseEdit(){
+clearExerciseForm(false);
+setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
+async function saveExercise(){
+if(!eDate.value){alert('請先選擇日期');return;}
+const existing=editingExerciseId?db.exercise.find(x=>String(x.id)===String(editingExerciseId)):null;
+const recordId=existing?.id||uid();
+const values={
+date:eDate.value,
+type:eType.value,
+class:eClass.value,
+start:eStart.value,
+end:eEnd.value,
+minutes:eMinutes.value,
+kcal:eKcal.value,
+note:eNote.value
+};
+if(existing)Object.assign(existing,values);else db.exercise.push({id:recordId,...values});
+save();
+const wasEdit=!!existing;
+clearExerciseForm(true);
+renderExercise();
+await renderToday();
+renderHistory();
+renderStats();
+setExerciseStatus(wasEdit?'✅ 運動紀錄已更新':'✅ 運動已儲存');
+afterSaved('exercise');
+}
+function editExercise(id){
+const x=db.exercise.find(v=>String(v.id)===String(id));if(!x)return;
+editingExerciseId=String(x.id);
+eDate.value=x.date||dn();
+eType.value=[...eType.options].some(o=>o.value===x.type)?x.type:'其他';
+eClass.value=[...eClass.options].some(o=>o.value===x.class)?x.class:'混合';
+eStart.value=x.start||'';
+eEnd.value=x.end||'';
+eMinutes.value=x.minutes||'';
+eKcal.value=x.kcal||'';
+eNote.value=x.note||'';
+setExerciseStatus('');
+if(document.getElementById('saveExerciseBtn'))saveExerciseBtn.textContent='更新運動';
+if(document.getElementById('cancelExerciseEditBtn'))cancelExerciseEditBtn.style.display='';
+if(document.getElementById('exerciseEditNotice'))exerciseEditNotice.style.display='block';
+goTab('exercise');
+setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+async function deleteExercise(id){
+const x=db.exercise.find(v=>String(v.id)===String(id));if(!x)return;
+if(!confirm(`確定刪除「${x.type||'這筆運動'}」紀錄？`))return;
+if(!Array.isArray(db.deletedExercises))db.deletedExercises=[];
+if(!db.deletedExercises.some(v=>String(v.id)===String(x.id)))db.deletedExercises.push({...x});
+db.exercise=db.exercise.filter(v=>String(v.id)!==String(id));
+if(String(editingExerciseId)===String(id))clearExerciseForm(false);
+save();
+renderExercise();
+await renderToday();
+renderHistory();
+renderStats();
+setExerciseStatus('✅ 運動紀錄已刪除');
+}
+function renderExercise(){
+let a=[...db.exercise]
+.sort((x,y)=>(`${y.date||''}${y.start||''}`).localeCompare(`${x.date||''}${x.start||''}`));
+exerciseList.innerHTML=
+a.length
+?a.map(x=>{
+const time=exerciseTimeText(x);
+return `<div class="item">
+<b>${esc(x.date)}｜${esc(x.type)}</b>
+<div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.minutes||'—')} 分鐘・${esc(x.kcal||'—')} kcal</div>
+${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}
+<div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div>
+</div>`;
+}).join('')
+:'<div class="empty">尚無運動紀錄</div>';
+}
+
+
+/* ==================================================
+   COMMON_FOOD_V1
+   天然食物沒有包裝時，輸入商品名稱可自動帶入每 100 g 參考營養。
+   - 只在營養欄位尚未填寫時自動套用，避免蓋掉包裝／人工資料。
+   - 若欄位已有內容，只顯示「重新帶入」按鈕。
+   - 參考值是食材基準，不等同特定品牌或烹調後數值。
+   ================================================== */
+const COMMON_FOOD_DB=[
+  {
+    id:'sweetpotato-red',
+    name:'紅肉甘藷（地瓜）',
+    aliases:['地瓜','甘藷','番薯','紅肉地瓜','紅肉甘藷','紅地瓜'],
+    serving:'100 g',
+    kcal:'114',
+    protein:'1.8',
+    carb:'25.4',
+    sugar:'5.1',
+    fat:'0.2',
+    fiber:'2.4',
+    sodium:'42',
+    sourceLabel:'衛福部食藥署食品營養成分資料庫（農業試驗所整理）',
+    note:'以紅肉甘藷每100 g可食部分作為「地瓜」預設參考；不同品種、產地與蒸／烤等烹調方式會有差異。'
+  },
+  {
+    id:'sweetpotato-purple',
+    name:'紫肉甘藷（紫地瓜）',
+    aliases:['紫地瓜','紫甘藷','紫番薯','紫肉地瓜','紫肉甘藷'],
+    serving:'100 g',
+    kcal:'122',
+    protein:'1.1',
+    carb:'28.5',
+    sugar:'4.3',
+    fat:'0.1',
+    fiber:'2.8',
+    sodium:'87',
+    sourceLabel:'衛福部食藥署食品營養成分資料庫（農業試驗所整理）',
+    note:'紫肉甘藷每100 g可食部分參考值；不同品種、產地與烹調方式會有差異。'
+  },
+  {
+    id:'sweetpotato-kintoki',
+    name:'金時甘藷',
+    aliases:['金時甘藷','金時地瓜','金時番薯'],
+    serving:'100 g',
+    kcal:'138',
+    protein:'1.6',
+    carb:'31.3',
+    sugar:'5.4',
+    fat:'0.4',
+    fiber:'',
+    sodium:'45',
+    sourceLabel:'衛福部食藥署食品營養成分資料集（整合編號 B0400501）',
+    note:'金時甘藷每100 g可食部分參考值；膳食纖維在目前內建資料未填，保留空白。'
+  }
+];
+
+let commonFoodLookupTimer=0;
+
+function normalizeCommonFoodQuery(v){
+  return String(v||'')
+    .trim()
+    .toLowerCase()
+    .replace(/[（）()【】\[\]\s_-]+/g,'');
+}
+
+function findCommonFoodById(id){
+  return COMMON_FOOD_DB.find(x=>x.id===id)||null;
+}
+
+function findCommonFoodByName(name){
+  const q=normalizeCommonFoodQuery(name);
+  if(!q)return null;
+  for(const x of COMMON_FOOD_DB){
+    const names=[x.name,...(x.aliases||[])].map(normalizeCommonFoodQuery);
+    if(names.includes(q))return x;
+  }
+  return null;
+}
+
+function commonFoodNutritionHasValue(){
+  return [mServing,mKcal,mProtein,mCarb,mSugar,mFat,mFiber,mSodium]
+    .some(el=>String(el?.value||'').trim()!=='');
+}
+
+function setCommonFoodHint(html,type=''){
+  const el=document.getElementById('commonFoodHint');
+  if(!el)return;
+  if(!html){
+    el.innerHTML='';
+    el.className='common-food-hint';
+    return;
+  }
+  el.innerHTML=html;
+  el.className='common-food-hint show'+(type?` ${type}`:'');
+}
+
+function applyCommonFoodReference(id,force=false){
+  const x=findCommonFoodById(id);
+  if(!x)return;
+
+  if(commonFoodNutritionHasValue() && !force){
+    setCommonFoodHint(
+      `找到「${esc(x.name)}」參考值，但目前欄位已有資料，為避免覆蓋沒有自動套用。`+
+      `<button type="button" onclick="applyCommonFoodReference('${x.id}',true)">重新帶入</button>`,
+      'warning'
+    );
+    return;
+  }
+
+  mServing.value=x.serving||'100 g';
+  mKcal.value=x.kcal||'';
+  mProtein.value=x.protein||'';
+  mCarb.value=x.carb||'';
+  mSugar.value=x.sugar||'';
+  mFat.value=x.fat||'';
+  mFiber.value=x.fiber||'';
+  mSodium.value=x.sodium||'';
+  mSource.value='常見食物資料庫';
+  mConfirmed.value=dn();
+
+  const stamp=`常見食物參考：${x.name}；${x.sourceLabel}。${x.note}`;
+  const current=(mNote.value||'').trim();
+  if(!current){
+    mNote.value=stamp;
+  }else if(!current.includes('常見食物參考：')){
+    mNote.value=current+'\n'+stamp;
+  }else{
+    mNote.value=current.replace(/常見食物參考：[\s\S]*$/m,stamp);
+  }
+
+  setCommonFoodHint(
+    `✅ 已依「${esc(x.name)}」帶入每 100 g 參考值。天然食物會因品種與烹調方式不同；若有包裝營養標示，仍以包裝為優先。`,
+    'success'
+  );
+}
+
+function lookupCommonFoodFromName(){
+  const typed=(mName?.value||'').trim();
+  if(!typed){
+    setCommonFoodHint('');
+    return;
+  }
+  const x=findCommonFoodByName(typed);
+  if(!x){
+    setCommonFoodHint('');
+    return;
+  }
+  applyCommonFoodReference(x.id,false);
+}
+
+function scheduleCommonFoodLookup(){
+  clearTimeout(commonFoodLookupTimer);
+  const typed=(mName?.value||'').trim();
+  if(!typed){
+    setCommonFoodHint('');
+    return;
+  }
+  commonFoodLookupTimer=setTimeout(lookupCommonFoodFromName,420);
+}
+
+async function handleSmartRecognitionPhoto(e){
+const f=e.target.files[0];
+if(!f)return;
+masterPhoto=f;
+masterPhotoKind='general';
+if(masterPhotoURL)URL.revokeObjectURL(masterPhotoURL);
+masterPhotoURL=URL.createObjectURL(f);
+masterPhotoPreview.src=masterPhotoURL;
+masterPhotoPreview.style.display='block';
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+/* 若瀏覽器剛好支援 BarcodeDetector，就順便嘗試抓條碼；抓不到也不干擾一般照片辨識。 */
+if('BarcodeDetector' in window){
+try{
+const det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']});
+const bmp=await createImageBitmap(f);
+const rs=await det.detect(bmp);
+if(rs.length && !mBarcode.value)mBarcode.value=rs[0].rawValue;
+}catch(_){ }
+}
+setTimeout(()=>detail?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+e.target.value='';
+}
+
+async function handleMasterPhoto(e,kind){
+const f=e.target.files[0];
+if(!f)return;
+masterPhoto=f;
+masterPhotoKind=kind;
+if(masterPhotoURL)
+URL.revokeObjectURL(masterPhotoURL);
+masterPhotoURL=URL.createObjectURL(f);
+masterPhotoPreview.src=masterPhotoURL;
+masterPhotoPreview.style.display='block';
+}
+async function copyAIFormat(text){
+try{
+if(navigator.clipboard && navigator.clipboard.writeText){
+await navigator.clipboard.writeText(text);
+return true;
+}
+}catch(e){}
+
+try{
+const ta=document.createElement('textarea');
+ta.value=text;
+ta.setAttribute('readonly','');
+ta.style.position='fixed';
+ta.style.opacity='0';
+ta.style.pointerEvents='none';
+document.body.appendChild(ta);
+ta.select();
+ta.setSelectionRange(0,ta.value.length);
+const ok=document.execCommand('copy');
+document.body.removeChild(ta);
+return ok;
+}catch(e){
+return false;
+}
+}
+
+async function shareMasterPhotoToAI(){
+if(!masterPhoto){
+alert('請先拍照或從圖庫選擇食品照片');
+return;
+}
+
+const text=
+`請辨識這張食品照片（可能是商品正面、外包裝、條碼或營養標示），請只用以下格式回覆，不確定留白：
+品牌：
+品名：
+條碼：
+每份：
+熱量： kcal
+蛋白質： g
+碳水： g
+糖： g
+脂肪： g
+纖維： g
+鈉： mg`;
+
+/*
+先複製辨識格式，再開啟 iPhone 分享清單。
+網頁無法知道分享清單裡是否有 ChatGPT，
+因此若使用者關閉分享清單，就提醒直接開 ChatGPT 上傳照片並貼上格式。
+*/
+const copied=await copyAIFormat(text);
+
+const fallbackMessage=
+copied
+?'✅ 辨識格式已複製。\n\n如果分享清單沒有 ChatGPT，請直接開啟 ChatGPT，上傳剛剛選的照片，再貼上已複製的辨識格式。'
+:'如果分享清單沒有 ChatGPT，請直接開啟 ChatGPT，上傳剛剛選的照片，再手動貼上／輸入辨識格式。';
+
+if(
+navigator.share &&
+navigator.canShare &&
+navigator.canShare({files:[masterPhoto]})
+){
+try{
+await navigator.share({
+files:[masterPhoto],
+text,
+title:'食品營養辨識'
+});
+}catch(e){
+if(e && e.name==='AbortError'){
+alert(fallbackMessage);
+}else{
+alert('照片分享未完成。\n\n'+fallbackMessage);
+}
+}
+}else{
+alert('這個瀏覽器無法直接分享照片。\n\n'+fallbackMessage);
+}
+}
+async function pasteMasterAI(){
+try{
+masterAIText.value=
+await navigator.clipboard.readText();
+}catch(e){
+alert('請長按文字框後選「貼上」');
+}
+}
+function lineVal(t,k){
+const m=
+t.match(
+new RegExp(
+'^'+k+'\\s*[:：]\\s*(.+)$',
+'im'
+)
+);
+return m?m[1].trim():'';
+}
+function numVal(t,k){
+const v=lineVal(t,k);
+const m=String(v||'').replace(/,/g,'').match(/[0-9]+(?:\.[0-9]+)?/);
+return m?m[0]:'';
+}
+function applyMasterAI(){
+const t=masterAIText.value;
+mBrand.value=
+lineVal(t,'品牌');
+mName.value=
+lineVal(t,'品名')||
+lineVal(t,'商品名稱');
+mBarcode.value=
+lineVal(t,'條碼');
+mServing.value=
+lineVal(t,'每份');
+mKcal.value=
+numVal(t,'熱量');
+mProtein.value=
+numVal(t,'蛋白質');
+mCarb.value=
+numVal(t,'碳水')||
+numVal(t,'碳水化合物');
+mSugar.value=
+numVal(t,'糖');
+mFat.value=
+numVal(t,'脂肪');
+mFiber.value=
+numVal(t,'纖維')||
+numVal(t,'膳食纖維');
+mSodium.value=
+numVal(t,'鈉');
+mSource.value='AI 辨識';
+mConfirmed.value=dn();
+alert('已帶入可辨識欄位，請對照包裝確認後再儲存。');
+}
+async function scanBarcodePhoto(e){
+const f=e.target.files[0];
+if(!f)return;
+masterPhoto=f;
+masterPhotoKind='barcode';
+if(masterPhotoURL)
+URL.revokeObjectURL(masterPhotoURL);
+masterPhotoURL=
+URL.createObjectURL(f);
+masterPhotoPreview.src=
+masterPhotoURL;
+masterPhotoPreview.style.display=
+'block';
+if(!('BarcodeDetector' in window)){
+alert('這台 iPhone 的瀏覽器目前不支援網頁直接辨識條碼。可以把這張照片傳給 ChatGPT 辨識，或手動輸入條碼。');
+return;
+}
+try{
+const det=
+new BarcodeDetector({
+formats:[
+'ean_13',
+'ean_8',
+'upc_a',
+'upc_e',
+'code_128'
+]
+});
+const bmp=
+await createImageBitmap(f);
+const rs=
+await det.detect(bmp);
+if(rs.length){
+mBarcode.value=
+rs[0].rawValue;
+alert('已辨識條碼：'+rs[0].rawValue);
+}else{
+alert('沒有辨識到條碼，請拍近一點或改手動輸入。');
+}
+}catch(err){
+alert('條碼辨識失敗，可改傳給 ChatGPT 辨識。');
+}
+}
+function normalizeMasterPhotos(x){
+let ids=Array.isArray(x.photoIds)?x.photoIds.filter(Boolean):[];
+if(!ids.length&&x.photoId)ids=[x.photoId];
+ids=ids.slice(0,2);
+x.photoIds=ids;
+x.photoId=ids[0]||'';
+return {ids};
+}
+async function attachMasterPhoto(id,index=0){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+index=Math.max(0,Math.min(1,Number(index)||0));
+const input=document.createElement('input');
+input.type='file';input.accept='image/*';input.style.display='none';
+document.body.appendChild(input);
+input.onchange=async()=>{
+const f=input.files&&input.files[0];
+if(!f){input.remove();return;}
+let cloudWarning='';
+try{
+const b=await compressPhotoBlob(f);
+const p=normalizeMasterPhotos(x);
+const oldId=p.ids[index]||'';
+// 每次更換都使用新的本機照片 ID，避免 iPhone / IndexedDB 顯示舊快取。
+const pid=`m_${safePhotoPart(x.id)}_${index+1}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+await putP(pid,b);
+p.ids[index]=pid;
+x.photoIds=p.ids.slice(0,2);x.photoId=x.photoIds[0]||'';
+persistLocalOnly();
+if(oldId&&oldId!==pid){try{await delP(oldId)}catch{}}
+try{await delP(localPhotoCacheId('master',x.id,index+1))}catch{}
+masterPhotoKeyCache=null;
+if(cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('master',x.id,index+1),b,true)}catch(e){cloudWarning=e?.message||String(e)}}
+await renderMasters();
+if(cloudWarning)alert('照片已更新在本機，但雲端照片尚未完成：'+cloudWarning);
+}catch(e){alert('照片儲存失敗：'+(e?.message||e));}
+input.remove();
+};
+input.click();
+}
+async function deleteMasterPhoto(id,index=0){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+index=Math.max(0,Math.min(1,Number(index)||0));
+if(!confirm(`確定刪除第 ${index+1} 張照片？`))return;
+const p=normalizeMasterPhotos(x);
+const oldIds=[...p.ids];
+let cloudWarning='';
+try{
+if(index===0 && oldIds[1]){
+// 刪除第一張時，第二張自動前移成第一張，避免留下空洞。
+const b2=await getMasterPhotoBlob(x,1);
+const newId=`m_${safePhotoPart(x.id)}_1_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+if(b2)await putP(newId,b2);
+x.photoIds=b2?[newId]:[];
+x.photoId=x.photoIds[0]||'';
+for(const k of oldIds){if(k&&k!==newId){try{await delP(k)}catch{}}}
+try{await delP(localPhotoCacheId('master',x.id,1))}catch{}
+try{await delP(localPhotoCacheId('master',x.id,2))}catch{}
+persistLocalOnly();masterPhotoKeyCache=null;
+if(cloudSession?.user){
+try{
+const p1=photoStoragePath('master',x.id,1),p2=photoStoragePath('master',x.id,2);
+if(b2)await uploadPhotoBlob(p1,b2,true);
+await deletePhotoBlob(p2);
+}catch(e){cloudWarning=e?.message||String(e)}
+}
+}else{
+const oldId=oldIds[index]||'';
+if(oldId){try{await delP(oldId)}catch{}}
+const kept=oldIds.filter((_,i)=>i!==index).filter(Boolean);
+x.photoIds=kept.slice(0,2);x.photoId=x.photoIds[0]||'';
+try{await delP(localPhotoCacheId('master',x.id,index+1))}catch{}
+persistLocalOnly();masterPhotoKeyCache=null;
+if(cloudSession?.user){try{await deletePhotoBlob(photoStoragePath('master',x.id,index+1))}catch(e){cloudWarning=e?.message||String(e)}}
+}
+await renderMasters();
+if(cloudWarning)alert('照片已從本機刪除，但雲端刪除尚未完成：'+cloudWarning+'\n若之後又看到舊照片，請先確認 Supabase Storage 有 DELETE 權限。');
+}catch(e){alert('刪除照片失敗：'+(e?.message||e));}
+}
+async function swapMasterPhotos(id){
+const x=db.masters.find(v=>String(v.id)===String(id));if(!x)return;
+const b1=await getMasterPhotoBlob(x,0),b2=await getMasterPhotoBlob(x,1);
+if(!b1||!b2)return;
+const id1=`m_${safePhotoPart(x.id)}_1`,id2=`m_${safePhotoPart(x.id)}_2`;
+await putP(id1,b2);await putP(id2,b1);
+x.photoIds=[id1,id2];x.photoId=id1;persistLocalOnly();
+let warning='';
+if(cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('master',x.id,1),b2,true);await uploadPhotoBlob(photoStoragePath('master',x.id,2),b1,true)}catch(e){warning=e?.message||String(e)}
+}
+await renderMasters();
+if(warning)alert('照片順序已在本機交換，但雲端照片尚未完成：'+warning);
+}
+async function saveMaster(){
+if(!mName.value.trim()){
+alert('請輸入商品名稱');
+return;
+}
+const bc=mBarcode.value.trim();
+const existing=editingMasterId
+?db.masters.find(x=>String(x.id)===String(editingMasterId))
+:null;
+
+if(bc && db.masters.some(x=>x.barcode===bc && (!existing || String(x.id)!==String(existing.id)))){
+alert('這個條碼已存在食品主檔');
+return;
+}
+
+const masterId=existing?.id||uid();
+let photoId=existing?.photoId||'';
+let photoIds=Array.isArray(existing?.photoIds)?[...existing.photoIds]:(photoId?[photoId]:[]);
+let compressed=null,photoCloudWarning='';
+
+if(masterPhoto){
+compressed=await compressPhotoBlob(masterPhoto);
+const oldFirst=photoIds[0]||'';
+photoId=`m_${safePhotoPart(masterId)}_1_${Date.now().toString(36)}`;
+await putP(photoId,compressed);
+photoIds[0]=photoId;
+photoIds=photoIds.filter(Boolean).slice(0,2);
+if(oldFirst && oldFirst!==photoId){try{await delP(oldFirst)}catch{}}
+try{await delP(localPhotoCacheId('master',masterId,1))}catch{}
+masterPhotoKeyCache=null;
+}
+
+const values={
+brand:mBrand.value.trim(),
+name:mName.value.trim(),
+barcode:bc,
+serving:mServing.value.trim(),
+kcal:mKcal.value,
+protein:mProtein.value,
+carb:mCarb.value,
+sugar:mSugar.value,
+fat:mFat.value,
+fiber:mFiber.value,
+sodium:mSodium.value,
+source:mSource.value,
+confirmed:mConfirmed.value,
+note:mNote.value.trim(),
+photoId:photoIds[0]||photoId||'',
+photoIds
+};
+
+if(existing){
+Object.assign(existing,values);
+}else{
+db.masters.push({id:masterId,...values});
+}
+
+const shouldReturnToFood=!existing && returnToFoodAfterMasterCreate;
+returnToFoodAfterMasterCreate=false;
+save();
+
+if(compressed&&cloudSession?.user){
+try{await uploadPhotoBlob(photoStoragePath('master',masterId,1),compressed,true)}
+catch(e){photoCloudWarning=e?.message||String(e)}
+}
+
+const wasEdit=!!existing;
+clearMaster();
+await renderMasters();
+alert((wasEdit?'食品主檔已更新':'食品主檔已儲存')+(photoCloudWarning?`\n照片已存本機，但雲端照片尚未完成：${photoCloudWarning}`:''));
+if(shouldReturnToFood){
+  useMaster(masterId);
+  afterSaved('add');
+}else{
+  afterSaved('fooddb');
+}
+}
+function clearMaster(){
+editingMasterId='';
+clearTimeout(commonFoodLookupTimer);
+setCommonFoodHint('');
+if(document.getElementById('saveMasterBtn'))saveMasterBtn.textContent='儲存食品主檔';
+if(document.getElementById('masterEditNotice'))masterEditNotice.style.display='none';
+[
+mBrand,
+mName,
+mBarcode,
+mServing,
+mKcal,
+mProtein,
+mCarb,
+mSugar,
+mFat,
+mFiber,
+mSodium,
+mNote,
+masterAIText
+].forEach(x=>x.value='');
+mSource.value=
+'包裝營養標示';
+mConfirmed.value=
+dn();
+masterPhoto=null;
+masterPhotoKind='';
+if(masterPhotoURL){URL.revokeObjectURL(masterPhotoURL);masterPhotoURL=null;}
+masterPhotoPreview.removeAttribute('src');
+masterPhotoPreview.style.display='none';
+['smartPhotoCameraInput','smartPhotoLibraryInput','barcodePhotoInput','barcodePhotoLibraryInput','pkgPhotoInput','pkgPhotoLibraryInput','nutritionPhotoInput','nutritionPhotoLibraryInput'].forEach(id=>{
+const el=document.getElementById(id);if(el)el.value='';
+});
+}
+
+
+async function editMaster(id){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+
+editingMasterId=String(x.id);
+returnToFoodAfterMasterCreate=false;
+masterPhoto=null;
+masterPhotoKind='';
+
+mBrand.value=x.brand||'';
+mName.value=x.name||'';
+mBarcode.value=x.barcode||'';
+mServing.value=x.serving||'';
+mKcal.value=x.kcal||'';
+mProtein.value=x.protein||'';
+mCarb.value=x.carb||'';
+mSugar.value=x.sugar||'';
+mFat.value=x.fat||'';
+mFiber.value=x.fiber||'';
+mSodium.value=x.sodium||'';
+mSource.value=[...mSource.options].some(o=>o.value===x.source)?x.source:'手動輸入';
+mConfirmed.value=x.confirmed||dn();
+mNote.value=x.note||'';
+masterAIText.value='';
+
+if(masterPhotoURL){URL.revokeObjectURL(masterPhotoURL);masterPhotoURL=null;}
+const b=await getMasterPhotoBlob(x,0);
+if(b){
+masterPhotoURL=URL.createObjectURL(b);
+masterPhotoPreview.src=masterPhotoURL;
+masterPhotoPreview.style.display='block';
+}else{
+masterPhotoPreview.removeAttribute('src');
+masterPhotoPreview.style.display='none';
+}
+
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+if(document.getElementById('saveMasterBtn'))saveMasterBtn.textContent='更新食品主檔';
+if(document.getElementById('masterEditNotice'))masterEditNotice.style.display='block';
+
+goTab('fooddb');
+setTimeout(()=>detail?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+
+function masterFormHasContent(){
+return !!(
+(masterPhoto) ||
+[
+mBrand,mName,mBarcode,mServing,mKcal,mProtein,mCarb,mSugar,mFat,mFiber,mSodium,mNote,masterAIText
+].some(el=>String(el?.value||'').trim()!=='')
+);
+}
+
+function clearMasterForm(){
+const wasEdit=!!editingMasterId;
+if(masterFormHasContent()){
+const msg=wasEdit
+?'確定要清除目前表單內容嗎？\n\n已建立的食品主檔不會被刪除，但會退出目前的修改狀態。'
+:'確定要清除目前輸入內容嗎？\n\n尚未儲存的文字、AI 辨識結果與暫存照片都會清空。';
+if(!confirm(msg))return;
+}
+const keepReturnToFood=returnToFoodAfterMasterCreate;
+clearMaster();
+returnToFoodAfterMasterCreate=keepReturnToFood;
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+setTimeout(()=>detail?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
+
+function cancelMasterEdit(){
+const wasEdit=!!editingMasterId;
+const shouldReturnToFood=returnToFoodAfterMasterCreate;
+if(masterFormHasContent()){
+const msg=wasEdit
+?'確定取消這次修改嗎？\n\n目前尚未儲存的變更會放棄，原本食品主檔保持不變。'
+:'確定取消這次新增嗎？\n\n目前尚未儲存的內容不會保留。';
+if(!confirm(msg))return;
+}
+returnToFoodAfterMasterCreate=false;
+clearMaster();
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=false;
+if(shouldReturnToFood){
+goTab('add');
+setTimeout(()=>document.getElementById('add')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}else{
+setTimeout(()=>document.getElementById('fooddb')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
+}
+
+function openImageZoom(src){
+if(!src)return;
+imageZoomImg.src=src;
+imageZoom.classList.add('show');
+}
+function closeImageZoom(){
+imageZoom.classList.remove('show');
+imageZoomImg.removeAttribute('src');
+}
+
+let masterPhotoKeyCache=null;
+function photoKeyTime(v){
+const s=String(v||'').replace(/^[pm]_/, '');
+if(s.length<8)return NaN;
+const n=parseInt(s.slice(0,8),36);
+return Number.isFinite(n)?n:NaN;
+}
+async function getMasterPhotoKeys(){
+if(masterPhotoKeyCache)return masterPhotoKeyCache;
+masterPhotoKeyCache=(async()=>{
+const d=await pdb();
+return await new Promise((resolve,reject)=>{
+const store=d.transaction('p','readonly').objectStore('p');
+if(store.getAllKeys){
+const r=store.getAllKeys();
+r.onsuccess=()=>resolve((r.result||[]).map(String).filter(k=>k.startsWith('m_')));
+r.onerror=()=>reject(r.error);
+}else{
+const keys=[];
+const r=store.openCursor();
+r.onsuccess=()=>{const c=r.result;if(!c){resolve(keys);return;}const k=String(c.key);if(k.startsWith('m_'))keys.push(k);c.continue();};
+r.onerror=()=>reject(r.error);
+}
+});
+})().catch(()=>[]);
+return masterPhotoKeyCache;
+}
+async function recoverMasterPhotoId(x){
+const xt=photoKeyTime(x?.id);
+if(!Number.isFinite(xt))return '';
+const keys=await getMasterPhotoKeys();
+if(!keys.length)return '';
+const used=new Set(db.masters.flatMap(v=>[v.photoId,...(Array.isArray(v.photoIds)?v.photoIds:[])]).filter(Boolean));
+let best='',bestDiff=Infinity;
+for(const k of keys){
+if(used.has(k))continue;
+const kt=photoKeyTime(k);
+if(!Number.isFinite(kt))continue;
+const diff=Math.abs(kt-xt);
+if(diff<bestDiff){bestDiff=diff;best=k;}
+}
+/* photoId 與 master id 是儲存時前後建立，通常只差幾毫秒；10 秒內才自動認回，避免配錯照片。 */
+if(best && bestDiff<=10000){
+x.photoId=best;
+const p=normalizeMasterPhotos(x);
+if(!p.ids[0])p.ids[0]=best;
+x.photoIds=p.ids.filter(Boolean).slice(0,2);
+persistLocalOnly();
+return best;
+}
+return '';
+}
+async function masterCard(x){
+let p=normalizeMasterPhotos(x);
+if(!p.ids[0]){
+const recovered=await recoverMasterPhotoId(x);
+if(recovered)p=normalizeMasterPhotos(x);
+}
+const srcs=[];
+for(let i=0;i<2;i++){
+const b=await getMasterPhotoBlob(x,i);
+if(b)srcs.push({src:URL.createObjectURL(b),index:i});
+}
+const photoHtml=srcs.length?`<div class="master-photo-wrap ${srcs.length===1?'one':'two'}">${srcs.map((v,n)=>`${n===1?`<button class="master-photo-swap" type="button" title="左右交換" onclick="event.stopPropagation();swapMasterPhotos('${x.id}')">↔</button>`:''}<div class="master-photo-slot"><img class="master-thumb" src="${v.src}" alt="食品照片 ${n+1}" title="點一下放大" onclick="event.stopPropagation();openImageZoom(this.src)"><div class="master-photo-actions"><button class="master-photo-mini" type="button" onclick="event.stopPropagation();attachMasterPhoto('${x.id}',${v.index})">更換</button><button class="master-photo-mini delete" type="button" onclick="event.stopPropagation();deleteMasterPhoto('${x.id}',${v.index})">刪除</button></div></div>`).join('')}</div>`:'';
+const addPhotoButton=srcs.length===0
+?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',0)">📷 補照片</button>`
+:srcs.length===1
+?`<button class="master-photo-action" onclick="attachMasterPhoto('${x.id}',1)">＋第2張</button>`
+:'';
+return `
+<div class="master-card ${srcs.length?'has-photo':''}">
+<div class="master-head-row">
+<div class="master-head-info">
+<div class="master-title">${esc(x.brand?x.brand+' ':'')}${esc(x.name)}</div>
+<div class="master-meta">${x.barcode?'條碼 '+esc(x.barcode)+'・':''}${esc(x.serving||'每份未填')}・${esc(x.source||'')}</div>
+</div>
+${photoHtml}
+</div>
+<div class="nutrition">
+<div><b>${esc(x.kcal||'—')}</b><span>kcal</span></div>
+<div><b>${esc(x.protein||'—')}</b><span>蛋白質 g</span></div>
+<div><b>${esc(x.carb||'—')}</b><span>碳水 g</span></div>
+<div><b>${esc(x.fat||'—')}</b><span>脂肪 g</span></div>
+<div><b>${esc(x.sugar||'—')}</b><span>糖 g</span></div>
+<div><b>${esc(x.fiber||'—')}</b><span>纖維 g</span></div>
+<div><b>${esc(x.sodium||'—')}</b><span>鈉 mg</span></div>
+</div>
+<div class="btnrow" style="margin-top:8px">
+<button class="secondary" onclick="useMaster('${x.id}')">加入飲食</button>
+<button class="secondary" onclick="editMaster('${x.id}')">修改食品</button>
+${addPhotoButton}
+<button class="danger" onclick="deleteMaster('${x.id}')">刪除食品</button>
+</div>
+</div>`;
+}
+
+async function renderMasters(){
+const q=
+(masterSearch?.value||'')
+.trim()
+.toLowerCase();
+const listDetails=document.getElementById('masterListDetails');
+if(listDetails && q)listDetails.open=true;
+const a=
+db.masters.filter(x=>
+!q ||
+`${x.brand} ${x.name} ${x.barcode}`
+.toLowerCase()
+.includes(q)
+);
+const countEl=document.getElementById('masterCount');
+if(countEl){
+countEl.textContent=q?`共 ${a.length} / ${db.masters.length} 筆`:`共 ${db.masters.length} 筆`;
+}
+masterList.innerHTML=
+a.length
+?(await Promise.all(a.map(masterCard))).join('')
+:'<div class="empty">尚未建立食品主檔</div>';
+}
+
+function deleteMaster(id){
+if(!confirm('確定刪除這個食品主檔？'))
+return;
+db.masters=
+db.masters.filter(x=>x.id!==id);
+save();
+renderMasters();
+}
+function masterDisplayName(x){
+return ((x?.brand?x.brand+' ':'')+(x?.name||'')).trim();
+}
+function masterMatches(q){
+const needle=String(q||'').trim().toLowerCase();
+return db.masters.filter(x=>
+!needle ||
+`${x.brand||''} ${x.name||''} ${x.barcode||''}`.toLowerCase().includes(needle)
+);
+}
+function openMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+renderMasterDropdown();el.classList.add('show');
+}
+function closeMasterDropdown(){
+document.getElementById('masterDropdown')?.classList.remove('show');
+}
+function toggleMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+if(el.classList.contains('show')){
+closeMasterDropdown();
+}else{
+renderMasterDropdown();
+el.classList.add('show');
+}
+}
+function onMasterSearchInput(){
+const current=db.masters.find(v=>String(v.id)===String(selectedMasterId));
+if(current && fMasterName.value.trim()!==masterDisplayName(current)){
+const oldName=masterDisplayName(current);
+selectedMasterId='';
+if(fFood.value.trim()===oldName)fFood.value='';
+clearCalculatedNutrition();
+const hint=document.getElementById('fCalcHint');
+if(hint)hint.textContent='請從下拉選擇食品主檔；找不到時可直接建立新食品。';
+}
+openMasterDropdown();
+}
+function renderMasterDropdown(){
+const el=document.getElementById('masterDropdown');
+if(!el)return;
+const raw=(fMasterName.value||'').trim();
+const a=masterMatches(raw);
+const shown=a.slice(0,60);
+const rows=shown.map(x=>`<div class="master-option" onmousedown="event.preventDefault()" onclick="useMaster('${x.id}')"><div class="master-option-title">${esc(masterDisplayName(x))}</div><div class="master-option-meta">${esc(x.serving||'未填每份量')}・${esc(x.kcal||'—')} kcal/份${x.barcode?`・${esc(x.barcode)}`:''}</div></div>`).join('');
+const empty=!shown.length?'<div class="master-option-empty">找不到符合的食品主檔</div>':'';
+const addText=raw?`＋ 建立「${esc(raw)}」為新食品`:'＋ 建立新食品';
+el.innerHTML=`<div class="master-dropdown-head">食品主檔共 ${db.masters.length} 筆${raw?`・找到 ${a.length} 筆`:''}</div>${rows}${empty}<div class="master-option-add" onmousedown="event.preventDefault()" onclick="startNewMasterFromFood()">${addText}</div>`;
+}
+function handleMasterSearchKey(e){
+if(e.key==='Escape'){
+closeMasterDropdown();
+fMasterName.blur();
+return;
+}
+if(e.key!=='Enter')return;
+e.preventDefault();
+const raw=(fMasterName.value||'').trim();
+const exact=db.masters.find(x=>masterDisplayName(x).toLowerCase()===raw.toLowerCase() || String(x.barcode||'')===raw);
+if(exact){useMaster(exact.id);return;}
+const a=masterMatches(raw);
+if(a.length===1){useMaster(a[0].id);return;}
+if(a.length===0)startNewMasterFromFood();
+}
+function startNewMasterFromFood(prefill){
+const typed=String(prefill??fMasterName.value??'').trim();
+returnToFoodAfterMasterCreate=true;
+closeMasterDropdown();
+clearMaster();
+if(typed)mName.value=typed;
+const detail=document.getElementById('masterFormDetails');
+if(detail)detail.open=true;
+goTab('fooddb');
+setTimeout(()=>{
+(detail||document.getElementById('fooddb'))?.scrollIntoView({behavior:'smooth',block:'start'});
+if(typed)mName.focus({preventScroll:true});
+},80);
+}
+function openPicker(){
+pickerSearch.value='';
+foodPicker.classList.add('show');
+renderPicker();
+}
+function closePicker(){
+foodPicker.classList.remove('show');
+}
+function renderPicker(){
+const q=
+pickerSearch.value
+.trim()
+.toLowerCase();
+const a=
+db.masters.filter(x=>
+!q ||
+`${x.brand} ${x.name} ${x.barcode}`
+.toLowerCase()
+.includes(q)
+);
+pickerList.innerHTML=
+a.length
+?a.map(x=>`
+<div class="master-card" onclick="useMaster('${x.id}')">
+<div class="master-title">
+${esc(x.brand?x.brand+' ':'')}${esc(x.name)}
+</div>
+<div class="master-meta">
+${esc(x.serving||'')}・
+${esc(x.kcal||'—')} kcal/份
+</div>
+</div>
+`).join('')
+:'<div class="empty">找不到食品</div>';
+}
+function useMaster(id){
+const x=db.masters.find(v=>String(v.id)===String(id));
+if(!x)return;
+
+selectedMasterId=String(id);
+fMasterName.value=masterDisplayName(x);
+fFood.value=fMasterName.value;
+
+const previous=[...(db.foods||[])]
+.filter(v=>String(v.masterId||'')===String(id))
+.sort((a,b)=>`${b.date||''} ${b.time||''} ${b.id||''}`.localeCompare(`${a.date||''} ${a.time||''} ${a.id||''}`))[0];
+
+if(previous && previous.qty && previous.unit){
+fQty.value=previous.qty;
+fUnit.value=[...fUnit.options].some(o=>o.value===previous.unit)?previous.unit:'份';
+}else{
+const candidates=servingCandidates(x.serving);
+const preferred=candidates.find(v=>v.unit==='g'||v.unit==='ml')||candidates[0];
+if(preferred && [...fUnit.options].some(o=>o.value===preferred.unit)){
+fQty.value=String(preferred.amount);
+fUnit.value=preferred.unit;
+}else{
+fQty.value='1';
+fUnit.value='份';
+}
+}
+
+updateFoodQtyLabel();
+recalcMaster();
+closeMasterDropdown();
+closePicker();
+goTab('add');
+}
+function normalizeFoodUnit(u){
+const raw=String(u||'').trim();
+const s=raw.toLowerCase().replace(/\s+/g,'');
+if(['g','公克','克'].includes(s))return 'g';
+if(['kg','公斤'].includes(s))return 'kg';
+if(['ml','毫升','cc','c.c.','c.c'].includes(s))return 'ml';
+if(['份','顆','片','碗','杯','個','包'].includes(raw))return raw;
+return raw;
+}
+function servingCandidates(serving){
+const s=String(serving||'');
+const out=[];
+const re=/([0-9]+(?:\.[0-9]+)?)\s*(公斤|kg|公克|克|g|毫升|ml|mL|ML|cc|c\.c\.|c\.c|份|顆|片|碗|杯|個|包)/gi;
+let m;
+while((m=re.exec(s))){
+let amount=parseFloat(m[1]);
+let unit=normalizeFoodUnit(m[2]);
+if(unit==='kg'){amount*=1000;unit='g';}
+if(isFinite(amount)&&amount>0)out.push({amount,unit});
+}
+return out;
+}
+function updateFoodQtyLabel(){
+const el=document.getElementById('fQtyLabel');
+if(!el)return;
+const u=fUnit?.value||'份';
+el.textContent=u==='份'?'吃了幾份':`實際食用量（${u}）`;
+}
+function setMasterNutritionByFactor(x,factor){
+const fmt=v=>(num(v)*factor).toFixed(1).replace('.0','');
+fKcal.value=fmt(x.kcal);
+fProtein.value=fmt(x.protein);
+fCarb.value=fmt(x.carb);
+fSugar.value=fmt(x.sugar);
+fFat.value=fmt(x.fat);
+fFiber.value=fmt(x.fiber);
+fSodium.value=fmt(x.sodium);
+}
+function clearCalculatedNutrition(){
+fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value='';
+}
+
+function recalcFoodFromCurrentMaster(){
+const x=db.masters.find(v=>String(v.id)===String(selectedMasterId));
+if(!x){
+alert('這筆飲食沒有連結到食品主檔，無法自動重新計算。');
+return;
+}
+
+const q=num(fQty.value);
+const unit=normalizeFoodUnit(fUnit.value);
+
+if(!q || q<=0){
+alert('請先輸入正確的實際食用量。');
+return;
+}
+
+const candidates=servingCandidates(x.serving);
+let factor=null;
+let formula='';
+
+if(unit==='份'){
+factor=q;
+formula=`${q} 份`;
+}else{
+const match=candidates.find(v=>v.unit===unit);
+if(!match){
+alert(`目前食品主檔每份為「${x.serving||'未填'}」，無法直接換算成 ${unit}。請先到「食品庫 → 修改食品」修正每份重量／容量。`);
+return;
+}
+factor=q/match.amount;
+formula=`${q} ${unit} ÷ ${match.amount} ${unit} = ${factor.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')} 份`;
+}
+
+setMasterNutritionByFactor(x,factor);
+
+const hint=document.getElementById('fCalcHint');
+if(hint){
+hint.textContent=`已依目前食品主檔重新計算：${formula}。（主檔每份：${x.serving||'未填'}）`;
+}
+
+alert(
+`已重新計算。\n\n食品主檔：${masterDisplayName(x)}\n每份：${x.serving||'未填'}\n實際食用：${q} ${unit}\n\n目前換算結果：\n熱量 ${fKcal.value||'—'} kcal\n蛋白質 ${fProtein.value||'—'} g`
+);
+}
+
+function recalcMaster(){
+const x=
+db.masters.find(v=>v.id===selectedMasterId);
+if(!x)return;
+const q=num(fQty.value);
+const unit=normalizeFoodUnit(fUnit.value);
+const hint=document.getElementById('fCalcHint');
+let factor=null;
+if(unit==='份'){
+factor=q;
+if(hint)hint.textContent=`以「份」計算：主檔每份營養 × ${q || 0}。${x.serving?`（主檔每份：${x.serving}）`:''}`;
+}else{
+const candidates=servingCandidates(x.serving);
+const match=candidates.find(v=>v.unit===unit);
+if(match){
+factor=q/match.amount;
+if(hint)hint.textContent=`依主檔每份 ${match.amount} ${unit} 換算：${q || 0} ${unit} = ${factor.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')} 份。`;
+}else{
+clearCalculatedNutrition();
+if(hint)hint.textContent=x.serving
+?`主檔每份為「${x.serving}」，沒有可直接換算成 ${unit} 的資料；請改用相符單位或補充主檔的每份重量／容量。`
+:`主檔尚未填「每份重量／容量」，目前無法用 ${unit} 自動換算。`;
+return;
+}
+}
+setMasterNutritionByFactor(x,factor);
+}
+
+/* ==================================================
+   KNOWLEDGE_V1
+   飲食知識庫：原始聊天保留 + 結構化摘要查詢
+   ================================================== */
+function knowledgeSectionVal(t,key){
+  const keys=['標題','類型','情境','摘要','建議','適用條件','注意事項','原食物','替代食物','替代份量','關鍵字'];
+  const lines=String(t||'').replace(/\r/g,'').split('\n');
+  let start=-1;
+  for(let i=0;i<lines.length;i++){
+    if(new RegExp('^\\s*'+key+'\\s*[:：]').test(lines[i])){start=i;break;}
+  }
+  if(start<0)return '';
+  const first=lines[start].replace(new RegExp('^\\s*'+key+'\\s*[:：]\\s*'),'');
+  const out=[first];
+  for(let i=start+1;i<lines.length;i++){
+    const isNext=keys.some(k=>new RegExp('^\\s*'+k+'\\s*[:：]').test(lines[i]));
+    if(isNext)break;
+    out.push(lines[i]);
+  }
+  return out.join('\n').trim();
+}
+
+function inferKnowledgeCategory(text){
+  const s=String(text||'');
+  const rules=[
+    ['運動後',/運動後|重訓後|有氧後|訓練後/],
+    ['運動前',/運動前|重訓前|有氧前|訓練前/],
+    ['加班',/加班|晚下班/],
+    ['便利商店',/便利商店|超商|7-11|全家/],
+    ['外食',/外食|早餐店|便當店|餐廳/],
+    ['早餐',/早餐/],
+    ['午餐',/午餐|中午/],
+    ['晚餐',/晚餐|晚上/],
+    ['下午點心',/下午點心|點心/],
+    ['減脂',/減脂|減重|熱量赤字/]
+  ];
+  for(const [name,re] of rules)if(re.test(s))return name;
+  return '未分類';
+}
+
+function legacyCopyKnowledgeText(text){
+  let ta=null;
+  try{
+    ta=document.createElement('textarea');
+    ta.value=text;
+    ta.setAttribute('readonly','');
+    ta.setAttribute('aria-hidden','true');
+    ta.style.position='fixed';
+    ta.style.left='-9999px';
+    ta.style.top='0';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.focus({preventScroll:true});
+    ta.select();
+    ta.setSelectionRange(0,ta.value.length);
+    return !!document.execCommand('copy');
+  }catch(e){
+    return false;
+  }finally{
+    if(ta?.parentNode)ta.parentNode.removeChild(ta);
+  }
+}
+
+async function copyKnowledgePrompt(){
+  const raw=(document.getElementById('kRaw')?.value||'').trim();
+  if(!raw){alert('請先把原始聊天內容貼進來');return;}
+  const prompt=`請把下面這段飲食聊天整理成可存入「飲食知識庫」的資料。
+
+整理原則：
+1. 不要把特定一天的判斷誤寫成永久規則。
+2. 若內容依賴「當天吃了多少、幾點吃、是否運動」等條件，請清楚寫進「適用條件」。
+3. 「摘要」請保持精簡，方便日後搜尋時快速閱讀。
+4. 「建議」保留實際可執行的食物、份量、時間或替換方式。
+5. 如果內容不是食物替換，原食物／替代食物／替代份量可留白。
+6. 不確定的內容不要自行補寫。
+7. 請只用以下格式輸出：
+
+標題：
+類型：一般規則／情境案例／食物替換／餐點搭配／其他
+情境：早餐／午餐／晚餐／下午點心／外食／便利商店／加班／運動前／運動後／減脂／其他／未分類
+摘要：
+建議：
+適用條件：
+注意事項：
+原食物：
+替代食物：
+替代份量：
+關鍵字：
+
+原始聊天內容：
+${raw}`;
+
+  const btn=[...document.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='copyKnowledgePrompt()');
+  const originalText=btn?.textContent||'📋 複製給 ChatGPT 整理';
+  if(btn){btn.disabled=true;btn.textContent='⏳ 複製中…';}
+
+  let ok=legacyCopyKnowledgeText(prompt);
+
+  if(!ok && navigator.clipboard?.writeText){
+    try{
+      await Promise.race([
+        navigator.clipboard.writeText(prompt),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('clipboard timeout')),1500))
+      ]);
+      ok=true;
+    }catch(e){}
+  }
+
+  if(btn){
+    btn.disabled=false;
+    btn.textContent=ok?'✅ 已複製，可到 ChatGPT 貼上':originalText;
+    setTimeout(()=>{if(btn)btn.textContent=originalText;},2200);
+  }
+
+  if(ok){
+    alert(`✅ 已複製整理指令。\n\n請切換到 ChatGPT，直接貼上送出；ChatGPT 整理完成後，再把結果貼回「ChatGPT 整理結果」。`);
+    return;
+  }
+
+  try{
+    if(navigator.share){
+      await navigator.share({title:'飲食知識整理',text:prompt});
+      if(btn){btn.textContent='✅ 已開啟分享';setTimeout(()=>btn.textContent=originalText,2200);}
+      return;
+    }
+  }catch(e){
+    if(e?.name==='AbortError')return;
+  }
+
+  alert('這個瀏覽器目前限制了自動複製。請先長按「原始聊天內容」選取並複製，再到 ChatGPT 貼上；或改用 Safari 直接開啟此網頁後再試一次。');
+}
+
+async function pasteKnowledgeAI(){
+  try{
+    document.getElementById('kAIText').value=await navigator.clipboard.readText();
+  }catch(e){
+    alert('請長按「ChatGPT 整理結果」文字框後選「貼上」');
+  }
+}
+
+function applyKnowledgeAI(){
+  const t=document.getElementById('kAIText').value||'';
+  if(!t.trim()){alert('請先貼上 ChatGPT 整理結果');return;}
+  const map={
+    kTitle:'標題',
+    kType:'類型',
+    kCategory:'情境',
+    kSummary:'摘要',
+    kAdvice:'建議',
+    kConditions:'適用條件',
+    kCaution:'注意事項',
+    kFromFood:'原食物',
+    kToFood:'替代食物',
+    kReplacementQty:'替代份量',
+    kKeywords:'關鍵字'
+  };
+  for(const [id,key] of Object.entries(map)){
+    const el=document.getElementById(id);if(!el)continue;
+    const v=knowledgeSectionVal(t,key);
+    if(v)el.value=v;
+  }
+  if(!kCategory.value || ![...kCategory.options].some(o=>o.value===kCategory.value)){
+    kCategory.value=inferKnowledgeCategory(t+' '+(kRaw.value||''));
+  }
+  alert('已套用整理結果，請快速確認後再儲存。');
+}
+
+function normalizeKnowledgeItem(x){
+  return {
+    id:String(x?.id||uid()),
+    title:String(x?.title||'').trim(),
+    type:String(x?.type||'其他').trim()||'其他',
+    category:String(x?.category||'未分類').trim()||'未分類',
+    summary:String(x?.summary||'').trim(),
+    advice:String(x?.advice||'').trim(),
+    conditions:String(x?.conditions||'').trim(),
+    caution:String(x?.caution||'').trim(),
+    fromFood:String(x?.fromFood||'').trim(),
+    toFood:String(x?.toFood||'').trim(),
+    replacementQty:String(x?.replacementQty||'').trim(),
+    keywords:String(x?.keywords||'').trim(),
+    raw:String(x?.raw||''),
+    createdAt:Number(x?.createdAt)||Date.now(),
+    updatedAt:Number(x?.updatedAt)||Date.now()
+  };
+}
+
+function clearKnowledgeForm(){
+  editingKnowledgeId='';
+  ['kRaw','kAIText','kTitle','kSummary','kAdvice','kConditions','kCaution','kFromFood','kToFood','kReplacementQty','kKeywords'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  if(document.getElementById('kType'))kType.value='一般規則';
+  if(document.getElementById('kCategory'))kCategory.value='未分類';
+  if(document.getElementById('saveKnowledgeBtn'))saveKnowledgeBtn.textContent='儲存知識';
+  if(document.getElementById('cancelKnowledgeEditBtn'))cancelKnowledgeEditBtn.style.display='none';
+  if(document.getElementById('knowledgeEditNotice'))knowledgeEditNotice.style.display='none';
+}
+
+function saveKnowledge(){
+  const title=(kTitle.value||'').trim();
+  const raw=(kRaw.value||'').trim();
+  if(!title && !raw){alert('至少要有標題或原始聊天內容');return;}
+  const now=Date.now();
+  const values=normalizeKnowledgeItem({
+    id:editingKnowledgeId||uid(),
+    title:title || ((kSummary.value||'').trim().slice(0,30) || '未命名飲食知識'),
+    type:kType.value,
+    category:kCategory.value || inferKnowledgeCategory(`${kTitle.value} ${kSummary.value} ${raw}`),
+    summary:kSummary.value,
+    advice:kAdvice.value,
+    conditions:kConditions.value,
+    caution:kCaution.value,
+    fromFood:kFromFood.value,
+    toFood:kToFood.value,
+    replacementQty:kReplacementQty.value,
+    keywords:kKeywords.value,
+    raw,
+    createdAt:now,
+    updatedAt:now
+  });
+  if(!Array.isArray(db.knowledge))db.knowledge=[];
+  const i=db.knowledge.findIndex(x=>String(x.id)===String(values.id));
+  if(i>=0){
+    values.createdAt=db.knowledge[i].createdAt||now;
+    db.knowledge[i]=values;
+  }else{
+    db.knowledge.push(values);
+  }
+  save();
+  clearKnowledgeForm();
+  renderKnowledge();
+  alert(i>=0?'知識已更新':'知識已儲存');
+  afterSaved('knowledge');
+}
+
+function editKnowledge(id){
+  const x=(db.knowledge||[]).find(v=>String(v.id)===String(id));if(!x)return;
+  editingKnowledgeId=String(x.id);
+  kRaw.value=x.raw||'';
+  kAIText.value='';
+  kTitle.value=x.title||'';
+  kType.value=[...kType.options].some(o=>o.value===x.type)?x.type:'其他';
+  kCategory.value=[...kCategory.options].some(o=>o.value===x.category)?x.category:'未分類';
+  kSummary.value=x.summary||'';
+  kAdvice.value=x.advice||'';
+  kConditions.value=x.conditions||'';
+  kCaution.value=x.caution||'';
+  kFromFood.value=x.fromFood||'';
+  kToFood.value=x.toFood||'';
+  kReplacementQty.value=x.replacementQty||'';
+  kKeywords.value=x.keywords||'';
+  saveKnowledgeBtn.textContent='更新知識';
+  cancelKnowledgeEditBtn.style.display='';
+  knowledgeEditNotice.style.display='block';
+  const d=document.getElementById('knowledgeFormDetails');if(d)d.open=true;
+  goTab('knowledge');
+  setTimeout(()=>d?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+
+function deleteKnowledge(id){
+  const x=(db.knowledge||[]).find(v=>String(v.id)===String(id));if(!x)return;
+  if(!confirm(`確定刪除「${x.title||'這筆知識'}」？`))return;
+  if(!Array.isArray(db.deletedKnowledge))db.deletedKnowledge=[];
+  if(!db.deletedKnowledge.some(v=>String(v.id)===String(x.id))){
+    db.deletedKnowledge.push({id:String(x.id),deletedAt:Date.now()});
+  }
+  db.knowledge=db.knowledge.filter(v=>String(v.id)!==String(id));
+  if(String(editingKnowledgeId)===String(id))clearKnowledgeForm();
+  save();
+  renderKnowledge();
+}
+
+function knowledgeCard(x){
+  const tags=[x.type,x.category,...String(x.keywords||'').split(/[,，、]/).map(s=>s.trim()).filter(Boolean)].filter(Boolean);
+  const replacement=(x.fromFood||x.toFood||x.replacementQty)
+    ?`<div class="knowledge-box"><b>食物替換</b><div>${x.fromFood?esc(x.fromFood):'—'} → ${x.toFood?esc(x.toFood):'—'}${x.replacementQty?`（${esc(x.replacementQty)}）`:''}</div></div>`
+    :'';
+  const raw=x.raw?`<details class="knowledge-detail"><summary>展開完整原始聊天</summary><div class="knowledge-raw">${esc(x.raw)}</div></details>`:'';
+
+  return `<details class="knowledge-card">
+    <summary>
+      <div class="knowledge-card-head">
+        <div class="knowledge-title">${esc(x.title||'未命名飲食知識')}</div>
+        <div class="knowledge-meta">${esc(x.type||'')}・${esc(x.category||'未分類')}</div>
+      </div>
+    </summary>
+    <div class="knowledge-card-body">
+      ${x.summary?`<div class="knowledge-summary">${esc(x.summary)}</div>`:''}
+      <div class="knowledge-tags">${tags.map(t=>`<span class="knowledge-tag">${esc(t)}</span>`).join('')}</div>
+      <div class="knowledge-grid">
+        ${x.advice?`<div class="knowledge-box"><b>建議</b><div>${esc(x.advice)}</div></div>`:''}
+        ${x.conditions?`<div class="knowledge-box"><b>適用條件</b><div>${esc(x.conditions)}</div></div>`:''}
+        ${x.caution?`<div class="knowledge-box"><b>注意事項</b><div>${esc(x.caution)}</div></div>`:''}
+        ${replacement}
+      </div>
+      ${raw}
+      <div class="record-actions">
+        <button class="secondary" type="button" onclick="event.stopPropagation();editKnowledge('${x.id}')">修改</button>
+        <button class="danger" type="button" onclick="event.stopPropagation();deleteKnowledge('${x.id}')">刪除</button>
+      </div>
+    </div>
+  </details>`;
+}
+function renderKnowledge(){
+  const listEl=document.getElementById('knowledgeList');if(!listEl)return;
+  if(!Array.isArray(db.knowledge))db.knowledge=[];
+  const q=(document.getElementById('knowledgeSearch')?.value||'').trim().toLowerCase();
+  const filter=document.getElementById('knowledgeFilter')?.value||'';
+  let a=[...db.knowledge].map(normalizeKnowledgeItem);
+  a=a.filter(x=>{
+    if(filter && x.category!==filter)return false;
+    if(!q)return true;
+    return `${x.title} ${x.type} ${x.category} ${x.summary} ${x.advice} ${x.conditions} ${x.caution} ${x.fromFood} ${x.toFood} ${x.replacementQty} ${x.keywords} ${x.raw}`.toLowerCase().includes(q);
+  }).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const count=document.getElementById('knowledgeCount');
+  if(count)count.textContent=q||filter?`共 ${a.length} / ${db.knowledge.length} 筆`:`共 ${db.knowledge.length} 筆`;
+  listEl.innerHTML=a.length?a.map(knowledgeCard).join(''):'<div class="empty">尚無符合的飲食知識</div>';
+}
+
+/* Knowledge JSON sync uses the existing private food-photos bucket.
+   If Storage policy does not allow this path, main food/photo sync still continues. */
+function knowledgeCloudPath(){
+  if(!cloudSession?.user?.id)throw new Error('尚未登入 Supabase');
+  return `${safePhotoPart(cloudSession.user.id)}/knowledge/knowledge.json`;
+}
+
+async function downloadKnowledgeCloud(){
+  if(!cloudSession?.user)return null;
+  ensureCloudConfig();await refreshCloudSession();
+  const r=await fetch(`${cloudConfig.url}/storage/v1/object/authenticated/${PHOTO_BUCKET}/${knowledgeCloudPath()}?v=${Date.now()}`,{
+    cache:'no-store',
+    headers:{'apikey':cloudConfig.key,'Authorization':'Bearer '+cloudSession.access_token,'Cache-Control':'no-cache'}
+  });
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error(await photoStorageError(r));
+  return await r.json();
+}
+
+async function uploadKnowledgeCloud(payload){
+  if(!cloudSession?.user)return false;
+  ensureCloudConfig();await refreshCloudSession();
+  const r=await fetch(`${cloudConfig.url}/storage/v1/object/${PHOTO_BUCKET}/${knowledgeCloudPath()}`,{
+    method:'POST',
+    headers:{
+      'apikey':cloudConfig.key,
+      'Authorization':'Bearer '+cloudSession.access_token,
+      'Content-Type':'application/json; charset=utf-8',
+      'x-upsert':'true',
+      'cache-control':'0'
+    },
+    body:JSON.stringify(payload)
+  });
+  if(!r.ok)throw new Error(await photoStorageError(r));
+  return true;
+}
+
+async function syncKnowledgeCloud(){
+  if(!cloudSession?.user)return {ok:false,message:'尚未登入'};
+  if(!Array.isArray(db.knowledge))db.knowledge=[];
+  if(!Array.isArray(db.deletedKnowledge))db.deletedKnowledge=[];
+  let remote=null;
+  try{remote=await downloadKnowledgeCloud();}catch(e){throw e;}
+  const rKnowledge=Array.isArray(remote?.knowledge)?remote.knowledge.map(normalizeKnowledgeItem):[];
+  const rDeleted=Array.isArray(remote?.deletedKnowledge)?remote.deletedKnowledge:[];
+  const deletedMap=new Map();
+  [...db.deletedKnowledge,...rDeleted].forEach(x=>{
+    const id=String(x?.id||'');if(!id)return;
+    const ts=Number(x?.deletedAt)||0;
+    if(ts>(deletedMap.get(id)||0))deletedMap.set(id,ts);
+  });
+  const map=new Map();
+  [...rKnowledge,...db.knowledge.map(normalizeKnowledgeItem)].forEach(x=>{
+    const del=deletedMap.get(String(x.id))||0;
+    if(del && del>=(Number(x.updatedAt)||0))return;
+    const prev=map.get(String(x.id));
+    if(!prev || (Number(x.updatedAt)||0)>(Number(prev.updatedAt)||0))map.set(String(x.id),x);
+  });
+  db.knowledge=[...map.values()];
+  db.deletedKnowledge=[...deletedMap.entries()].map(([id,deletedAt])=>({id,deletedAt}));
+  persistLocalOnly();
+  await uploadKnowledgeCloud({
+    version:1,
+    updatedAt:Date.now(),
+    knowledge:db.knowledge,
+    deletedKnowledge:db.deletedKnowledge
+  });
+  renderKnowledge();
+  return {ok:true,count:db.knowledge.length};
+}
+
+function saveBody(){
+if(
+!bWeight.value &&
+!bFat.value &&
+!bWaist.value
+){
+alert('至少輸入一項');
+return;
+}
+let x=
+db.body.find(x=>x.date===bDate.value);
+if(x){
+x.weight=bWeight.value;
+x.fat=bFat.value;
+x.waist=bWaist.value;
+}else{
+db.body.push({
+id:uid(),
+date:bDate.value,
+weight:bWeight.value,
+fat:bFat.value,
+waist:bWaist.value
+});
+}
+save();
+alert('已儲存');
+afterSaved('add');
+}
+function historyFilterChanged(){
+const foodOnly=hType.value==='food';
+hMeal.disabled=!foodOnly&&hType.value!=='all';
+if(hType.value==='exercise'||hType.value==='body')hMeal.value='all';
+renderHistory();
+}
+function historyWeekday(dateStr){
+if(!dateStr)return '';
+const d=new Date(`${dateStr}T12:00:00`);
+if(Number.isNaN(d.getTime()))return '';
+return ['日','一','二','三','四','五','六'][d.getDay()];
+}
+function historyFoodRow(v){
+return `<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.time||'')} ${v.qty?`・${esc(v.qty)} ${esc(v.unit||'')}`:''}・${esc(v.kcal||'—')} kcal${v.protein?`・蛋白質 ${esc(v.protein)} g`:''}</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`;
+}
+function historyExerciseRow(v){
+return `<div class="history-food"><b>🏃 ${esc(v.type)}</b><div class="small">${exerciseTimeText(v)?`${esc(exerciseTimeText(v))}・`:''}${esc(v.class||'')}・${esc(v.minutes||'—')} 分鐘・${esc(v.kcal||'—')} kcal</div>${v.note?`<div class="small" style="margin-top:4px">${esc(v.note)}</div>`:''}<div class="record-actions"><button class="secondary" onclick="editExercise('${v.id}')">修改</button><button class="danger" onclick="deleteExercise('${v.id}')">刪除</button></div></div>`;
+}
+function historyGroupHtml(title,meta,body,open=false){
+return `<details class="history-group" ${open?'open':''}><summary><div><div class="history-group-title">${title}</div><div class="history-group-meta">${meta}</div></div><span class="history-group-arrow">⌄</span></summary><div class="history-group-body">${body}</div></details>`;
+}
+function renderHistory(){
+let s=hStart.value,e=hEnd.value;
+const type=(typeof hType!=='undefined'&&hType)?hType.value:'all';
+const meal=(typeof hMeal!=='undefined'&&hMeal)?hMeal.value:'all';
+let f=db.foods.filter(x=>x.date>=s&&x.date<=e);
+let ex=db.exercise.filter(x=>x.date>=s&&x.date<=e);
+let body=db.body.filter(x=>x.date>=s&&x.date<=e);
+if(type==='exercise'){f=[];body=[];}
+if(type==='body'){f=[];ex=[];}
+if(type==='food'){ex=[];body=[];}
+if(meal!=='all'&&(type==='all'||type==='food'))f=f.filter(x=>(x.meal||'其他')===meal);
+const days=[...new Set([...f.map(x=>x.date),...ex.map(x=>x.date),...body.map(x=>x.date)])].sort().reverse();
+const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
+const html=days.map((d,dayIndex)=>{
+const foods=f.filter(v=>v.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+const exercises=ex.filter(v=>v.date===d).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+const bodies=body.filter(v=>v.date===d);
+const totalKcal=Math.round(foods.reduce((a,b)=>a+num(b.kcal),0));
+const totalProtein=foods.reduce((a,b)=>a+num(b.protein),0).toFixed(1).replace('.0','');
+const mins=Math.round(exercises.reduce((a,b)=>a+num(b.minutes),0));
+const exKcal=Math.round(exercises.reduce((a,b)=>a+num(b.kcal),0));
+const dayMeta=[];
+if(foods.length)dayMeta.push(`飲食 ${foods.length} 筆・${totalKcal} kcal・蛋白質 ${totalProtein} g`);
+if(exercises.length)dayMeta.push(`運動 ${mins} 分鐘${exKcal?`・${exKcal} kcal`:''}`);
+if(bodies.length)dayMeta.push(`身體 ${bodies.length} 筆`);
+let groups=[];
+for(const m of mealOrder){
+const items=foods.filter(v=>(mealOrder.includes(v.meal)?v.meal:'其他')===m);
+if(!items.length)continue;
+const mkcal=Math.round(items.reduce((a,b)=>a+num(b.kcal),0));
+const mprotein=items.reduce((a,b)=>a+num(b.protein),0).toFixed(1).replace('.0','');
+groups.push(historyGroupHtml(esc(m),`${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g`,items.map(historyFoodRow).join(''),false));
+}
+if(exercises.length){
+groups.push(historyGroupHtml('🏃 運動',`${exercises.length} 筆・${mins} 分鐘${exKcal?`・${exKcal} kcal`:''}`,exercises.map(historyExerciseRow).join(''),false));
+}
+if(bodies.length){
+const bodyRows=bodies.map(v=>`<div class="history-food"><b>⚖️ 體重／體脂</b><div class="small">體重 ${esc(v.weight||'—')} kg・體脂 ${esc(v.fat||'—')} %・腰圍 ${esc(v.waist||'—')} cm</div></div>`).join('');
+groups.push(historyGroupHtml('⚖️ 身體紀錄',`${bodies.length} 筆`,bodyRows,false));
+}
+return `<details class="history-day" ${dayIndex===0?'open':''}><summary><div class="history-day-main"><div class="history-day-title">${esc(d)}（${historyWeekday(d)}）</div><div class="history-day-meta">${dayMeta.join('<br>')}</div></div><span class="history-day-arrow">⌄</span></summary><div class="history-day-body">${groups.join('')||'<div class="history-empty">無資料</div>'}</div></details>`;
+}).join('');
+historyList.innerHTML=html||'<div class="empty">無資料</div>';
+}
+/* 2026-09-30 PRINT_INLINE_PREVIEW_V3
+   iPhone/PWA 不再用 window.open()，先在同一頁顯示 A4 預覽。
+   第二次由使用者直接點「列印／存成 PDF」呼叫 window.print()，避免彈出視窗被封鎖。
+*/
+function ensurePrintPreviewOverlay(){
+  let overlay=document.getElementById('printPreviewOverlay');
+  if(overlay)return overlay;
+  overlay=document.createElement('div');
+  overlay.id='printPreviewOverlay';
+  overlay.setAttribute('role','dialog');
+  overlay.setAttribute('aria-modal','true');
+  overlay.innerHTML=`<div class="print-preview-toolbar"><button class="print-preview-do" type="button" onclick="runPrintPreview()">🖨️ 列印／存成 PDF</button><button class="print-preview-back" type="button" onclick="closePrintPreview()">← 返回紀錄</button><div class="print-preview-help">iPhone 主畫面模式：按「列印／存成 PDF」會產生 PDF，接著在分享選單選「列印」或「儲存到檔案」。</div></div><main id="printPreviewSheet" class="print-preview-sheet"></main>`;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+function closePrintPreview(){
+  const overlay=document.getElementById('printPreviewOverlay');
+  if(overlay)overlay.classList.remove('show');
+  document.body.classList.remove('kyc-printing');
+  document.documentElement.style.overflow='';
+}
+function isIOSDevice(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+function isStandalonePWA(){
+  return window.navigator.standalone===true || window.matchMedia?.('(display-mode: standalone)').matches;
+}
+function loadHtml2Pdf(){
+  if(window.html2pdf)return Promise.resolve(window.html2pdf);
+  return new Promise((resolve,reject)=>{
+    const old=document.getElementById('kycHtml2PdfLoader');
+    if(old){
+      old.addEventListener('load',()=>resolve(window.html2pdf),{once:true});
+      old.addEventListener('error',()=>reject(new Error('PDF 元件載入失敗')),{once:true});
+      return;
+    }
+    const script=document.createElement('script');
+    script.id='kycHtml2PdfLoader';
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.async=true;
+    script.onload=()=>window.html2pdf?resolve(window.html2pdf):reject(new Error('PDF 元件無法使用'));
+    script.onerror=()=>reject(new Error('PDF 元件載入失敗，請確認網路連線'));
+    document.head.appendChild(script);
+  });
+}
+async function makePrintPreviewPdfBlob(){
+  const sheet=document.getElementById('printPreviewSheet');
+  if(!sheet)throw new Error('找不到列印預覽內容');
+  await loadHtml2Pdf();
+  const period=(sheet.querySelector('.pp-period')?.textContent||'').replace(/[^0-9~-]/g,'').replace(/~/g,'-');
+  const filename=`KYC_飲食與運動紀錄_${period||dn()}.pdf`;
+  const worker=window.html2pdf().set({
+    margin:[8,8,8,8],
+    filename,
+    image:{type:'jpeg',quality:0.96},
+    html2canvas:{scale:1.6,useCORS:true,backgroundColor:'#ffffff',logging:false,scrollX:0,scrollY:0},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+    pagebreak:{mode:['css','legacy'],avoid:['.pp-group','tr']}
+  }).from(sheet).toPdf();
+  const blob=await worker.outputPdf('blob');
+  return {blob,filename};
+}
+async function shareOrOpenPdf(blob,filename){
+  const file=new File([blob],filename,{type:'application/pdf'});
+  if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+    try{
+      await navigator.share({files:[file],title:'KYC 飲食與運動紀錄'});
+      return;
+    }catch(e){
+      if(e?.name==='AbortError')return;
+    }
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.target='_blank';
+  a.rel='noopener';
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+async function exportPrintPreviewPdf(){
+  const btn=document.querySelector('#printPreviewOverlay .print-preview-do');
+  const original=btn?.textContent||'🖨️ 列印／存成 PDF';
+  if(btn){btn.disabled=true;btn.textContent='⏳ 正在產生 PDF…';}
+  try{
+    const {blob,filename}=await makePrintPreviewPdfBlob();
+    if(btn)btn.textContent='✅ PDF 已產生';
+    await shareOrOpenPdf(blob,filename);
+  }catch(e){
+    console.error(e);
+    alert('PDF 產生失敗：'+(e?.message||e)+'\n\n可改用 Safari 開啟同一網址，再從 Safari 的分享選單選「列印」。');
+  }finally{
+    if(btn){btn.disabled=false;setTimeout(()=>{btn.textContent=original;},1200);}
+  }
+}
+async function runPrintPreview(){
+  /* iPhone「加入主畫面」模式下，WebKit 常會忽略 window.print()。
+     直接產生 PDF 並開啟 iOS 分享選單，分享選單可選「列印」或「儲存到檔案」。 */
+  if(isIOSDevice() && isStandalonePWA()){
+    await exportPrintPreviewPdf();
+    return;
+  }
+  document.body.classList.add('kyc-printing');
+  try{
+    if(typeof window.print!=='function')throw new Error('print unavailable');
+    window.print();
+  }catch(e){
+    document.body.classList.remove('kyc-printing');
+    if(isIOSDevice()){
+      await exportPrintPreviewPdf();
+    }else{
+      alert('這個瀏覽器目前無法直接開啟列印視窗。');
+    }
+  }
+}
+window.addEventListener('afterprint',()=>document.body.classList.remove('kyc-printing'));
+
+function printHistory(){
+  const startEl=document.getElementById('hStart');
+  const endEl=document.getElementById('hEnd');
+  const typeEl=document.getElementById('hType');
+  const mealEl=document.getElementById('hMeal');
+  let s=startEl?.value||'',e=endEl?.value||'';
+  if(!s||!e){alert('請先選擇開始日期與結束日期。');return;}
+  if(s>e){const t=s;s=e;e=t;if(startEl)startEl.value=s;if(endEl)endEl.value=e;}
+  const type=typeEl?.value||'all';
+  const meal=mealEl?.value||'all';
+  let foods=db.foods.filter(v=>v.date>=s&&v.date<=e);
+  let exercises=db.exercise.filter(v=>v.date>=s&&v.date<=e);
+  let bodies=db.body.filter(v=>v.date>=s&&v.date<=e);
+  if(type==='exercise'){foods=[];bodies=[];}
+  if(type==='body'){foods=[];exercises=[];}
+  if(type==='food'){exercises=[];bodies=[];}
+  if(meal!=='all'&&(type==='all'||type==='food'))foods=foods.filter(v=>(v.meal||'其他')===meal);
+
+  const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
+  const days=[...new Set([...foods.map(v=>v.date),...exercises.map(v=>v.date),...bodies.map(v=>v.date)])].sort();
+  const fmt1=v=>num(v).toFixed(1).replace('.0','');
+  const typeLabel=type==='food'?'飲食':type==='exercise'?'運動':type==='body'?'體重／體脂':'全部';
+  const filterLabel=`紀錄類型：${typeLabel}${(type==='all'||type==='food')&&meal!=='all'?`｜餐別：${meal}`:''}`;
+
+  const dayHtml=days.map((d,dayIndex)=>{
+    const df=foods.filter(v=>v.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+    const de=exercises.filter(v=>v.date===d).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+    const dbd=bodies.filter(v=>v.date===d);
+    const totalKcal=Math.round(df.reduce((a,v)=>a+num(v.kcal),0));
+    const totalProtein=fmt1(df.reduce((a,v)=>a+num(v.protein),0));
+    const totalMin=Math.round(de.reduce((a,v)=>a+num(v.minutes),0));
+    const totalExKcal=Math.round(de.reduce((a,v)=>a+num(v.kcal),0));
+    const meta=[];
+    if(df.length)meta.push(`飲食 ${df.length} 筆・${totalKcal} kcal・蛋白質 ${totalProtein} g`);
+    if(de.length)meta.push(`運動 ${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}`);
+    if(dbd.length)meta.push(`身體 ${dbd.length} 筆`);
+
+    const mealSections=mealOrder.map(m=>{
+      const items=df.filter(v=>(mealOrder.includes(v.meal)?v.meal:'其他')===m);
+      if(!items.length)return '';
+      const mkcal=Math.round(items.reduce((a,v)=>a+num(v.kcal),0));
+      const mprotein=fmt1(items.reduce((a,v)=>a+num(v.protein),0));
+      const rows=items.map(v=>`<tr><td>${esc(v.time||'')}</td><td>${esc(v.food||'')}</td><td>${v.qty?`${esc(v.qty)} ${esc(v.unit||'')}`:'—'}</td><td class="pp-num">${esc(v.kcal||'—')}</td><td class="pp-num">${esc(v.protein||'—')}</td></tr>`).join('');
+      return `<section class="pp-group"><h3>${esc(m)} <span>${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g</span></h3><table><thead><tr><th>時間</th><th>食物／餐點</th><th>份量</th><th class="pp-num">kcal</th><th class="pp-num">蛋白質 g</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+    }).join('');
+
+    const exerciseSection=de.length?`<section class="pp-group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="pp-num">分鐘</th><th class="pp-num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="pp-num">${esc(v.minutes||'—')}</td><td class="pp-num">${esc(v.kcal||'—')}</td></tr>${v.note?`<tr class="pp-note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
+
+    const bodySection=dbd.length?`<section class="pp-group"><h3>體重／體脂</h3><table><thead><tr><th>體重 kg</th><th>體脂 %</th><th>腰圍 cm</th></tr></thead><tbody>${dbd.map(v=>`<tr><td>${esc(v.weight||'—')}</td><td>${esc(v.fat||'—')}</td><td>${esc(v.waist||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
+
+    const hardBreak=dayIndex===0?'':'<div class="html2pdf__page-break pp-hard-break" aria-hidden="true"></div>';
+    return `${hardBreak}<article class="pp-day ${dayIndex===0?'pp-day-first':'pp-day-next'}"><div class="pp-day-head"><h2>${esc(d)}（${historyWeekday(d)}）</h2><div>${meta.join('｜')}</div></div>${mealSections}${exerciseSection}${bodySection}</article>`;
+  }).join('');
+
+  const overlay=ensurePrintPreviewOverlay();
+  const sheet=document.getElementById('printPreviewSheet');
+  sheet.innerHTML=`<h1 class="pp-title">KYC 飲食與運動紀錄</h1><div class="pp-period">${esc(s)} ～ ${esc(e)}</div><div class="pp-filter">${esc(filterLabel)}</div>${dayHtml||'<div class="pp-empty">這個查詢範圍沒有資料。</div>'}`;
+  overlay.classList.add('show');
+  document.documentElement.style.overflow='hidden';
+  overlay.scrollTop=0;
+}
+
+function renderStats(){
+statFoods.textContent=
+db.foods.length;
+statDays.textContent=
+new Set(
+db.foods.map(x=>x.date)
+).size;
+statEx.textContent=
+Math.round(
+db.exercise.reduce(
+(a,b)=>a+num(b.minutes),
+0
+)
+);
+statBody.textContent=
+db.body.length;
+bodyList.innerHTML=
+[...db.body]
+.sort((a,b)=>
+b.date.localeCompare(a.date)
+)
+.map(x=>`
+<div class="item">
+<b>${x.date}</b>
+<div class="small">
+體重 ${esc(x.weight||'—')} kg・
+體脂 ${esc(x.fat||'—')} %・
+腰圍 ${esc(x.waist||'—')} cm
+</div>
+</div>
+`).join('')
+||
+'<div class="empty">尚無資料</div>';
+}
+function renderReminder(){
+let f=
+db.foods.filter(x=>
+x.date===dn()
+);
+let k=
+f.reduce(
+(a,b)=>a+num(b.kcal),
+0
+);
+let p=
+f.reduce(
+(a,b)=>a+num(b.protein),
+0
+);
+let g=
+num(db.settings.goalKcal);
+let gp=
+num(db.settings.goalProtein);let w=
+num(db.settings.warnPercent)||80;
+let m=[];
+if(g){
+let q=
+k/g*100;
+m.push(
+q>=100
+?`今天約 ${Math.round(k)} kcal，已達設定目標。`
+:q>=w
+?`今天約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
+:`今天約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
+);
+}else{
+m.push('尚未設定每日熱量目標。');
+}
+if(gp){
+m.push(
+p>=gp
+?`蛋白質約 ${p.toFixed(1)} g，已達目標。`
+:`蛋白質約 ${p.toFixed(1)} g，距目標約 ${(gp-p).toFixed(1)} g。`
+);
+}
+reminder.textContent=
+m.join(' ');
+}
+function loadSettings(){
+goalKcal.value=
+db.settings.goalKcal;
+goalProtein.value=
+db.settings.goalProtein;
+warnPercent.value=
+db.settings.warnPercent;
+summaryTime.value=
+db.settings.summaryTime;
+lockMinutes.value=
+db.settings.lockMinutes;
+loadCloudFields();
+}
+function saveSettings(){
+db.settings.goalKcal=
+goalKcal.value;
+db.settings.goalProtein=
+goalProtein.value;
+db.settings.warnPercent=
+warnPercent.value||'80';
+db.settings.summaryTime=
+summaryTime.value||'20:30';
+db.settings.lockMinutes=
+lockMinutes.value||'5';
+save();
+renderReminder();
+alert('已儲存');
+afterSaved('settings');
+}
+async function hashPin(v){
+let h=
+await crypto.subtle.digest(
+'SHA-256',
+new TextEncoder().encode(v)
+);
+return [
+...new Uint8Array(h)
+]
+.map(x=>
+x.toString(16).padStart(2,'0')
+)
+.join('');
+}
+async function setPin(){
+let v=
+newPin.value.trim();
+if(!/^\d{4,6}$/.test(v)){
+alert('請輸入 4～6 位數字');
+return;
+}
+db.settings.pinHash=
+await hashPin(v);
+db.settings.lockMinutes=
+lockMinutes.value||'5';
+save();
+newPin.value='';
+alert('PIN 已啟用');
+}
+function disablePin(){
+db.settings.pinHash='';
+save();
+lock.classList.remove('show');
+alert('PIN 已停用');
+}
+async function unlockApp(){
+if(
+await hashPin(unlockPin.value)
+===
+db.settings.pinHash
+){
+lock.classList.remove('show');
+unlockPin.value='';
+}else{
+alert('PIN 錯誤');
+}
+}
+function forgotPin(){
+if(
+confirm(
+'忘記 PIN 需要清除這個瀏覽器中的所有資料，確定嗎？'
+)
+){
+localStorage.removeItem(K);
+indexedDB.deleteDatabase('foodphotos');
+location.reload();
+}
+}
+document.addEventListener(
+'visibilitychange',
+()=>{
+if(document.hidden){
+db.settings.lastHidden=
+Date.now();
+save();
+}else if(
+db.settings.pinHash &&
+Date.now()-
+(db.settings.lastHidden||0)
+>
+num(db.settings.lockMinutes)*60000
+){
+lock.classList.add('show');
+}
+}
+);
+function exportBackup(){
+let b=
+new Blob(
+[
+JSON.stringify(
+db,
+null,
+2
+)
+],
+{
+type:'application/json'
+}
+);
+let a=
+document.createElement('a');
+a.href=
+URL.createObjectURL(b);
+a.download=
+`飲食紀錄備份_${dn()}.json`;
+a.click();
+}
+function importBackup(e){
+let f=
+e.target.files[0];
+if(!f)return;
+let r=
+new FileReader();
+r.onload=()=>{
+try{
+const imported=
+JSON.parse(r.result);
+db={
+...D,
+...imported,
+settings:{
+...D.settings,
+...(imported.settings||{})
+}
+};
+save();
+location.reload();
+}catch{
+alert('備份格式錯誤');
+}
+};
+r.readAsText(f);
+}
+async function init(){
+await migrateLegacyPhotoData();
+let d=dn();
+fDate.value=
+bDate.value=
+eDate.value=
+hStart.value=
+hEnd.value=
+mConfirmed.value=
+d;
+fTime.value=
+eStart.value=
+tn();
+updateFoodQtyLabel();
+autoClass();
+setExerciseStatus('');
+renderToday();
+renderExercise();
+renderKnowledge();
+renderStats();
+loadSettings();
+loadCloudFields();
+if(db.settings.pinHash){
+const elapsed=Date.now()-(db.settings.lastHidden||Date.now());
+if(elapsed>num(db.settings.lockMinutes)*60000){
+lock.classList.add('show');
+setTimeout(()=>{
+if(window.foodlogFaceId?.unlock && localStorage.getItem('foodlog_faceid_credential_v1')){
+window.foodlogFaceId.unlock();
+}
+},350);
+}
+}
+setTimeout(()=>autoRestoreAndSyncCloud('開啟網頁'),300);
+}
+/*
+==================================================
+重要修正
+暫時移除舊 Service Worker
+避免 iPhone / GitHub Pages 持續使用舊版頁面
+==================================================
+*/
+if('serviceWorker' in navigator){
+window.addEventListener('load',async()=>{
+try{
+const registrations=
+await navigator.serviceWorker.getRegistrations();
+for(const registration of registrations){
+if(location.href.startsWith(registration.scope)){
+await registration.unregister();
+}
+}
+/*
+如果目前這一頁仍然被舊 Service Worker 控制，
+自動重新載入一次。
+*/
+if(
+navigator.serviceWorker.controller &&
+!sessionStorage.getItem('foodlog_sw_cleanup')
+){
+sessionStorage.setItem(
+'foodlog_sw_cleanup',
+'1'
+);
+location.reload();
+}
+}catch(err){
+console.log(
+'Service Worker 清除失敗',
+err
+);
+}
+});
+}
+init();
+</script>
+
+<script>
+/* iPhone Face ID／Passkey 本機解鎖；PIN 保留為備用。 */
+(() => {
+  'use strict';
+
+  const CRED_KEY = 'foodlog_faceid_credential_v1';
+  const USER_KEY = 'foodlog_faceid_user_v1';
+
+  const $ = (id) => document.getElementById(id);
+
+  function supported() {
+    return !!(
+      window.isSecureContext &&
+      window.PublicKeyCredential &&
+      navigator.credentials &&
+      navigator.credentials.create &&
+      navigator.credentials.get
+    );
+  }
+
+  function b64urlToBytes(s) {
+    s = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const bin = atob(s);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function bytesToB64url(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  function randomBytes(n) {
+    return crypto.getRandomValues(new Uint8Array(n));
+  }
+
+  function hasPin() {
+    try {
+      return !!(typeof db !== 'undefined' && db.settings && db.settings.pinHash);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function hasFaceId() {
+    return !!localStorage.getItem(CRED_KEY);
+  }
+
+  async function platformAuthenticatorAvailable() {
+    if (!supported()) return false;
+    try {
+      if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function unlockScreen() {
+    const lockEl = $('lock');
+    if (lockEl) lockEl.classList.remove('show');
+    const pin = $('unlockPin');
+    if (pin) pin.value = '';
+  }
+
+  async function enableFaceId() {
+    if (!supported()) {
+      alert('目前這個瀏覽器無法使用 Face ID／Passkey。請使用 iPhone Safari 或從主畫面開啟此網站。');
+      return;
+    }
+
+        if (!(await platformAuthenticatorAvailable())) {
+      alert('這台裝置目前沒有可用的 Face ID／Touch ID／裝置驗證器。');
+      return;
+    }
+
+    try {
+      let userId = localStorage.getItem(USER_KEY);
+      if (!userId) {
+userId = bytesToB64url(randomBytes(16));
+        localStorage.setItem(USER_KEY, userId);
+      }
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: randomBytes(32),
+          rp: { name: '飲食紀錄' },
+          user: {
+            id: b64urlToBytes(userId),
+            name: 'foodlog-local-user',
+            displayName: '飲食紀錄使用者'
+          },
+          pubKeyCredParams: [
+            { type: 'public-key', alg: -7 },
+            { type: 'public-key', alg: -257 }
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            residentKey: 'required',
+            requireResidentKey: true,
+            userVerification: 'required'
+          },
+          timeout: 60000,
+          attestation: 'none'
+        }
+      });if (!credential) throw new Error('未建立憑證');
+
+      // credential.id 就是 rawId 的 base64url 表示，可直接保存供下一次 allowCredentials 使用。
+      localStorage.setItem(CRED_KEY, credential.id);
+      refreshUI();
+      alert('Face ID 已啟用。下次鎖定後可直接使用 Face ID 解鎖。');
+    } catch (err) {
+      if (err && err.name === 'NotAllowedError') return;
+      console.error('Face ID 啟用失敗', err);
+      alert('Face ID 啟用失敗。請確認是從 HTTPS 的正式網站開啟，並允許 iPhone 使用 Passkey／Face ID。');
+    }
+  }
+
+  async function unlockWithFaceId() {
+    const credentialId = localStorage.getItem(CRED_KEY);
+    if (!supported()) {
+      alert('目前這個瀏覽器無法使用 Face ID／Passkey，請改用 PIN。');
+      return;
+    }
+
+    try {
+      const publicKey={
+        challenge: randomBytes(32),
+        userVerification: 'required',
+        timeout: 60000
+      };
+      if(credentialId){
+        publicKey.allowCredentials=[{type:'public-key',id:b64urlToBytes(credentialId),transports:['internal']}];
+      }
+      const credential = await navigator.credentials.get({ publicKey });
+
+      if (!credential) throw new Error('未取得憑證');
+
+      // 對這個純靜態本機鎖而言，成功取得「同一網站、同一 credential ID、且要求 userVerification」
+      // 的 assertion 後即解除畫面鎖。正式網路帳號登入仍應把 assertion 送至伺服器驗簽。
+      unlockScreen();
+    } catch (err) {
+      if (err && err.name === 'NotAllowedError') return;
+      console.error('Face ID 解鎖失敗', err);
+      alert('Face ID 解鎖失敗，請改用 PIN。');
+    }
+  }
+
+  function disableFaceId(showAlert = true) {
+    localStorage.removeItem(CRED_KEY);
+    refreshUI();
+    if (showAlert) alert('Face ID 已停用。');
+  }
+
+  function injectLockButton() {
+    const box = document.querySelector('#lock .lockbox');
+    if (!box || $('faceIdUnlockBtn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'faceIdUnlockBtn';
+    btn.className = 'primary';
+    btn.type = 'button';
+    btn.textContent = '🔐 使用 Face ID 解鎖';
+    btn.style.cssText = 'width:100%;margin:4px 0 12px;padding:13px 14px;';
+    btn.addEventListener('click', unlockWithFaceId);
+
+    const pin = $('unlockPin');
+    if (pin) box.insertBefore(btn, pin);
+    else box.appendChild(btn);
+  }
+
+  function injectSettingsCard() {
+    const settings = $('settings');
+    if (!settings || $('faceIdSettingsCard')) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'faceIdSettingsCard';
+    card.innerHTML = `
+      <div class="itemtitle">🔐 Face ID／裝置驗證</div>
+      <div id="faceIdStatus" class="note" style="margin-top:8px"></div>
+      <div class="btnrow" style="margin-top:10px">
+        <button id="enableFaceIdBtn" class="primary" type="button">啟用 Face ID</button>
+        <button id="disableFaceIdBtn" class="danger" type="button">停用 Face ID</button>
+      </div>
+      <div class="note" style="margin-top:10px">
+        iPhone 會透過 Passkey／WebAuthn 叫出 Face ID；原本 PIN 會保留作為備用。
+        本功能是這個 GitHub Pages 靜態網站的本機畫面鎖，不等同伺服器帳號登入。
+      </div>`;
+
+    const cards = settings.querySelectorAll(':scope > .card');
+    if (cards.length >= 2) cards[1].after(card);
+    else settings.appendChild(card);
+
+    $('enableFaceIdBtn').addEventListener('click', enableFaceId);
+    $('disableFaceIdBtn').addEventListener('click', () => disableFaceId(true));
+  }
+
+  async function refreshUI() {
+    const enabled = hasFaceId();
+    const unlockBtn = $('faceIdUnlockBtn');
+    if (unlockBtn) unlockBtn.style.display = supported() ? '' : 'none';
+
+    const status = $('faceIdStatus');
+    if (status) {
+      if (!supported()) {
+        status.textContent = '目前環境不支援 WebAuthn／Passkey。請用 iPhone Safari 或主畫面 App，並確認網址是 HTTPS。';
+      } else if (enabled) {
+        status.textContent = '狀態：已啟用。鎖定畫面可使用 Face ID 解鎖。';
+      } else {
+        const platform = await platformAuthenticatorAvailable();
+        status.textContent = platform
+          ? '狀態：可啟用 Face ID；PIN 僅作備用，不是必要條件。'
+          : '狀態：此裝置目前沒有可用的 Face ID／Touch ID／裝置驗證器。';
+      }
+    }
+
+    const off = $('disableFaceIdBtn');
+    if (off) off.style.display = enabled ? '' : 'none';
+  }
+
+  function patchPinDisable() {
+    // PIN 只是備用方式；停用 PIN 不會連帶停用已建立的 Face ID／Passkey。
+    if (typeof window.disablePin === 'function' && !window.disablePin.__faceIdPatched) {
+      const original = window.disablePin;
+      const wrapped = function (...args) {
+        const result = original.apply(this, args);
+        refreshUI();
+        return result;
+      };
+      wrapped.__faceIdPatched = true;
+      window.disablePin = wrapped;
+    }
+  }
+
+  function ensureLockWhenNeeded() {
+    // Face ID／Passkey 可獨立使用；PIN 僅作備用，不強制綁定。
+  }
+
+  function start() {
+    injectLockButton();
+    injectSettingsCard();
+    patchPinDisable();
+    ensureLockWhenNeeded();
+    refreshUI();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+
+  // 方便除錯或未來維護，不影響一般使用。
+  window.foodlogFaceId = {
+    enable: enableFaceId,
+    unlock: unlockWithFaceId,
+    disable: disableFaceId,
+    refresh: refreshUI
+  };
+})();
+</script>
+</body>
+</html>
