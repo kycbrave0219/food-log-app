@@ -9,7 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.01.15 day-per-page-print-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.01.16 hard-day-pagebreak-v2 · Tool Center</title>
+<!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -308,8 +309,19 @@ img,svg,video,canvas{max-width:100%;height:auto}
 .print-preview-sheet .pp-num{text-align:right;white-space:nowrap}
 .print-preview-sheet .pp-note-row td{font-size:10px;color:#6b7280;padding-top:2px}
 .print-preview-sheet .pp-empty{text-align:center;color:#6b7280;padding:40px 0}
-/* 2026-10-01 PRINT_DAY_PER_PAGE_V1: 每個日期固定從新的一頁開始。
-   此規則刻意放在 @media print 外，讓 html2pdf 產生 PDF 時也能讀到分頁設定。 */
+/* 2026-10-01 PRINT_DAY_PER_PAGE_V2: 強制每個日期從新頁開始。
+   html2pdf 對 break-before 的支援在部分 iPhone/WebKit 情境不穩定，
+   因此在日期之間插入實體 html2pdf__page-break 分頁節點，並同時保留 CSS 分頁規則。 */
+.print-preview-sheet .pp-hard-break{
+  display:block!important;
+  height:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  clear:both!important;
+  break-after:page!important;
+  page-break-after:always!important;
+}
 .print-preview-sheet .pp-day-next{
   break-before:page!important;
   page-break-before:always!important;
@@ -326,6 +338,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
   body.kyc-printing .print-preview-toolbar{display:none!important}
   body.kyc-printing .print-preview-sheet{width:auto!important;min-height:0!important;margin:0!important;padding:0!important;box-shadow:none!important}
   body.kyc-printing .pp-day{break-inside:auto}
+  body.kyc-printing .pp-hard-break{display:block!important;height:0!important;margin:0!important;padding:0!important;border:0!important;break-after:page!important;page-break-after:always!important}
   body.kyc-printing .pp-day-next{break-before:page!important;page-break-before:always!important}
   body.kyc-printing .pp-day-head{break-after:avoid!important;page-break-after:avoid!important}
   body.kyc-printing .pp-group,body.kyc-printing table,body.kyc-printing tr{break-inside:avoid}
@@ -362,7 +375,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
   <img class="kyc-banner" src="./kyc-logo.PNG" alt="KYC 飲食與運動紀錄" onerror="this.style.display='none';document.getElementById('kycBannerFallback').style.display='block'">
   <div id="kycBannerFallback" class="kyc-banner-fallback">KYC 飲食與運動紀錄</div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.01.15</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.01.16</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -3485,7 +3498,7 @@ async function makePrintPreviewPdfBlob(){
     image:{type:'jpeg',quality:0.96},
     html2canvas:{scale:1.6,useCORS:true,backgroundColor:'#ffffff',logging:false,scrollX:0,scrollY:0},
     jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-    pagebreak:{mode:['css','legacy'],before:'.pp-day-next',avoid:['.pp-group','tr']}
+    pagebreak:{mode:['css','legacy'],avoid:['.pp-group','tr']}
   }).from(sheet).toPdf();
   const blob=await worker.outputPdf('blob');
   return {blob,filename};
@@ -3598,7 +3611,8 @@ function printHistory(){
 
     const bodySection=dbd.length?`<section class="pp-group"><h3>體重／體脂</h3><table><thead><tr><th>體重 kg</th><th>體脂 %</th><th>腰圍 cm</th></tr></thead><tbody>${dbd.map(v=>`<tr><td>${esc(v.weight||'—')}</td><td>${esc(v.fat||'—')}</td><td>${esc(v.waist||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
 
-    return `<article class="pp-day ${dayIndex===0?'pp-day-first':'pp-day-next'}"><div class="pp-day-head"><h2>${esc(d)}（${historyWeekday(d)}）</h2><div>${meta.join('｜')}</div></div>${mealSections}${exerciseSection}${bodySection}</article>`;
+    const hardBreak=dayIndex===0?'':'<div class="html2pdf__page-break pp-hard-break" aria-hidden="true"></div>';
+    return `${hardBreak}<article class="pp-day ${dayIndex===0?'pp-day-first':'pp-day-next'}"><div class="pp-day-head"><h2>${esc(d)}（${historyWeekday(d)}）</h2><div>${meta.join('｜')}</div></div>${mealSections}${exerciseSection}${bodySection}</article>`;
   }).join('');
 
   const overlay=ensurePrintPreviewOverlay();
