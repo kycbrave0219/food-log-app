@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.01.19 clean-signature-header-v1 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.06.20 便當免建主檔與餐點照片版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -425,7 +425,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.01.19</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.06.20</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -468,7 +468,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div class="btnrow" style="margin-top:10px">
   <button class="secondary" type="button" onclick="startNewMasterFromFood()">＋ 建立新食品</button>
 </div>
-<label style="margin-top:10px">餐點照片</label>
+<label style="margin-top:10px">本次餐點照片（附在這筆飲食記錄）</label>
 <div class="btnrow" style="margin-top:10px">
   <button class="secondary"
     onclick="document.getElementById('photoCameraInput').click()">
@@ -497,6 +497,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
   onchange="handlePhoto(event)"
 >
 <img id="photoPreview" class="photoPreview">
+<div class="note" style="margin-top:6px">照片會和本次飲食一起儲存，之後回看記錄時可辨認便當菜色。</div>
 <div class="grid" style="margin-top:10px">
 <div>
 <label>日期</label>
@@ -520,9 +521,9 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </select>
 </div>
 <div class="master-combobox">
-<label>食品主檔</label>
+<label>食品主檔（選填）</label>
 <div class="master-combobox-row">
-<input id="fMasterName" placeholder="搜尋或選擇食品" autocomplete="off"
+<input id="fMasterName" placeholder="可留白；便當或外食直接記錄在下方" autocomplete="off"
   onfocus="openMasterDropdown()"
   oninput="onMasterSearchInput()"
   onkeydown="handleMasterSearchKey(event)"
@@ -530,6 +531,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <button class="master-drop-toggle" type="button" aria-label="展開食品主檔" onclick="toggleMasterDropdown()">⌄</button>
 </div>
 <div id="masterDropdown" class="master-dropdown"></div>
+<div class="note" style="margin-top:6px">食品主檔只用來方便重複記錄。便當每次菜色不同，可不選主檔，直接填餐點名稱和本次營養估算；例如「便當（雞腿、青菜、滷蛋）」。</div>
 </div>
 <div>
 <label>食物／餐點</label>
@@ -554,7 +556,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </select>
 </div>
 <div class="full">
-<div id="fCalcHint" class="note">選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算；同一食品下次會優先帶入最近一次的食用量與單位。</div>
+<div id="fCalcHint" class="note">食品主檔是選填的。未選主檔時，可直接輸入本次餐點名稱、份量與營養數值；選用主檔時，系統會依主檔資料換算。</div>
 </div>
 <div>
 <label>熱量 kcal</label>
@@ -1692,7 +1694,7 @@ fFood.value='';
 fQty.value='1';
 fUnit.value='份';
 updateFoodQtyLabel();
-if(document.getElementById('fCalcHint'))fCalcHint.textContent='選擇食品主檔後，系統會依「單位」與主檔的每份重量／容量自動換算；同一食品下次會優先帶入最近一次的食用量與單位。';
+if(document.getElementById('fCalcHint'))fCalcHint.textContent='食品主檔是選填的。未選主檔時，可直接輸入本次餐點名稱、份量與營養數值；選用主檔時，系統會依主檔資料換算。';
 fKcal.value=fProtein.value=fCarb.value=fSugar.value=fFat.value=fFiber.value=fSodium.value=fNote.value='';
 photo=null;
 photoCameraInput.value='';photoLibraryInput.value='';
