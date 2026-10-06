@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.06.20 便當免建主檔與餐點照片版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.06.21 整段貼上餐點營養版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -425,7 +425,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.06.20</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.06.21</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -532,6 +532,29 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </div>
 <div id="masterDropdown" class="master-dropdown"></div>
 <div class="note" style="margin-top:6px">食品主檔只用來方便重複記錄。便當每次菜色不同，可不選主檔，直接填餐點名稱和本次營養估算；例如「便當（雞腿、青菜、滷蛋）」。</div>
+</div>
+<div class="full">
+<details class="fold">
+<summary>📋 整段貼上餐點與營養資料（選用）</summary>
+<div class="fold-body">
+<label for="foodPasteText">貼上 ChatGPT 整理的文字</label>
+<textarea id="foodPasteText" placeholder="例如：
+品名：雞腿便當（雞腿、青菜、滷蛋）
+份量：1 份
+熱量：650 kcal
+蛋白質：32 g
+碳水：78 g
+糖：8 g
+脂肪：23 g
+纖維：5 g
+鈉：920 mg"></textarea>
+<div class="note" style="margin-top:6px">貼上後按帶入，系統會自動填入餐點名稱、份量和有提供的營養數值；不會建立食品主檔。</div>
+<div class="btnrow" style="margin-top:8px">
+<button class="secondary" type="button" onclick="applyFoodPaste()">帶入餐點與營養</button>
+<button class="secondary" type="button" onclick="document.getElementById('foodPasteText').value=''">清除貼上內容</button>
+</div>
+</div>
+</details>
 </div>
 <div>
 <label>食物／餐點</label>
@@ -1690,6 +1713,7 @@ selectedMasterId='';
 editingFoodId='';
 closeMasterDropdown();
 fMasterName.value='';
+if(document.getElementById('foodPasteText'))foodPasteText.value='';
 fFood.value='';
 fQty.value='1';
 fUnit.value='份';
@@ -1706,6 +1730,49 @@ if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='none';
 if(foodEditNotice)foodEditNotice.style.display='none';
 }
 function cancelFoodEdit(){clearFoodEntryForm();fDate.value=dn();fTime.value=tn();}
+function applyFoodPaste(){
+const box=document.getElementById('foodPasteText');
+const raw=(box?.value||'').trim();
+if(!raw){alert('請先貼上餐點與營養資料');return;}
+const data={};
+for(const line of raw.split(/\r?\n/)){
+const m=line.match(/^\s*([^：:]+)\s*[：:]\s*(.*?)\s*$/);
+if(!m)continue;
+const key=m[1].trim().toLowerCase().replace(/[\s\u3000]/g,'');
+data[key]=m[2].trim();
+}
+const pick=(names)=>{for(const n of names){const k=n.toLowerCase().replace(/[\s\u3000]/g,'');if(Object.prototype.hasOwnProperty.call(data,k))return data[k];}return undefined;};
+const num=(v)=>{if(v===undefined)return undefined;const m=String(v).replace(/,/g,'').match(/[-+]?(?:\d+\.?\d*|\.\d+)/);return m?m[0]:'';};
+const name=pick(['品名','餐點名稱','食物／餐點','食物/餐點','餐點','品項','名稱']);
+if(name!==undefined)fFood.value=name;
+selectedMasterId='';
+fMasterName.value='';
+closeMasterDropdown();
+const fields=[
+[['熱量','熱量kcal','kcal'],fKcal],
+[['蛋白質','蛋白質g','protein'],fProtein],
+[['碳水','碳水化合物','碳水g','carbohydrate'],fCarb],
+[['糖','糖g','sugar'],fSugar],
+[['脂肪','脂肪g','fat'],fFat],
+[['纖維','膳食纖維','纖維g','fiber'],fFiber],
+[['鈉','鈉mg','sodium'],fSodium]
+];
+let filled=0;
+for(const [aliases,el] of fields){const v=pick(aliases);if(v!==undefined){el.value=num(v);filled++;}}
+const qty=pick(['實際份量','食用份量','吃了幾份','份量']);
+if(qty!==undefined){
+const m=String(qty).replace(/,/g,'').match(/[-+]?(?:\d+\.?\d*|\.\d+)/);
+if(m){fQty.value=m[0];const unit=String(qty).slice(m.index+m[0].length).trim().match(/^(g|克|ml|毫升|份|顆|片|碗|杯|個|包)/i)?.[0];if(unit){const map={'克':'g','毫升':'ml'};const normalized=map[unit]||unit;const option=[...fUnit.options].find(o=>o.value===normalized||o.text===normalized);if(option)fUnit.value=option.value;}updateFoodQtyLabel();}
+}
+const extras=[];
+const brand=pick(['品牌','brand']),barcode=pick(['條碼','barcode']),serving=pick(['每份','每份量','標示每份']);
+if(brand)extras.push(`品牌：${brand}`);
+if(barcode)extras.push(`條碼：${barcode}`);
+if(serving)extras.push(`營養標示每份：${serving}`);
+if(extras.length){const old=(fNote.value||'').trim();const line=extras.join('；');if(!old.includes(line))fNote.value=old?`${old}\n${line}`:line;}
+if(name===undefined&&filled===0){alert('找不到可帶入的欄位。請確認內容使用「品名：」「熱量：」「蛋白質：」等格式。');return;}
+alert(`已帶入${name!==undefined?'餐點名稱':''}${name!==undefined&&filled?'及':''}${filled?`${filled} 項營養數值`:''}${qty!==undefined?'與份量':''}。食品主檔保持空白。`);
+}
 async function saveFood(){
 if(!fFood.value.trim()){alert('請輸入食物／餐點');return;}
 let existing=editingFoodId?db.foods.find(x=>String(x.id)===String(editingFoodId)):null;
