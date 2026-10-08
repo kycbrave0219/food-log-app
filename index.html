@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.06.21 整段貼上餐點營養版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.08.22 早晚健康紀錄版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -425,11 +425,15 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.06.21</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.08.22</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
   <div class="itemtitle" id="todayLabel"></div>
+  <div class="grid no-print" style="margin-top:10px;align-items:end">
+    <div><label for="homeDate">查詢日期</label><input id="homeDate" type="date" onchange="setHomeDate(this.value)"></div>
+    <div class="btnrow"><button class="secondary" type="button" onclick="shiftHomeDate(-1)">前一天</button><button class="secondary" type="button" onclick="shiftHomeDate(1)">後一天</button></div>
+  </div>
   <div class="kpis" style="margin-top:10px">
     <div class="kpi">
       <b id="kcalToday">0</b>
@@ -460,6 +464,11 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div class="card">
   <div class="itemtitle">今日運動</div>
   <div id="exerciseToday"></div>
+</div>
+<div class="card">
+  <div class="itemtitle" id="homeVitalsTitle">⚖️ 體重與血壓</div>
+  <div id="homeVitals"></div>
+  <div class="btnrow no-print" style="margin-top:10px"><button class="secondary" type="button" onclick="startBodyFromHome()">＋ 新增早晚體重／血壓</button><button class="secondary" type="button" onclick="printHomeDay()">🖨️ 列印這一天</button></div>
 </div>
 </section>
 <section id="add" class="section">
@@ -622,16 +631,21 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </div>
 </div>
 <div class="card">
-<div class="itemtitle">體重／體脂</div>
+<div class="itemtitle">早晚體重／血壓</div>
 <div class="grid" style="margin-top:10px">
 <div>
 <label>日期</label>
 <input id="bDate" type="date">
 </div>
+<div><label>時段</label><select id="bPeriod"><option value="早上">早上</option><option value="晚上">晚上</option></select></div>
+<div><label>測量時間</label><input id="bTime" type="time"></div>
 <div>
 <label>體重 kg</label>
 <input id="bWeight">
 </div>
+<div><label>收縮壓 mmHg</label><input id="bSystolic" inputmode="decimal" placeholder="例如 120"></div>
+<div><label>舒張壓 mmHg</label><input id="bDiastolic" inputmode="decimal" placeholder="例如 80"></div>
+<div><label>脈搏 次／分（選填）</label><input id="bPulse" inputmode="decimal"></div>
 <div>
 <label>體脂 %</label>
 <input id="bFat">
@@ -644,6 +658,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <button class="primary" style="margin-top:10px" onclick="saveBody()">
 儲存
 </button>
+<button id="cancelBodyEditBtn" class="secondary" style="display:none;margin-top:10px" type="button" onclick="cancelBodyEdit()">取消修改</button>
 </div>
 </section>
 <section id="exercise" class="section">
@@ -977,7 +992,7 @@ style="margin-top:10px">
 <option value="all">全部</option>
 <option value="food">飲食</option>
 <option value="exercise">運動</option>
-<option value="body">體重／體脂</option>
+<option value="body">體重／血壓</option>
 </select>
 </div>
 <div>
@@ -995,7 +1010,7 @@ style="margin-top:10px">
 </select>
 </div>
 </div>
-<div class="history-filter-note">查詢結果會依「日期 → 餐別／運動／身體紀錄」分類，最新日期預設展開。</div>
+<div class="history-filter-note">查詢結果會依「日期 → 餐別／運動／身體紀錄」分類，體重與血壓會併入同日列印。</div>
 <div class="btnrow" style="margin-top:10px">
 <button class="primary" onclick="renderHistory()">
 查詢
@@ -1032,7 +1047,7 @@ style="margin-top:10px">
 </div>
 </div>
 <div class="card">
-<div class="itemtitle">體重／體脂歷史</div>
+<div class="itemtitle">體重／血壓歷史</div>
 <div id="bodyList"></div>
 </div>
 </section>
@@ -1183,6 +1198,8 @@ lastHidden:0
 }
 };
 let db=load(),
+homeSelectedDate=dn(),
+editingBodyId='',
 photo=null,
 photoURL=null,
 selectedMasterId='',
@@ -1490,6 +1507,26 @@ if(id==='knowledge')renderKnowledge();
 if(id==='history')renderHistory();
 if(id==='stats')renderStats();
 if(id==='settings')loadSettings();
+}
+function setHomeDate(value){homeSelectedDate=value||dn();renderToday()}
+function shiftHomeDate(delta){
+const value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
+const date=new Date(`${value}T12:00:00`);date.setDate(date.getDate()+delta);
+homeSelectedDate=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+const input=document.getElementById('homeDate');if(input)input.value=homeSelectedDate;
+renderToday();
+}
+function printHomeDay(){
+const d=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
+const start=document.getElementById('hStart'),end=document.getElementById('hEnd'),type=document.getElementById('hType'),meal=document.getElementById('hMeal');
+if(start)start.value=d;if(end)end.value=d;if(type)type.value='all';if(meal)meal.value='all';
+printHistory();
+}
+function startBodyFromHome(){
+document.getElementById('bDate').value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
+document.getElementById('bTime').value=tn();
+goTab('add');
+setTimeout(()=>document.getElementById('bDate')?.scrollIntoView({behavior:'smooth',block:'center'}),180);
 }
 function pdb(){
 return new Promise((a,b)=>{
@@ -1831,10 +1868,15 @@ let pic='';
 return `<div class="item"><b>${esc(x.food)}</b><div class="small">${esc(x.meal)}・${esc(x.time)}${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}</div>${pic}<div class="small">${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g・碳水 ${esc(x.carb||'—')} g・脂肪 ${esc(x.fat||'—')} g・糖 ${esc(x.sugar||'—')} g・鈉 ${esc(x.sodium||'—')} mg</div><div class="record-actions"><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
 }
 async function renderToday(){
-let d=dn();
+let d=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
+homeSelectedDate=d;
+const dateInput=document.getElementById('homeDate');if(dateInput&&dateInput.value!==d)dateInput.value=d;
 let f=db.foods.filter(x=>x.date===d);
 let e=db.exercise.filter(x=>x.date===d);
-todayLabel.textContent=`今天 ${d}`;
+const label=d===dn()?`今天 ${d}`:`查看 ${d}`;
+todayLabel.textContent=label;
+document.querySelector('#foodToday')?.closest('.card')?.querySelector('.itemtitle')?.replaceChildren(document.createTextNode(`${d===dn()?'今日':'當日'}飲食`));
+document.querySelector('#exerciseToday')?.closest('.card')?.querySelector('.itemtitle')?.replaceChildren(document.createTextNode(`${d===dn()?'今日':'當日'}運動`));
 kcalToday.textContent=
 Math.round(f.reduce((a,b)=>a+num(b.kcal),0));
 proteinToday.textContent=
@@ -1866,14 +1908,30 @@ groups.push(`<details class="today-meal-group"><summary><div class="today-meal-s
 }
 foodToday.innerHTML=groups.join('');
 }else{
-foodToday.innerHTML='<div class="empty">今天還沒有飲食紀錄</div>';
+foodToday.innerHTML=`<div class="empty">${d===dn()?'今天':'這一天'}還沒有飲食紀錄</div>`;
 }
 
 exerciseToday.innerHTML=
 e.length
 ?e.map(exHtml).join('')
-:'<div class="empty">今天還沒有運動紀錄</div>';
-renderReminder();
+:`<div class="empty">${d===dn()?'今天':'這一天'}還沒有運動紀錄</div>`;
+renderReminder(d);
+renderHomeVitals(d);
+}
+function bodyPeriodText(v){return v.period||'未分時段'}
+function bodyPressureText(v){return v.systolic||v.diastolic?`血壓 ${esc(v.systolic||'—')}/${esc(v.diastolic||'—')} mmHg${v.pulse?`・脈搏 ${esc(v.pulse)} 次／分`:''}`:''}
+function bodyMeasureText(v){
+const parts=[];
+if(v.weight)parts.push(`體重 ${esc(v.weight)} kg`);
+if(v.systolic||v.diastolic)parts.push(bodyPressureText(v));
+if(v.fat)parts.push(`體脂 ${esc(v.fat)} %`);
+if(v.waist)parts.push(`腰圍 ${esc(v.waist)} cm`);
+return parts.join('・')||'未輸入測量數值';
+}
+function renderHomeVitals(date){
+const target=document.getElementById('homeVitals');if(!target)return;
+const rows=db.body.filter(x=>x.date===date).sort((a,b)=>(a.time||'').localeCompare(b.time||'')||(a.period||'').localeCompare(b.period||''));
+target.innerHTML=rows.length?rows.map(v=>`<div class="item"><b>${esc(bodyPeriodText(v))}${v.time?`・${esc(v.time)}`:''}</b><div class="small">${bodyMeasureText(v)}</div><div class="record-actions"><button class="secondary" type="button" onclick="editBody('${v.id}')">修改</button><button class="danger" type="button" onclick="deleteBody('${v.id}')">刪除</button></div></div>`).join(''):'<div class="empty">這一天尚無體重／血壓紀錄</div>';
 }
 function exerciseTimeText(x){
 const start=String(x?.start||'').trim();
@@ -3467,33 +3525,53 @@ async function syncKnowledgeCloud(){
   return {ok:true,count:db.knowledge.length};
 }
 
-function saveBody(){
-if(
-!bWeight.value &&
-!bFat.value &&
-!bWaist.value
-){
-alert('至少輸入一項');
-return;
-}
-let x=
-db.body.find(x=>x.date===bDate.value);
-if(x){
-x.weight=bWeight.value;
-x.fat=bFat.value;
-x.waist=bWaist.value;
-}else{
-db.body.push({
-id:uid(),
-date:bDate.value,
-weight:bWeight.value,
-fat:bFat.value,
-waist:bWaist.value
-});
-}
-save();
-alert('已儲存');
+async function saveBody(){
+const date=document.getElementById('bDate').value;
+const period=document.getElementById('bPeriod').value;
+const weight=document.getElementById('bWeight').value.trim();
+const systolic=document.getElementById('bSystolic').value.trim();
+const diastolic=document.getElementById('bDiastolic').value.trim();
+const pulse=document.getElementById('bPulse').value.trim();
+const fat=document.getElementById('bFat').value.trim();
+const waist=document.getElementById('bWaist').value.trim();
+if(!date){alert('請先選擇日期');return}
+if(!weight&&!systolic&&!diastolic&&!pulse&&!fat&&!waist){alert('請至少輸入體重、血壓、體脂或腰圍其中一項');return}
+if((systolic&&!diastolic)||(!systolic&&diastolic)){alert('血壓請同時輸入收縮壓和舒張壓');return}
+let x=editingBodyId?db.body.find(v=>String(v.id)===String(editingBodyId)):db.body.find(v=>v.date===date&&(v.period||'')===period);
+if(!x){x={id:uid()};db.body.push(x)}
+Object.assign(x,{date,period,time:document.getElementById('bTime').value,weight,systolic,diastolic,pulse,fat,waist});
+editingBodyId='';save();
+for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat','bWaist'])document.getElementById(id).value='';
+document.getElementById('bPeriod').value='早上';
+document.getElementById('bTime').value=tn();
+document.querySelector('#add .card .itemtitle')?.replaceChildren(document.createTextNode('早晚體重／血壓'));
+document.getElementById('cancelBodyEditBtn').style.display='none';
+await renderToday();renderHistory();renderStats();
+alert('早晚體重／血壓已儲存');
 afterSaved('add');
+}
+function editBody(id){
+const x=db.body.find(v=>String(v.id)===String(id));if(!x)return;
+editingBodyId=String(x.id);
+document.getElementById('bDate').value=x.date||dn();document.getElementById('bPeriod').value=x.period||'早上';
+document.getElementById('bTime').value=x.time||'';document.getElementById('bWeight').value=x.weight||'';
+document.getElementById('bSystolic').value=x.systolic||'';document.getElementById('bDiastolic').value=x.diastolic||'';document.getElementById('bPulse').value=x.pulse||'';
+document.getElementById('bFat').value=x.fat||'';document.getElementById('bWaist').value=x.waist||'';
+document.querySelector('#add .card .itemtitle')?.replaceChildren(document.createTextNode('修改體重／血壓紀錄'));
+document.getElementById('cancelBodyEditBtn').style.display='inline-flex';
+goTab('add');
+}
+function cancelBodyEdit(){
+editingBodyId='';
+for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat','bWaist'])document.getElementById(id).value='';
+document.getElementById('bPeriod').value='早上';document.getElementById('bTime').value=tn();
+document.querySelector('#add .card .itemtitle')?.replaceChildren(document.createTextNode('早晚體重／血壓'));
+document.getElementById('cancelBodyEditBtn').style.display='none';
+}
+async function deleteBody(id){
+const x=db.body.find(v=>String(v.id)===String(id));if(!x)return;
+if(!confirm(`確定刪除 ${x.date} ${bodyPeriodText(x)} 的體重／血壓紀錄？`))return;
+db.body=db.body.filter(v=>String(v.id)!==String(id));save();await renderToday();renderHistory();renderStats();
 }
 function historyFilterChanged(){
 const foodOnly=hType.value==='food';
@@ -3553,8 +3631,8 @@ if(exercises.length){
 groups.push(historyGroupHtml('🏃 運動',`${exercises.length} 筆・${mins} 分鐘${exKcal?`・${exKcal} kcal`:''}`,exercises.map(historyExerciseRow).join(''),false));
 }
 if(bodies.length){
-const bodyRows=bodies.map(v=>`<div class="history-food"><b>⚖️ 體重／體脂</b><div class="small">體重 ${esc(v.weight||'—')} kg・體脂 ${esc(v.fat||'—')} %・腰圍 ${esc(v.waist||'—')} cm</div></div>`).join('');
-groups.push(historyGroupHtml('⚖️ 身體紀錄',`${bodies.length} 筆`,bodyRows,false));
+const bodyRows=bodies.map(v=>`<div class="history-food"><b>⚖️ ${esc(bodyPeriodText(v))}${v.time?`・${esc(v.time)}`:''}</b><div class="small">${bodyMeasureText(v)}</div><div class="record-actions"><button class="secondary" onclick="editBody('${v.id}')">修改</button><button class="danger" onclick="deleteBody('${v.id}')">刪除</button></div></div>`).join('');
+groups.push(historyGroupHtml('⚖️ 體重／血壓',`${bodies.length} 筆`,bodyRows,false));
 }
 return `<details class="history-day" ${dayIndex===0?'open':''}><summary><div class="history-day-main"><div class="history-day-title">${esc(d)}（${historyWeekday(d)}）</div><div class="history-day-meta">${dayMeta.join('<br>')}</div></div><span class="history-day-arrow">⌄</span></summary><div class="history-day-body">${groups.join('')||'<div class="history-empty">無資料</div>'}</div></details>`;
 }).join('');
@@ -3707,7 +3785,7 @@ function printHistory(){
   const mealOrder=['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他'];
   const days=[...new Set([...foods.map(v=>v.date),...exercises.map(v=>v.date),...bodies.map(v=>v.date)])].sort();
   const fmt1=v=>num(v).toFixed(1).replace('.0','');
-  const typeLabel=type==='food'?'飲食':type==='exercise'?'運動':type==='body'?'體重／體脂':'全部';
+    const typeLabel=type==='food'?'飲食':type==='exercise'?'運動':type==='body'?'體重／血壓':'全部';
   const filterLabel=`紀錄類型：${typeLabel}${(type==='all'||type==='food')&&meal!=='all'?`｜餐別：${meal}`:''}`;
 
   const dayHtml=days.map((d,dayIndex)=>{
@@ -3734,7 +3812,7 @@ function printHistory(){
 
     const exerciseSection=de.length?`<section class="pp-group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="pp-num">分鐘</th><th class="pp-num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="pp-num">${esc(v.minutes||'—')}</td><td class="pp-num">${esc(v.kcal||'—')}</td></tr>${v.note?`<tr class="pp-note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
 
-    const bodySection=dbd.length?`<section class="pp-group"><h3>體重／體脂</h3><table><thead><tr><th>體重 kg</th><th>體脂 %</th><th>腰圍 cm</th></tr></thead><tbody>${dbd.map(v=>`<tr><td>${esc(v.weight||'—')}</td><td>${esc(v.fat||'—')}</td><td>${esc(v.waist||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
+    const bodySection=dbd.length?`<section class="pp-group"><h3>體重／血壓</h3><table><thead><tr><th>時段</th><th>時間</th><th>體重 kg</th><th>血壓 mmHg</th><th>脈搏 次／分</th><th>體脂 %</th><th>腰圍 cm</th></tr></thead><tbody>${dbd.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(v=>`<tr><td>${esc(bodyPeriodText(v))}</td><td>${esc(v.time||'—')}</td><td>${esc(v.weight||'—')}</td><td>${v.systolic||v.diastolic?`${esc(v.systolic||'—')}/${esc(v.diastolic||'—')}`:'—'}</td><td>${esc(v.pulse||'—')}</td><td>${esc(v.fat||'—')}</td><td>${esc(v.waist||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
 
     const hardBreak=dayIndex===0?'':'<div class="html2pdf__page-break pp-hard-break" aria-hidden="true"></div>';
     return `${hardBreak}<article class="pp-day ${dayIndex===0?'pp-day-first':'pp-day-next'}"><div class="pp-day-head"><h2>${esc(d)}（${historyWeekday(d)}）</h2><div>${meta.join('｜')}</div></div>${mealSections}${exerciseSection}${bodySection}</article>`;
@@ -3774,19 +3852,17 @@ b.date.localeCompare(a.date)
 <div class="item">
 <b>${x.date}</b>
 <div class="small">
-體重 ${esc(x.weight||'—')} kg・
-體脂 ${esc(x.fat||'—')} %・
-腰圍 ${esc(x.waist||'—')} cm
+${esc(bodyPeriodText(x))}${x.time?`・${esc(x.time)}`:''}・${bodyMeasureText(x)}
 </div>
 </div>
 `).join('')
 ||
 '<div class="empty">尚無資料</div>';
 }
-function renderReminder(){
+function renderReminder(date=dn()){
 let f=
 db.foods.filter(x=>
-x.date===dn()
+x.date===date
 );
 let k=
 f.reduce(
@@ -3809,10 +3885,10 @@ let q=
 k/g*100;
 m.push(
 q>=100
-?`今天約 ${Math.round(k)} kcal，已達設定目標。`
+?`${date===dn()?'今天':date} 約 ${Math.round(k)} kcal，已達設定目標。`
 :q>=w
-?`今天約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
-:`今天約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
+?`${date===dn()?'今天':date} 約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
+:`${date===dn()?'今天':date} 約 ${Math.round(k)} kcal，約為目標 ${Math.round(q)}%。`
 );
 }else{
 m.push('尚未設定每日熱量目標。');
@@ -3993,6 +4069,8 @@ d;
 fTime.value=
 eStart.value=
 tn();
+document.getElementById('homeDate').value=d;
+document.getElementById('bTime').value=tn();
 updateFoodQtyLabel();
 autoClass();
 setExerciseStatus('');
