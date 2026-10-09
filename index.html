@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.08.22 早晚健康紀錄版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.09.23 運動詳細資料版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -403,6 +403,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 }
 
 </style>
+<style>#exercise input,#exercise select,#exercise textarea{box-sizing:border-box;max-width:100%;min-width:0}#exercise .grid>div{min-width:0}#exerciseEntry>summary{padding:6px 0}#exerciseEntry[open]>summary{margin-bottom:12px}</style>
 </head>
 <body>
 <div id="lock" class="lock">
@@ -434,7 +435,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.08.22</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.09.23</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -670,7 +671,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </section>
 <section id="exercise" class="section">
 <div class="card">
-<div class="itemtitle">新增運動</div>
+<details id="exerciseEntry"><summary class="itemtitle" style="cursor:pointer">新增運動</summary>
 <div class="grid" style="margin-top:10px">
 <div>
 <label>日期</label>
@@ -706,14 +707,14 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <label>結束</label>
 <input id="eEnd" type="time" onchange="calcMin()">
 </div>
-<div>
-<label>分鐘</label>
-<input id="eMinutes">
-</div>
-<div>
-<label>消耗 kcal</label>
-<input id="eKcal">
-</div>
+<input id="eMinutes" type="hidden">
+<div><label for="ex_duration">總時間（時：分：秒）</label><input id="ex_duration" placeholder="00:48:53"></div>
+<div><label for="ex_distance">總距離（公里，有才填）</label><input id="ex_distance" type="number" min="0" step="any" placeholder="可留白"></div>
+<div><label for="ex_pace">平均配速（分：秒／公里，有才填）</label><input id="ex_pace" placeholder="可留白，例如 16:13"></div>
+<div><label for="eKcal">動態大卡</label><input id="eKcal" type="number" min="0" step="any"></div>
+<div><label for="ex_totalKcal">總大卡</label><input id="ex_totalKcal" type="number" min="0" step="any"></div>
+<div><label for="ex_avgHeartRate">平均心率（下／分）</label><input id="ex_avgHeartRate" type="number" min="0" step="any"></div>
+<div><label for="ex_heartRateRange">範圍（最低～最高心率）</label><input id="ex_heartRateRange" placeholder="例如 102～140"></div>
 <div class="full">
 <label>備註</label>
 <textarea id="eNote"></textarea>
@@ -725,20 +726,8 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <button id="cancelExerciseEditBtn" class="secondary" type="button" style="display:none" onclick="cancelExerciseEdit()">取消修改</button>
 </div>
 <div id="exerciseSaveStatus" role="status" aria-live="polite" style="display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#eefbf3;color:#166534;font-size:13px;font-weight:700"></div>
-<div class="card" style="margin-top:12px;background:var(--soft)">
-<div class="itemtitle">手錶截圖與辨識資料</div>
-<div class="note" style="margin-top:6px">選擇手錶截圖可附在運動紀錄。把照片傳給 ChatGPT 辨識後，將辨識文字貼在下方，按「套用辨識文字」即可填入欄位；不會呼叫付費 API。</div>
-<div style="margin-top:10px"><label for="exercisePhotoInput">選擇運動截圖（可多選）</label><input id="exercisePhotoInput" type="file" accept="image/*" multiple onchange="handleExercisePhoto(event)"><div id="exercisePhotoPreview" class="exercise-photo-grid" aria-label="運動截圖預覽"></div><div id="exercisePhotoCount" class="small" style="display:none;margin-top:6px"></div><div class="btnrow" style="margin-top:8px"><button id="shareExercisePhotosBtn" class="secondary" type="button" onclick="shareExercisePhotosToAI()">傳給 ChatGPT 辨識</button><button id="removeExercisePhotoBtn" class="secondary" type="button" style="display:none" onclick="removeExercisePhoto()">移除照片</button></div><div class="small" style="margin-top:5px">可一次選多張照片傳給 ChatGPT；儲存運動紀錄時會附上第一張截圖。</div></div>
-<div style="margin-top:10px"><label for="exerciseRecognitionText">貼上辨識文字</label><textarea id="exerciseRecognitionText" rows="5" placeholder="日期：2026/10/9
-類型：其他
-分類：混合
-開始：06:09
-結束：07:00
-分鐘：50.35
-消耗kcal：241
-備註：總消耗332 kcal；平均心率111下/分（87–136下/分）"></textarea><button class="secondary" type="button" style="margin-top:6px" onclick="applyExerciseRecognition()">套用辨識文字</button></div>
-</div>
-<div class="note" style="margin-top:10px">目前 PWA 不能直接讀 Apple Health / Apple Watch；未來原生 iPhone App 可用 HealthKit 匯入。</div>
+</details>
+
 </div>
 <div class="card">
 <div class="itemtitle">運動紀錄</div>
@@ -1316,7 +1305,7 @@ async function stableCloudId(userId,table,legacyId){const bytes=await crypto.sub
 function cloudRows(){const u=cloudSession.user.id;return [
 ['food_logs',db.foods,x=>({log_date:x.date,meal_time:x.time,meal:x.meal,master_legacy_id:x.masterId||null,food:x.food,qty:x.qty,unit:x.unit,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,note:x.note})],
 ['body_logs',db.body,x=>({log_date:x.date,weight:x.weight,fat:x.fat,measurement_period:x.period||null,measurement_time:x.time||null,systolic:x.systolic||null,diastolic:x.diastolic||null,pulse:x.pulse||null})],
-['exercise_logs',db.exercise,x=>({log_date:x.date,exercise_type:x.type,exercise_class:x.class,start_time:x.start,end_time:x.end,minutes:x.minutes,kcal:x.kcal,note:x.note})],
+['exercise_logs',db.exercise,x=>({log_date:x.date,exercise_type:x.type,exercise_class:x.class,start_time:x.start,end_time:x.end,minutes:x.minutes,kcal:x.kcal,note:packExerciseNote(x)})],
 ['food_masters',db.masters,x=>({brand:x.brand,name:x.name,barcode:x.barcode,serving:x.serving,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,source:x.source,confirmed:!!x.confirmed,note:x.note})]
 ].map(([table,items,convert])=>({table,rows:items.map(x=>({user_id:u,legacy_id:String(x.id||uid()),...convert(x)}))}))}
 async function localRowsWithIds(){const u=cloudSession.user.id,out=cloudRows();for(const group of out){const local=group.table==='food_logs'?db.foods:group.table==='body_logs'?db.body:group.table==='exercise_logs'?db.exercise:db.masters;for(let i=0;i<group.rows.length;i++)group.rows[i].id=await stableCloudId(u,group.table,group.rows[i].legacy_id)}return out}
@@ -1397,7 +1386,7 @@ await cloudFetch(path,{...options,body:JSON.stringify(legacyRows)});
 }
 const s=db.settings;await cloudFetch('/rest/v1/user_settings?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:cloudSession.user.id,goal_kcal:s.goalKcal||null,goal_protein:s.goalProtein||null,warn_percent:s.warnPercent||80,summary_time:s.summaryTime||'20:30'})})
 }
-function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,period:r.measurement_period||'',time:r.measurement_time||'',weight:r.weight,systolic:r.systolic||'',diastolic:r.diastolic||'',pulse:r.pulse||'',fat:r.fat};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,note:r.note};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
+function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,note:r.note,photoId:''};if(table==='body_logs')return{id,date:r.log_date,period:r.measurement_period||'',time:r.measurement_time||'',weight:r.weight,systolic:r.systolic||'',diastolic:r.diastolic||'',pulse:r.pulse||'',fat:r.fat};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,...unpackExerciseNote(r.note)};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
 async function pullCloudTable(table,key){
 const rows=await cloudFetch(`/rest/v1/${table}?select=*`);
 const local=db[key];
@@ -1577,6 +1566,7 @@ function startExerciseFromHome(){
 clearExerciseForm();
 eDate.value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
 goTab('exercise');
+document.getElementById('exerciseEntry').open=true;
 setTimeout(()=>document.getElementById('eType')?.scrollIntoView({behavior:'smooth',block:'center'}),180);
 }
 function pdb(){
@@ -1996,6 +1986,25 @@ const target=document.getElementById('homeVitals');if(!target)return;
 const rows=db.body.filter(x=>x.date===date).sort((a,b)=>(a.time||'').localeCompare(b.time||'')||(a.period||'').localeCompare(b.period||''));
 target.innerHTML=rows.length?rows.map(v=>`<div class="item"><b>${esc(bodyPeriodText(v))}${v.time?`・${esc(v.time)}`:''}</b><div class="small">${bodyMeasureText(v)}</div><div class="record-actions"><button class="secondary" type="button" onclick="editBody('${v.id}')">修改</button><button class="danger" type="button" onclick="deleteBody('${v.id}')">刪除</button></div></div>`).join(''):'<div class="empty">這一天尚無體重／血壓紀錄</div>';
 }
+
+const EXTRA_EX_FIELDS=['duration','distance','pace','totalKcal','avgHeartRate','heartRateRange'];
+function durationFromMinutes(v){if(v===''||v==null||!Number.isFinite(Number(v)))return '';const n=Math.round(Number(v)*60);return [Math.floor(n/3600),Math.floor(n/60)%60,n%60].map(n=>String(n).padStart(2,'0')).join(':');}
+function normalizeExerciseDuration(v){
+const t=String(v||'').trim();if(!t)return '';
+let m=t.match(/^(\d+):(\d{1,2}):(\d{1,2})$/);if(m)return m.slice(1).map(n=>n.padStart(2,'0')).join(':');
+m=t.match(/^(\d+):(\d{1,2})$/);if(m)return '00:'+m[1].padStart(2,'0')+':'+m[2].padStart(2,'0');
+const h=t.match(/(\d+)\s*(?:小時|時)/),min=t.match(/(\d+)\s*分/),sec=t.match(/(\d+)\s*秒/);
+if(h||min||sec)return [h?.[1]||'0',min?.[1]||'0',sec?.[1]||'0'].map(n=>n.padStart(2,'0')).join(':');return t;
+}
+function syncExerciseDuration(){const t=normalizeExerciseDuration(document.getElementById('ex_duration').value);document.getElementById('ex_duration').value=t;if(!t){eMinutes.value='';return;}const m=t.match(/^(\d+):(\d{2}):(\d{2})$/);if(m&&+m[2]<60&&+m[3]<60)eMinutes.value=Math.round((+m[1]*60 + +m[2] + +m[3]/60)*100)/100;}
+function readExerciseExtras(){return Object.fromEntries(EXTRA_EX_FIELDS.map(k=>[k,document.getElementById('ex_'+k).value.trim()]));}
+function validateExerciseExtras(){syncExerciseDuration();const x=readExerciseExtras();if(x.duration&&!/^\d+:[0-5]\d:[0-5]\d$/.test(x.duration)){alert('總時間請輸入 時:分:秒，例如 00:48:53');return false;}if(x.pace&&!/^\d+:[0-5]\d$/.test(x.pace)){alert('平均配速請輸入 分:秒，例如 16:14');return false;}for(const k of ['distance','totalKcal','avgHeartRate'])if(x[k]&&(Number(x[k])<0||!Number.isFinite(Number(x[k])))){alert('運動數值請輸入零或正數');return false;}return true;}
+function packExerciseNote(x){const extra=Object.fromEntries(EXTRA_EX_FIELDS.map(k=>[k,x[k]??'']));return (x.note||'')+'\n[KYC_EX_V1:'+JSON.stringify(extra)+']';}
+function unpackExerciseNote(note){const t=String(note||'');const m=t.match(/\n\[KYC_EX_V1:(\{[^\n]*\})\]$/);if(m){try{const x=JSON.parse(m[1]);return {note:t.slice(0,m.index),...Object.fromEntries(EXTRA_EX_FIELDS.map(k=>[k,typeof x[k]==='string'||typeof x[k]==='number'?x[k]:'']))};}catch(e){}}return {note:t,...Object.fromEntries(EXTRA_EX_FIELDS.map(k=>[k,'']))};}
+function exerciseExtrasText(x){return [['distance','總距離',' 公里'],['pace','平均配速','／公里'],['totalKcal','總大卡',' kcal'],['avgHeartRate','平均心率',' 下／分'],['heartRateRange','心率範圍',' 下／分']].filter(([k])=>x[k]!==''&&x[k]!=null).map(([k,n,u])=>n+' '+x[k]+u).join(' · ');}
+function exerciseExtrasHtml(x){const t=exerciseExtrasText(x);return t?'<div class="small" style="margin-top:4px">'+esc(t)+'</div>':'';}
+document.getElementById('ex_duration').addEventListener('change',syncExerciseDuration);
+
 function exerciseTimeText(x){
 const start=String(x?.start||'').trim();
 const end=String(x?.end||'').trim();
@@ -2006,8 +2015,8 @@ function exHtml(x){
 const time=exerciseTimeText(x);
 return `<div class="item">
 <b>${esc(x.type)}</b>
-<div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.minutes||'—')} 分鐘・${esc(x.kcal||'—')} kcal</div>
-${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}
+<div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.duration||durationFromMinutes(x.minutes)||'—')}（總時間）・${esc(x.kcal||'—')} kcal</div>
+${exerciseExtrasHtml(x)}${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}
 <div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div>
 </div>`;
 }
@@ -2027,6 +2036,7 @@ let [eh,em]=eEnd.value.split(':').map(Number);
 let m=(eh*60+em)-(sh*60+sm);
 if(m<0)m+=1440;
 eMinutes.value=m;
+document.getElementById('ex_duration').value=durationFromMinutes(m);
 }
 function setExerciseStatus(text){
 const el=document.getElementById('exerciseSaveStatus');
@@ -2034,79 +2044,8 @@ if(!el)return;
 el.textContent=text||'';
 el.style.display=text?'block':'none';
 }
-function clearExercisePhotoPreview(){
-if(exercisePhotoURL){URL.revokeObjectURL(exercisePhotoURL);exercisePhotoURL=null;}
-for(const url of exercisePhotoURLs||[])URL.revokeObjectURL(url);
-exercisePhotoURLs=[];
-const grid=document.getElementById('exercisePhotoPreview');if(grid){grid.replaceChildren();grid.classList.remove('show');}
-const count=document.getElementById('exercisePhotoCount');if(count){count.textContent='';count.style.display='none';}
-const rm=document.getElementById('removeExercisePhotoBtn');if(rm)rm.style.display='none';
-}
-function renderExercisePhotoFiles(files){
-clearExercisePhotoPreview();
-const grid=document.getElementById('exercisePhotoPreview');if(!grid||!files?.length)return;
-for(const [i,file] of files.entries()){
-const url=URL.createObjectURL(file);exercisePhotoURLs.push(url);
-const img=document.createElement('img');img.src=url;img.alt=`運動截圖 ${i+1}`;img.title='點一下放大';img.onclick=()=>openImageZoom(url);grid.appendChild(img);
-}
-grid.classList.add('show');
-const count=document.getElementById('exercisePhotoCount');if(count){count.textContent=`已選 ${files.length} 張照片（可一次傳給 ChatGPT）`;count.style.display='block';}
-const rm=document.getElementById('removeExercisePhotoBtn');if(rm)rm.style.display='inline-flex';
-}
-function handleExercisePhoto(ev){
-const files=Array.from(ev?.target?.files||[]);if(!files.length)return;
-exercisePhotoFiles=files;
-exercisePhotoFile=files[0];
-exercisePhotoRemove=false;
-renderExercisePhotoFiles(files);
-}
-function removeExercisePhoto(){
-exercisePhotoFiles=[];exercisePhotoFile=null;exercisePhotoRemove=true;clearExercisePhotoPreview();
-const input=document.getElementById('exercisePhotoInput');if(input)input.value='';
-}
-async function showExercisePhotoForRecord(x){
-exercisePhotoRemove=false;exercisePhotoFiles=[];exercisePhotoFile=null;clearExercisePhotoPreview();
-const blobs=[];
-const blob=await getExercisePhotoBlob(x);if(blob)blobs.push(blob);
-if(!blobs.length)return;
-exercisePhotoFiles=blobs.map((b,i)=>new File([b],`運動截圖_${i+1}.jpg`,{type:b.type||'image/jpeg'}));
-renderExercisePhotoFiles(exercisePhotoFiles);
-}
-async function shareExercisePhotosToAI(){
-const files=exercisePhotoFiles||[];
-if(!files.length){alert('請先選擇一張或多張運動截圖');return;}
-const text=`請辨識我上傳的 Apple Watch 運動截圖；若有多張，請合併判斷為同一場運動的資料，重複資訊不要重複計算。不確定的欄位請留白，請只依以下格式回覆：
-日期：
-類型：
-分類：
-開始：
-結束：
-分鐘：
-消耗kcal：
-備註：`;
-const copied=await copyAIFormat(text);
-const fallback=copied?'辨識格式已複製。若分享清單沒有 ChatGPT，請直接開啟 ChatGPT，一次上傳已選的運動截圖，再貼上辨識格式。':'請直接開啟 ChatGPT，一次上傳已選的運動截圖，並依畫面下方格式整理。';
-if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
-try{await navigator.share({files,text,title:'Apple Watch 運動辨識'});}
-catch(e){if(e?.name==='AbortError')alert(fallback);else alert('照片分享未完成。\n\n'+fallback);}
-}else alert('這個瀏覽器無法直接分享多張照片。\n\n'+fallback);
-}
-function applyExerciseRecognition(){
-const raw=(document.getElementById('exerciseRecognitionText')?.value||'').trim();if(!raw){alert('請先貼上辨識文字');return;}
-const map={};for(const line of raw.split(/\r?\n/)){const m=line.match(/^\s*([^:：]+)\s*[:：]\s*(.*?)\s*$/);if(m)map[m[1].replace(/\s/g,'').toLowerCase()]=m[2].trim();}
-const get=(...keys)=>{for(const k of keys){const v=map[k.replace(/\s/g,'').toLowerCase()];if(v)return v;}return '';};
-const date=get('日期','運動日期');if(date){const d=date.replace(/[.]/g,'/').match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);if(d)eDate.value=`${d[1]}-${d[2].padStart(2,'0')}-${d[3].padStart(2,'0')}`;}
-const type=get('類型','運動類型');if(type){const hit=[...eType.options].find(o=>o.value===type||o.text===type);eType.value=hit?hit.value:'其他';autoClass();}
-const cls=get('分類');if(cls&&[...eClass.options].some(o=>o.value===cls))eClass.value=cls;
-const start=get('開始','開始時間');if(start)eStart.value=(start.match(/\d{1,2}:\d{2}/)||[])[0]||'';
-const end=get('結束','結束時間');if(end)eEnd.value=(end.match(/\d{1,2}:\d{2}/)||[])[0]||'';
-let mins=get('分鐘','運動分鐘','時間');if(mins){const m=mins.match(/(\d+(?:\.\d+)?)/);if(m)eMinutes.value=m[1];}else if(eStart.value&&eEnd.value)calcMin();
-let kcal=get('消耗kcal','消耗','動態消耗','活動消耗');if(kcal){const m=kcal.match(/\d+(?:\.\d+)?/);if(m)eKcal.value=m[0];}
-const note=get('備註');if(note)eNote.value=note;
-setExerciseStatus('✅ 已套用辨識文字，確認內容後按「儲存運動」');
-}
 function clearExerciseForm(keepStatus=false){
-editingExerciseId='';exercisePhotoFile=null;exercisePhotoFiles=[];exercisePhotoRemove=false;clearExercisePhotoPreview();
+editingExerciseId='';exercisePhotoFile=null;exercisePhotoFiles=[];exercisePhotoRemove=false;
 const photoInput=document.getElementById('exercisePhotoInput');if(photoInput)photoInput.value='';const recognition=document.getElementById('exerciseRecognitionText');if(recognition)recognition.value='';
 eDate.value=dn();
 eType.value='快走';
@@ -2116,6 +2055,7 @@ eEnd.value='';
 eMinutes.value='';
 eKcal.value='';
 eNote.value='';
+EXTRA_EX_FIELDS.forEach(k=>document.getElementById('ex_'+k).value='');
 if(document.getElementById('saveExerciseBtn'))saveExerciseBtn.textContent='儲存運動';
 if(document.getElementById('cancelExerciseEditBtn'))cancelExerciseEditBtn.style.display='none';
 if(document.getElementById('exerciseEditNotice'))exerciseEditNotice.style.display='none';
@@ -2126,13 +2066,14 @@ clearExerciseForm(false);
 setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
 }
 async function saveExercise(){
+if(!validateExerciseExtras())return;
 if(!eDate.value){alert('請先選擇日期');return;}
 const existing=editingExerciseId?db.exercise.find(x=>String(x.id)===String(editingExerciseId)):null;
 const recordId=existing?.id||uid();
 const oldPhotoId=existing?.photoId||'';let photoId=oldPhotoId;let compressedPhoto=null;
 if(exercisePhotoRemove){photoId='';if(oldPhotoId)await delP(oldPhotoId);}
 if(exercisePhotoFile){compressedPhoto=await compressPhotoBlob(exercisePhotoFile);photoId=`ex_${safePhotoPart(recordId)}_1`;await putP(photoId,compressedPhoto);}
-const values={date:eDate.value,type:eType.value,class:eClass.value,start:eStart.value,end:eEnd.value,minutes:eMinutes.value,kcal:eKcal.value,note:eNote.value,photoId};
+const values={date:eDate.value,type:eType.value,class:eClass.value,start:eStart.value,end:eEnd.value,minutes:eMinutes.value,kcal:eKcal.value,note:eNote.value,...readExerciseExtras(),photoId};
 if(existing)Object.assign(existing,values);else db.exercise.push({id:recordId,...values});
 save();
 let photoWarning='';if(compressedPhoto&&cloudSession?.user){try{await uploadPhotoBlob(photoStoragePath('exercise',recordId,1),compressedPhoto,true)}catch(e){photoWarning=`；照片留在本機，雲端同步失敗：${e?.message||String(e)}`}}
@@ -2157,13 +2098,16 @@ eEnd.value=x.end||'';
 eMinutes.value=x.minutes||'';
 eKcal.value=x.kcal||'';
 eNote.value=x.note||'';
+EXTRA_EX_FIELDS.forEach(k=>document.getElementById('ex_'+k).value=x[k]??'');
+document.getElementById('ex_duration').value=x.duration||durationFromMinutes(x.minutes);
 if(document.getElementById('exerciseRecognitionText'))exerciseRecognitionText.value='';
 setExerciseStatus('');
-showExercisePhotoForRecord(x);
+
 if(document.getElementById('saveExerciseBtn'))saveExerciseBtn.textContent='更新運動';
 if(document.getElementById('cancelExerciseEditBtn'))cancelExerciseEditBtn.style.display='';
 if(document.getElementById('exerciseEditNotice'))exerciseEditNotice.style.display='block';
 goTab('exercise');
+document.getElementById('exerciseEntry').open=true;
 setTimeout(()=>document.getElementById('exercise')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
 }
 async function deleteExercise(id){
@@ -2187,7 +2131,7 @@ exerciseList.innerHTML=a.length?'<div class="small">載入運動紀錄…</div>'
 if(!a.length)return;
 const cards=await Promise.all(a.map(async x=>{
 const time=exerciseTimeText(x);let photo='';const blob=await getExercisePhotoBlob(x);if(blob){const url=URL.createObjectURL(blob);photo=`<img class="exercise-thumb" src="${url}" alt="運動截圖" title="點一下放大" onclick="openImageZoom(this.src)">`;}
-return `<div class="item"><b>${esc(x.date)}｜${esc(x.type)}</b><div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.minutes||'—')} 分鐘・${esc(x.kcal||'—')} kcal</div>${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}${photo}<div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div></div>`;
+return `<div class="item"><b>${esc(x.date)}｜${esc(x.type)}</b><div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.duration||durationFromMinutes(x.minutes)||'—')}（總時間）・${esc(x.kcal||'—')} kcal</div>${exerciseExtrasHtml(x)}${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}${photo}<div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div></div>`;
 }));exerciseList.innerHTML=cards.join('');
 }
 
@@ -3715,7 +3659,7 @@ function historyFoodRow(v){
 return `<div class="history-food"><b>${esc(v.food)}</b><div class="small">${esc(v.time||'')} ${v.qty?`・${esc(v.qty)} ${esc(v.unit||'')}`:''}・${esc(v.kcal||'—')} kcal${v.protein?`・蛋白質 ${esc(v.protein)} g`:''}</div><div class="record-actions"><button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`;
 }
 function historyExerciseRow(v){
-return `<div class="history-food"><b>🏃 ${esc(v.type)}</b><div class="small">${exerciseTimeText(v)?`${esc(exerciseTimeText(v))}・`:''}${esc(v.class||'')}・${esc(v.minutes||'—')} 分鐘・${esc(v.kcal||'—')} kcal</div>${v.note?`<div class="small" style="margin-top:4px">${esc(v.note)}</div>`:''}<div class="record-actions"><button class="secondary" onclick="editExercise('${v.id}')">修改</button><button class="danger" onclick="deleteExercise('${v.id}')">刪除</button></div></div>`;
+return `<div class="history-food"><b>🏃 ${esc(v.type)}</b><div class="small">${exerciseTimeText(v)?`${esc(exerciseTimeText(v))}・`:''}${esc(v.class||'')}・${esc(v.duration||durationFromMinutes(v.minutes)||'—')}（總時間）・${esc(v.kcal||'—')} kcal</div>${exerciseExtrasHtml(v)}${v.note?`<div class="small" style="margin-top:4px">${esc(v.note)}</div>`:''}<div class="record-actions"><button class="secondary" onclick="editExercise('${v.id}')">修改</button><button class="danger" onclick="deleteExercise('${v.id}')">刪除</button></div></div>`;
 }
 function historyGroupHtml(title,meta,body,open=false){
 return `<details class="history-group" ${open?'open':''}><summary><div><div class="history-group-title">${title}</div><div class="history-group-meta">${meta}</div></div><span class="history-group-arrow">⌄</span></summary><div class="history-group-body">${body}</div></details>`;
@@ -3936,7 +3880,7 @@ function printHistory(){
       return `<section class="pp-group"><h3>${esc(m)} <span>${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g</span></h3><table><thead><tr><th>時間</th><th>食物／餐點</th><th>份量</th><th class="pp-num">kcal</th><th class="pp-num">蛋白質 g</th></tr></thead><tbody>${rows}</tbody></table></section>`;
     }).join('');
 
-    const exerciseSection=de.length?`<section class="pp-group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="pp-num">分鐘</th><th class="pp-num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="pp-num">${esc(v.minutes||'—')}</td><td class="pp-num">${esc(v.kcal||'—')}</td></tr>${v.note?`<tr class="pp-note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
+    const exerciseSection=de.length?`<section class="pp-group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="pp-num">分鐘</th><th class="pp-num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="pp-num">${esc(v.minutes||'—')}</td><td class="pp-num">${esc(v.kcal||'—')}</td></tr>${exerciseExtrasText(v)?`<tr class="pp-note-row"><td></td><td colspan="4">${esc(exerciseExtrasText(v))}</td></tr>`:''}${v.note?`<tr class="pp-note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
 
     const bodySection=dbd.length?`<section class="pp-group"><h3>體重／血壓</h3><table><thead><tr><th>時段</th><th>時間</th><th>體重 kg</th><th>血壓 mmHg</th><th>脈搏 次／分</th><th>體脂 %</th></tr></thead><tbody>${dbd.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(v=>`<tr><td>${esc(bodyPeriodText(v))}</td><td>${esc(v.time||'—')}</td><td>${esc(v.weight||'—')}</td><td>${v.systolic||v.diastolic?`${esc(v.systolic||'—')}/${esc(v.diastolic||'—')}`:'—'}</td><td>${esc(v.pulse||'—')}</td><td>${esc(v.fat||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
 
