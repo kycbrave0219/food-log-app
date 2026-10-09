@@ -42,6 +42,9 @@ button{font:inherit}
 .photo{width:130px;height:95px;object-fit:cover;border-radius:12px;margin-top:8px}
 .photoPreview{display:none;width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-top:8px}
 .exercise-thumb{width:130px;height:95px;object-fit:cover;border-radius:12px;margin-top:8px;cursor:zoom-in}
+.exercise-photo-grid{display:none;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px}
+.exercise-photo-grid.show{display:grid}
+.exercise-photo-grid img{width:100%;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:zoom-in}
 .lock{position:fixed;inset:0;background:var(--bg);z-index:99;display:none;align-items:center;justify-content:center;padding:20px}
 .lock.show{display:flex}
 .lockbox{background:#fff;padding:20px;border-radius:20px;width:min(420px,100%);text-align:center}
@@ -725,7 +728,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div class="card" style="margin-top:12px;background:var(--soft)">
 <div class="itemtitle">手錶截圖與辨識資料</div>
 <div class="note" style="margin-top:6px">選擇手錶截圖可附在運動紀錄。把照片傳給 ChatGPT 辨識後，將辨識文字貼在下方，按「套用辨識文字」即可填入欄位；不會呼叫付費 API。</div>
-<div style="margin-top:10px"><label for="exercisePhotoInput">選擇運動截圖（選填）</label><input id="exercisePhotoInput" type="file" accept="image/*" onchange="handleExercisePhoto(event)"><img id="exercisePhotoPreview" class="photoPreview" alt="運動截圖預覽"><button id="removeExercisePhotoBtn" class="secondary" type="button" style="display:none;margin-top:6px" onclick="removeExercisePhoto()">移除照片</button></div>
+<div style="margin-top:10px"><label for="exercisePhotoInput">選擇運動截圖（可多選）</label><input id="exercisePhotoInput" type="file" accept="image/*" multiple onchange="handleExercisePhoto(event)"><div id="exercisePhotoPreview" class="exercise-photo-grid" aria-label="運動截圖預覽"></div><div id="exercisePhotoCount" class="small" style="display:none;margin-top:6px"></div><div class="btnrow" style="margin-top:8px"><button id="shareExercisePhotosBtn" class="secondary" type="button" onclick="shareExercisePhotosToAI()">傳給 ChatGPT 辨識</button><button id="removeExercisePhotoBtn" class="secondary" type="button" style="display:none" onclick="removeExercisePhoto()">移除照片</button></div><div class="small" style="margin-top:5px">可一次選多張照片傳給 ChatGPT；儲存運動紀錄時會附上第一張截圖。</div></div>
 <div style="margin-top:10px"><label for="exerciseRecognitionText">貼上辨識文字</label><textarea id="exerciseRecognitionText" rows="5" placeholder="日期：2026/10/9
 類型：其他
 分類：混合
@@ -1218,6 +1221,8 @@ editingBodyId='',
 photo=null,
 photoURL=null,
 exercisePhotoFile=null,
+exercisePhotoFiles=[],
+exercisePhotoURLs=[],
 exercisePhotoURL=null,
 exercisePhotoRemove=false,
 selectedMasterId='',
@@ -2031,24 +2036,60 @@ el.style.display=text?'block':'none';
 }
 function clearExercisePhotoPreview(){
 if(exercisePhotoURL){URL.revokeObjectURL(exercisePhotoURL);exercisePhotoURL=null;}
-const img=document.getElementById('exercisePhotoPreview');if(img){img.removeAttribute('src');img.style.display='none';}
+for(const url of exercisePhotoURLs||[])URL.revokeObjectURL(url);
+exercisePhotoURLs=[];
+const grid=document.getElementById('exercisePhotoPreview');if(grid){grid.replaceChildren();grid.classList.remove('show');}
+const count=document.getElementById('exercisePhotoCount');if(count){count.textContent='';count.style.display='none';}
 const rm=document.getElementById('removeExercisePhotoBtn');if(rm)rm.style.display='none';
 }
+function renderExercisePhotoFiles(files){
+clearExercisePhotoPreview();
+const grid=document.getElementById('exercisePhotoPreview');if(!grid||!files?.length)return;
+for(const [i,file] of files.entries()){
+const url=URL.createObjectURL(file);exercisePhotoURLs.push(url);
+const img=document.createElement('img');img.src=url;img.alt=`運動截圖 ${i+1}`;img.title='點一下放大';img.onclick=()=>openImageZoom(url);grid.appendChild(img);
+}
+grid.classList.add('show');
+const count=document.getElementById('exercisePhotoCount');if(count){count.textContent=`已選 ${files.length} 張照片（可一次傳給 ChatGPT）`;count.style.display='block';}
+const rm=document.getElementById('removeExercisePhotoBtn');if(rm)rm.style.display='inline-flex';
+}
 function handleExercisePhoto(ev){
-const file=ev?.target?.files?.[0];if(!file)return;
-exercisePhotoFile=file;exercisePhotoRemove=false;clearExercisePhotoPreview();
-exercisePhotoURL=URL.createObjectURL(file);const img=document.getElementById('exercisePhotoPreview');img.src=exercisePhotoURL;img.style.display='block';
-document.getElementById('removeExercisePhotoBtn').style.display='inline-flex';
+const files=Array.from(ev?.target?.files||[]);if(!files.length)return;
+exercisePhotoFiles=files;
+exercisePhotoFile=files[0];
+exercisePhotoRemove=false;
+renderExercisePhotoFiles(files);
 }
 function removeExercisePhoto(){
-exercisePhotoFile=null;exercisePhotoRemove=true;clearExercisePhotoPreview();
+exercisePhotoFiles=[];exercisePhotoFile=null;exercisePhotoRemove=true;clearExercisePhotoPreview();
 const input=document.getElementById('exercisePhotoInput');if(input)input.value='';
 }
 async function showExercisePhotoForRecord(x){
-clearExercisePhotoPreview();exercisePhotoRemove=false;
-const img=document.getElementById('exercisePhotoPreview');if(!img)return;
-const blob=await getExercisePhotoBlob(x);if(!blob)return;
-exercisePhotoURL=URL.createObjectURL(blob);img.src=exercisePhotoURL;img.style.display='block';document.getElementById('removeExercisePhotoBtn').style.display='inline-flex';
+exercisePhotoRemove=false;exercisePhotoFiles=[];exercisePhotoFile=null;clearExercisePhotoPreview();
+const blobs=[];
+const blob=await getExercisePhotoBlob(x);if(blob)blobs.push(blob);
+if(!blobs.length)return;
+exercisePhotoFiles=blobs.map((b,i)=>new File([b],`運動截圖_${i+1}.jpg`,{type:b.type||'image/jpeg'}));
+renderExercisePhotoFiles(exercisePhotoFiles);
+}
+async function shareExercisePhotosToAI(){
+const files=exercisePhotoFiles||[];
+if(!files.length){alert('請先選擇一張或多張運動截圖');return;}
+const text=`請辨識我上傳的 Apple Watch 運動截圖；若有多張，請合併判斷為同一場運動的資料，重複資訊不要重複計算。不確定的欄位請留白，請只依以下格式回覆：
+日期：
+類型：
+分類：
+開始：
+結束：
+分鐘：
+消耗kcal：
+備註：`;
+const copied=await copyAIFormat(text);
+const fallback=copied?'辨識格式已複製。若分享清單沒有 ChatGPT，請直接開啟 ChatGPT，一次上傳已選的運動截圖，再貼上辨識格式。':'請直接開啟 ChatGPT，一次上傳已選的運動截圖，並依畫面下方格式整理。';
+if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
+try{await navigator.share({files,text,title:'Apple Watch 運動辨識'});}
+catch(e){if(e?.name==='AbortError')alert(fallback);else alert('照片分享未完成。\n\n'+fallback);}
+}else alert('這個瀏覽器無法直接分享多張照片。\n\n'+fallback);
 }
 function applyExerciseRecognition(){
 const raw=(document.getElementById('exerciseRecognitionText')?.value||'').trim();if(!raw){alert('請先貼上辨識文字');return;}
@@ -2065,7 +2106,7 @@ const note=get('備註');if(note)eNote.value=note;
 setExerciseStatus('✅ 已套用辨識文字，確認內容後按「儲存運動」');
 }
 function clearExerciseForm(keepStatus=false){
-editingExerciseId='';exercisePhotoFile=null;exercisePhotoRemove=false;clearExercisePhotoPreview();
+editingExerciseId='';exercisePhotoFile=null;exercisePhotoFiles=[];exercisePhotoRemove=false;clearExercisePhotoPreview();
 const photoInput=document.getElementById('exercisePhotoInput');if(photoInput)photoInput.value='';const recognition=document.getElementById('exerciseRecognitionText');if(recognition)recognition.value='';
 eDate.value=dn();
 eType.value='快走';
