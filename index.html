@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.09.23 運動詳細資料版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.09.24 分區摺疊與運動日期分組版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -404,7 +404,13 @@ img,svg,video,canvas{max-width:100%;height:auto}
 
 </style>
 <style>#exercise input,#exercise select,#exercise textarea{box-sizing:border-box;max-width:100%;min-width:0}#exercise .grid>div{min-width:0}#exerciseEntry>summary{padding:6px 0}#exerciseEntry[open]>summary{margin-bottom:12px}</style>
-</head>
+<style>
+.section-fold > summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;min-height:36px}
+.section-fold > summary::-webkit-details-marker{display:none}
+.section-fold > summary::after{content:'⌄';color:#6b7280;transition:transform .2s}
+.section-fold[open] > summary::after{transform:rotate(180deg)}
+.section-fold[open] > summary{margin-bottom:12px}
+</style></head>
 <body>
 <div id="lock" class="lock">
   <div class="lockbox">
@@ -435,7 +441,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.09.23</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.09.24</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -468,24 +474,27 @@ img,svg,video,canvas{max-width:100%;height:auto}
   <div id="reminder" class="note" style="margin-top:8px"></div>
 </div>
 <div class="card">
-  <div class="itemtitle">今日飲食</div>
+  <details id="homeFoodFold" class="section-fold"><summary class="itemtitle">今日飲食</summary>
   <div class="btnrow no-print" style="margin-top:10px"><button class="secondary" type="button" onclick="startFoodFromHome()">＋ 新增飲食</button></div>
   <div id="foodToday"></div>
+</details>
 </div>
 <div class="card">
-  <div class="itemtitle">今日運動</div>
+  <details id="homeExerciseFold" class="section-fold"><summary class="itemtitle">今日運動</summary>
   <div class="btnrow no-print" style="margin-top:10px"><button class="secondary" type="button" onclick="startExerciseFromHome()">＋ 新增運動</button></div>
   <div id="exerciseToday"></div>
+</details>
 </div>
 <div class="card">
-  <div class="itemtitle" id="homeVitalsTitle">⚖️ 體重與血壓</div>
+  <details id="homeBodyFold" class="section-fold"><summary class="itemtitle">今日血壓／體重</summary>
   <div id="homeVitals"></div>
   <div class="btnrow no-print" style="margin-top:10px"><button class="secondary" type="button" onclick="startBodyFromHome()">＋ 新增早晚體重／血壓</button><button class="secondary" type="button" onclick="printHomeDay()">🖨️ 列印這一天</button></div>
+</details>
 </div>
 </section>
 <section id="add" class="section">
 <div class="card">
-<div class="itemtitle">新增飲食</div>
+<details id="foodEntry" class="section-fold"><summary class="itemtitle">新增飲食</summary>
 <div class="btnrow" style="margin-top:10px">
   <button class="secondary" type="button" onclick="startNewMasterFromFood()">＋ 建立新食品</button>
 </div>
@@ -641,9 +650,11 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <button id="recalcFoodFromMasterBtn" class="secondary" type="button" style="display:none" onclick="recalcFoodFromCurrentMaster()">🔄 依目前食品主檔重新計算</button>
 <button id="cancelFoodEditBtn" class="secondary" style="display:none" onclick="cancelFoodEdit()">取消修改</button>
 </div>
+</details>
 </div>
+<div id="dietExerciseFormSlot"></div>
 <div class="card">
-<div class="itemtitle">早晚體重／血壓</div>
+<details id="bodyEntry" class="section-fold"><summary class="itemtitle">新增早晚體重／血壓</summary>
 <div class="grid" style="margin-top:10px">
 <div>
 <label>日期</label>
@@ -667,11 +678,13 @@ img,svg,video,canvas{max-width:100%;height:auto}
 儲存
 </button>
 <button id="cancelBodyEditBtn" class="secondary" style="display:none;margin-top:10px" type="button" onclick="cancelBodyEdit()">取消修改</button>
+</details>
 </div>
 </section>
 <section id="exercise" class="section">
-<div class="card">
-<details id="exerciseEntry"><summary class="itemtitle" style="cursor:pointer">新增運動</summary>
+<div id="exerciseFormSlot"></div>
+<div class="card" id="exerciseFormCard">
+<details class="section-fold" id="exerciseEntry"><summary class="itemtitle" style="cursor:pointer">新增運動</summary>
 <div class="grid" style="margin-top:10px">
 <div>
 <label>日期</label>
@@ -1520,6 +1533,7 @@ if(window.visualViewport){
 }
 
 function goTab(id){
+if(id==='add'||id==='exercise'){const slot=document.getElementById(id==='add'?'dietExerciseFormSlot':'exerciseFormSlot');slot.appendChild(document.getElementById('exerciseFormCard'));}
 if(returnToFoodAfterMasterCreate && id!=='fooddb' && id!=='add')returnToFoodAfterMasterCreate=false;
 document.querySelectorAll('.section')
 .forEach(x=>x.classList.remove('active'));
@@ -1550,12 +1564,14 @@ if(start)start.value=d;if(end)end.value=d;if(type)type.value='all';if(meal)meal.
 printHistory();
 }
 function startBodyFromHome(){
+document.getElementById('bodyEntry').open=true;
 document.getElementById('bDate').value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
 document.getElementById('bTime').value=tn();
 goTab('add');
 setTimeout(()=>document.getElementById('bDate')?.scrollIntoView({behavior:'smooth',block:'center'}),180);
 }
 function startFoodFromHome(){
+document.getElementById('foodEntry').open=true;
 clearFoodEntryForm();
 fDate.value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
 fTime.value=tn();
@@ -1888,6 +1904,7 @@ alert((wasEdit?'飲食紀錄已更新':'已儲存這一餐')+(photoCloudWarning?
 afterSaved('add');
 }
 async function editFood(id){
+document.getElementById('foodEntry').open=true;
 const x=db.foods.find(v=>String(v.id)===String(id));if(!x)return;
 editingFoodId=String(x.id);selectedMasterId=x.masterId||'';
 fDate.value=x.date||dn();fTime.value=x.time||tn();fMeal.value=x.meal||'早餐';
@@ -2126,13 +2143,17 @@ renderStats();
 setExerciseStatus('✅ 運動紀錄已刪除');
 }
 async function renderExercise(){
+const opened=new Set([...exerciseList.querySelectorAll('details[open][data-date]')].map(x=>x.dataset.date));
 let a=[...db.exercise].sort((x,y)=>(`${y.date||''}${y.start||''}`).localeCompare(`${x.date||''}${x.start||''}`));
 exerciseList.innerHTML=a.length?'<div class="small">載入運動紀錄…</div>':'<div class="empty">尚無運動紀錄</div>';
 if(!a.length)return;
 const cards=await Promise.all(a.map(async x=>{
 const time=exerciseTimeText(x);let photo='';const blob=await getExercisePhotoBlob(x);if(blob){const url=URL.createObjectURL(blob);photo=`<img class="exercise-thumb" src="${url}" alt="運動截圖" title="點一下放大" onclick="openImageZoom(this.src)">`;}
 return `<div class="item"><b>${esc(x.date)}｜${esc(x.type)}</b><div class="small">${time?`${esc(time)}・`:''}${esc(x.class)}・${esc(x.duration||durationFromMinutes(x.minutes)||'—')}（總時間）・${esc(x.kcal||'—')} kcal</div>${exerciseExtrasHtml(x)}${x.note?`<div class="small" style="margin-top:4px">${esc(x.note)}</div>`:''}${photo}<div class="record-actions"><button class="secondary" type="button" onclick="editExercise('${x.id}')">修改</button><button class="danger" type="button" onclick="deleteExercise('${x.id}')">刪除</button></div></div>`;
-}));exerciseList.innerHTML=cards.join('');
+}));
+const groups=new Map();
+a.forEach((x,i)=>{const date=x.date||'未填日期';if(!groups.has(date))groups.set(date,[]);groups.get(date).push({x,html:cards[i]});});
+exerciseList.innerHTML=[...groups].map(([date,items])=>`<details class="today-meal-group" data-date="${esc(date)}" ${opened.has(date)?'open':''}><summary><div class="today-meal-summary-main"><div class="today-meal-name">${esc(date)}</div><div class="today-meal-meta">${items.length} 筆運動・動態大卡 ${Math.round(items.reduce((sum,v)=>sum+num(v.x.kcal),0))} kcal</div></div><span class="today-meal-arrow">⌄</span></summary><div class="today-meal-body">${items.map(v=>v.html).join('')}</div></details>`).join('');
 }
 
 
@@ -3614,20 +3635,21 @@ editingBodyId='';save();
 for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat'])document.getElementById(id).value='';
 document.getElementById('bPeriod').value='早上';
 document.getElementById('bTime').value=tn();
-document.querySelector('#add .card .itemtitle')?.replaceChildren(document.createTextNode('早晚體重／血壓'));
+document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
 document.getElementById('cancelBodyEditBtn').style.display='none';
 await renderToday();renderHistory();renderStats();
 alert('早晚體重／血壓已儲存');
 afterSaved('add');
 }
 function editBody(id){
+document.getElementById('bodyEntry').open=true;
 const x=db.body.find(v=>String(v.id)===String(id));if(!x)return;
 editingBodyId=String(x.id);
 document.getElementById('bDate').value=x.date||dn();document.getElementById('bPeriod').value=x.period||'早上';
 document.getElementById('bTime').value=x.time||'';document.getElementById('bWeight').value=x.weight||'';
 document.getElementById('bSystolic').value=x.systolic||'';document.getElementById('bDiastolic').value=x.diastolic||'';document.getElementById('bPulse').value=x.pulse||'';
 document.getElementById('bFat').value=x.fat||'';
-document.querySelector('#add .card .itemtitle')?.replaceChildren(document.createTextNode('修改體重／血壓紀錄'));
+document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('修改體重／血壓紀錄'));
 document.getElementById('cancelBodyEditBtn').style.display='inline-flex';
 goTab('add');
 }
@@ -3635,7 +3657,7 @@ function cancelBodyEdit(){
 editingBodyId='';
 for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat'])document.getElementById(id).value='';
 document.getElementById('bPeriod').value='早上';document.getElementById('bTime').value=tn();
-document.querySelector('#add .card .itemtitle')?.replaceChildren(document.createTextNode('早晚體重／血壓'));
+document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
 document.getElementById('cancelBodyEditBtn').style.display='none';
 }
 async function deleteBody(id){
@@ -4485,7 +4507,7 @@ userId = bytesToB64url(randomBytes(16));
     queued=false;
     const line=Math.min(window.innerHeight*.66,window.innerHeight-180);
     const box=card.getBoundingClientRect();
-    const visible=section.classList.contains('active')&&box.top<line&&box.bottom>line;
+    const visible=document.getElementById('foodEntry').open&&section.classList.contains('active')&&box.top<line&&box.bottom>line;
     row.classList.toggle('is-floating',visible);
     if(visible){row.style.left=(box.left+16)+'px';row.style.width=Math.max(0,box.width-32)+'px';}
     else{row.style.left='';row.style.width='';}
@@ -4498,6 +4520,7 @@ userId = bytesToB64url(randomBytes(16));
   const queue=()=>{if(!queued){queued=true;requestAnimationFrame(update);}};
   section.addEventListener('focusin',syncEditing);
   section.addEventListener('focusout',()=>setTimeout(syncEditing,0));
+  document.getElementById('foodEntry').addEventListener('toggle',queue);
   window.addEventListener('scroll',queue,{passive:true});
   window.addEventListener('resize',queue);
   new MutationObserver(queue).observe(section,{attributes:true,attributeFilter:['class']});
