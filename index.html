@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.09.24 分區摺疊與運動日期分組版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.09.25 血壓參考範圍版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -402,6 +402,9 @@ img,svg,video,canvas{max-width:100%;height:auto}
   @page{size:A4;margin:10mm}
 }
 
+
+/* 2026-10-09 BP_REFERENCE_V1: 收縮壓／舒張壓欄位名稱右側顯示成人參考值 */
+.bp-reference{display:inline-block;margin-left:7px;font-size:11px;font-weight:400;color:#8993a2;white-space:nowrap;vertical-align:baseline}
 </style>
 <style>#exercise input,#exercise select,#exercise textarea{box-sizing:border-box;max-width:100%;min-width:0}#exercise .grid>div{min-width:0}#exerciseEntry>summary{padding:6px 0}#exerciseEntry[open]>summary{margin-bottom:12px}</style>
 <style>
@@ -441,7 +444,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.09.24</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.09.25</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -666,8 +669,8 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <label>體重 kg</label>
 <input id="bWeight">
 </div>
-<div><label>收縮壓 mmHg</label><input id="bSystolic" inputmode="decimal" placeholder="例如 120"></div>
-<div><label>舒張壓 mmHg</label><input id="bDiastolic" inputmode="decimal" placeholder="例如 80"></div>
+<div><label for="bSystolic">收縮壓 mmHg <span class="bp-reference" title="一般成人參考範圍，非個人診斷標準">正常：90～119</span></label><input id="bSystolic" inputmode="decimal" placeholder="例如 120"></div>
+<div><label for="bDiastolic">舒張壓 mmHg <span class="bp-reference" title="一般成人參考範圍，非個人診斷標準">正常：60～79</span></label><input id="bDiastolic" inputmode="decimal" placeholder="例如 80"></div>
 <div><label>脈搏 次／分（選填）</label><input id="bPulse" inputmode="decimal"></div>
 <div>
 <label>體脂 %</label>
