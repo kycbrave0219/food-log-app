@@ -47,6 +47,9 @@ button{font:inherit}
 .lockbox{background:#fff;padding:20px;border-radius:20px;width:min(420px,100%);text-align:center}
 .pin{text-align:center;letter-spacing:8px;font-size:24px}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
+/* 新增飲食：滑動表單時，儲存操作停在畫面約 2/3 高度 */
+.food-save-actions{position:relative;margin:10px 0 0;padding:8px 0}
+.food-save-actions.is-floating{position:fixed;top:66vh;top:min(66dvh,calc(100dvh - 180px));z-index:75;margin:0;padding:9px 12px;background:rgba(255,255,255,.97);border:1px solid rgba(229,231,235,.9);box-shadow:0 5px 16px rgba(17,24,39,.16);border-radius:14px}
 .master-card{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
 .master-title{font-weight:800}
 .master-meta{font-size:12px;color:var(--muted);margin-top:3px}
@@ -625,7 +628,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </div>
 </div>
 <div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若食品主檔曾修正，可按「依目前食品主檔重新計算」更新本次營養值。若不重新選照片，會保留原照片。</div>
-<div class="btnrow" style="margin-top:10px">
+<div class="btnrow food-save-actions" style="margin-top:10px">
 <button id="saveFoodBtn" class="primary" onclick="saveFood()">儲存這一餐</button>
 <button id="recalcFoodFromMasterBtn" class="secondary" type="button" style="display:none" onclick="recalcFoodFromCurrentMaster()">🔄 依目前食品主檔重新計算</button>
 <button id="cancelFoodEditBtn" class="secondary" style="display:none" onclick="cancelFoodEdit()">取消修改</button>
@@ -4466,6 +4469,30 @@ userId = bytesToB64url(randomBytes(16));
     disable: disableFaceId,
     refresh: refreshUI
   };
+})();
+</script>
+<script>
+// 新增飲食表單可見時，讓儲存列固定在畫面約 2/3 高度。
+(()=>{
+  const row=document.querySelector('.food-save-actions');
+  const section=document.getElementById('add');
+  const card=row?.closest('.card');
+  if(!row||!section||!card)return;
+  let queued=false;
+  const update=()=>{
+    queued=false;
+    const line=Math.min(window.innerHeight*.66,window.innerHeight-180);
+    const box=card.getBoundingClientRect();
+    const visible=section.classList.contains('active')&&box.top<line&&box.bottom>line;
+    row.classList.toggle('is-floating',visible);
+    if(visible){row.style.left=(box.left+16)+'px';row.style.width=Math.max(0,box.width-32)+'px';}
+    else{row.style.left='';row.style.width='';}
+  };
+  const queue=()=>{if(!queued){queued=true;requestAnimationFrame(update);}};
+  window.addEventListener('scroll',queue,{passive:true});
+  window.addEventListener('resize',queue);
+  new MutationObserver(queue).observe(section,{attributes:true,attributeFilter:['class']});
+  update();
 })();
 </script>
 </body>
