@@ -438,7 +438,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
   <div class="itemtitle" id="todayLabel"></div>
   <div class="grid no-print" style="margin-top:10px;align-items:end">
     <div><label for="homeDate">查詢日期</label><input id="homeDate" type="date" onchange="setHomeDate(this.value)"></div>
-    <div class="btnrow"><button class="secondary" type="button" onclick="shiftHomeDate(-1)">前一天</button><button class="secondary" type="button" onclick="shiftHomeDate(1)">後一天</button></div>
+    <div class="btnrow"><button class="secondary" type="button" onclick="shiftHomeDate(-1)">前一天</button><button class="secondary" type="button" onclick="setHomeDate(dn())">回到今天</button><button class="secondary" type="button" onclick="shiftHomeDate(1)">後一天</button></div>
   </div>
   <div class="kpis" style="margin-top:10px">
     <div class="kpi">
@@ -465,10 +465,12 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </div>
 <div class="card">
   <div class="itemtitle">今日飲食</div>
+  <div class="btnrow no-print" style="margin-top:10px"><button class="secondary" type="button" onclick="startFoodFromHome()">＋ 新增飲食</button></div>
   <div id="foodToday"></div>
 </div>
 <div class="card">
   <div class="itemtitle">今日運動</div>
+  <div class="btnrow no-print" style="margin-top:10px"><button class="secondary" type="button" onclick="startExerciseFromHome()">＋ 新增運動</button></div>
   <div id="exerciseToday"></div>
 </div>
 <div class="card">
@@ -1558,6 +1560,19 @@ document.getElementById('bDate').value=document.getElementById('homeDate')?.valu
 document.getElementById('bTime').value=tn();
 goTab('add');
 setTimeout(()=>document.getElementById('bDate')?.scrollIntoView({behavior:'smooth',block:'center'}),180);
+}
+function startFoodFromHome(){
+clearFoodEntryForm();
+fDate.value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
+fTime.value=tn();
+goTab('add');
+setTimeout(()=>document.getElementById('fFood')?.scrollIntoView({behavior:'smooth',block:'center'}),180);
+}
+function startExerciseFromHome(){
+clearExerciseForm();
+eDate.value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
+goTab('exercise');
+setTimeout(()=>document.getElementById('eType')?.scrollIntoView({behavior:'smooth',block:'center'}),180);
 }
 function pdb(){
 return new Promise((a,b)=>{
