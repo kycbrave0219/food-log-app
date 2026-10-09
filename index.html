@@ -49,7 +49,8 @@ button{font:inherit}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
 /* 新增飲食：滑動表單時，儲存操作停在畫面約 2/3 高度 */
 .food-save-actions{position:relative;margin:10px 0 0;padding:8px 0}
-.food-save-actions.is-floating{position:fixed;top:66vh;top:min(66dvh,calc(100dvh - 180px));z-index:75;margin:0;padding:9px 12px;background:rgba(255,255,255,.97);border:1px solid rgba(229,231,235,.9);box-shadow:0 5px 16px rgba(17,24,39,.16);border-radius:14px}
+.food-save-actions.is-floating{position:fixed;top:66vh;top:min(66dvh,calc(100dvh - 180px));z-index:75;margin:0;padding:0;background:transparent;border:0;box-shadow:none;border-radius:0;pointer-events:none;justify-content:flex-end}
+.food-save-actions.is-floating>*{pointer-events:auto}
 .master-card{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
 .master-title{font-weight:800}
 .master-meta{font-size:12px;color:var(--muted);margin-top:3px}
