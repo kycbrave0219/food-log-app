@@ -51,6 +51,7 @@ button{font:inherit}
 .food-save-actions{position:relative;margin:10px 0 0;padding:8px 0}
 .food-save-actions.is-floating{position:fixed;top:66vh;top:min(66dvh,calc(100dvh - 180px));z-index:75;margin:0;padding:0;background:transparent;border:0;box-shadow:none;border-radius:0;pointer-events:none;justify-content:flex-end}
 .food-save-actions.is-floating>*{pointer-events:auto}
+.food-save-actions.is-floating.is-editing{visibility:hidden}
 .master-card{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
 .master-title{font-weight:800}
 .master-meta{font-size:12px;color:var(--muted);margin-top:3px}
@@ -4489,7 +4490,14 @@ userId = bytesToB64url(randomBytes(16));
     if(visible){row.style.left=(box.left+16)+'px';row.style.width=Math.max(0,box.width-32)+'px';}
     else{row.style.left='';row.style.width='';}
   };
+  const syncEditing=()=>{
+    const active=document.activeElement;
+    const editing=section.contains(active)&&/^(INPUT|SELECT|TEXTAREA)$/.test(active?.tagName||'');
+    row.classList.toggle('is-editing',editing);
+  };
   const queue=()=>{if(!queued){queued=true;requestAnimationFrame(update);}};
+  section.addEventListener('focusin',syncEditing);
+  section.addEventListener('focusout',()=>setTimeout(syncEditing,0));
   window.addEventListener('scroll',queue,{passive:true});
   window.addEventListener('resize',queue);
   new MutationObserver(queue).observe(section,{attributes:true,attributeFilter:['class']});
