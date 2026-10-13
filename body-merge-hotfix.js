@@ -132,3 +132,302 @@ if (typeof deleteBody === 'function') {
   if(!historyTarget)return;
   historyTarget.insertAdjacentHTML('afterend', '<details class="fold" style="margin-top:12px" ontoggle="if(this.open)renderBodyBackups()">\n<summary>↶ 身體記錄備份與補回</summary>\n<div class="fold-body"><div class="note">修正後修改身體紀錄前會自動備份舊值。點選補回不會覆蓋已存在的體重、血壓或體脂。</div><div id="bodyBackupList" style="margin-top:10px"></div></div></details>');
 })();
+/* KYC DAILY_NOTE_V2 2026-10-13
+   Append this portion to body-merge-hotfix.js. No change to index.html needed.
+   Daily notes: exactly one dated note, local backup, optional Supabase table sync.
+   Display order: weight → fat → blood pressure → pulse (form/home/history/print).
+*/
+(function kycDailyNotesAndVitalsOrder(){
+  'use strict';
+  if (window.__KYC_DAILY_NOTES_V2__) return;
+  window.__KYC_DAILY_NOTES_V2__ = true;
+
+  const NOTES_REVISION_KEY = 'foodlog_daily_note_revisions_v2';
+  const ID_NOTE_BOX = 'kycDailyNoteText';
+  let noteSaveTimer = null;
+  let noteCloudState = 'local';
+  let cloudNotesSyncRunning = false;
+
+  function getNotes(){
+    if (!db.dailyNotes || typeof db.dailyNotes !== 'object' || Array.isArray(db.dailyNotes)) db.dailyNotes = {};
+    return db.dailyNotes;
+  }
+  function getDailyRecord(date){
+    const rec = getNotes()[date];
+    if (typeof rec === 'string') return {text:rec,updatedAt:'1970-01-01T00:00:00.000Z'};
+    return {text:String(rec?.text ?? ''),updatedAt:rec?.updatedAt || '1970-01-01T00:00:00.000Z'};
+  }
+  function appendRevision(date,old){
+    if (!old || !old.text) return;
+    try {
+      let history=JSON.parse(localStorage.getItem(NOTES_REVISION_KEY)||'[]');
+      if (!Array.isArray(history)) history=[];
+      history.unshift({date, text:old.text, updatedAt:old.updatedAt, archivedAt:new Date().toISOString()});
+      localStorage.setItem(NOTES_REVISION_KEY,JSON.stringify(history.slice(0,80)));
+    }catch(e){console.warn('每日備註舊版備份失敗',e);}
+  }
+  function setDailyRecord(date,text){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+    const original=getDailyRecord(date);
+    if (original.text===text) return false;
+    appendRevision(date,original);
+    getNotes()[date]={text,updatedAt:new Date().toISOString()};
+    save(); // Existing app writes to its own backup JSON/localStorage and schedules cloud sync.
+    return true;
+  }
+  function status(message){
+    const el=document.getElementById('kycDailyNoteStatus');
+    if (el) el.textContent=message;
+  }
+  function saveNoteFromInput(showMessage){
+    if(noteSaveTimer){clearTimeout(noteSaveTimer);noteSaveTimer=null;}
+    const el=document.getElementById(ID_NOTE_BOX);
+    if (!el) return;
+    const date=el.dataset.noteDate;
+    if (!date) return;
+    const isChanged=setDailyRecord(date,el.value);
+    const cloudText=noteCloudState==='ok'?'，可跨裝置同步':'，目前先儲存在此裝置';
+    if (showMessage) status((isChanged?'已儲存':'內容沒有變更')+`（${date}${cloudText}）`);
+    else if(isChanged) status(`已自動儲存 ${date}${cloudText}`);
+  }
+  function noteInputChanged(){
+    status('正在輸入，稍後自動儲存…');
+    if(noteSaveTimer)clearTimeout(noteSaveTimer);
+    noteSaveTimer=setTimeout(()=>saveNoteFromInput(false),800);
+  }
+  function noteCurrentDate(){
+    return document.getElementById('homeDate')?.value || homeSelectedDate || dn();
+  }
+  function buildNoteUi(){
+    if(document.getElementById('kycDailyNoteCard'))return;
+    const vital=document.getElementById('homeVitals');
+    const anchor=vital?.closest('.card');
+    if(!anchor)return;
+    const node=document.createElement('div');
+    node.className='card';
+    node.id='kycDailyNoteCard';
+    node.innerHTML=`
+      <details class="section-fold" id="kycDailyNoteFold" open>
+        <summary class="itemtitle">📝 每日備註</summary>
+        <div style="padding-top:12px">
+          <div class="note" id="kycDailyNoteDate" style="margin:0 0 8px"></div>
+          <label for="${ID_NOTE_BOX}">每天一筆備註，依上方查詢日期顯示；可隨時補充或修改</label>
+          <textarea id="${ID_NOTE_BOX}" rows="4" maxlength="10000" placeholder="例如：看診、睡眠、飲食狀況、當天注意事項…" style="width:100%;resize:vertical;min-height:100px"></textarea>
+          <div class="btnrow" style="align-items:center;margin-top:10px">
+            <button class="primary" type="button" id="kycDailyNoteSave">儲存每日備註</button>
+          </div>
+          <div class="note" id="kycDailyNoteStatus" style="margin-top:8px" role="status" aria-live="polite"></div>
+        </div>
+      </details>`;
+    anchor.insertAdjacentElement('afterend',node);
+    const input=document.getElementById(ID_NOTE_BOX);
+    input.addEventListener('input',noteInputChanged);
+    input.addEventListener('blur',()=>saveNoteFromInput(false));
+    document.getElementById('kycDailyNoteSave').addEventListener('click',()=>saveNoteFromInput(true));
+  }
+  function refreshNoteUi(){
+    buildNoteUi();
+    const input=document.getElementById(ID_NOTE_BOX);
+    if(!input)return;
+    const d=noteCurrentDate();
+    if(input.dataset.noteDate && input.dataset.noteDate!==d){
+      // Persist the old day's unfinished draft before showing the new date.
+      saveNoteFromInput(false);
+    }
+    if(input.dataset.noteDate!==d){
+      input.dataset.noteDate=d;
+      input.value=getDailyRecord(d).text;
+      document.getElementById('kycDailyNoteDate').textContent=`日期：${d}（一天一筆）`;
+      status(input.value?'已載入該日期備註':'該日期尚無備註');
+    }else if(document.activeElement!==input && !noteSaveTimer && input.value!==getDailyRecord(d).text){
+      input.value=getDailyRecord(d).text;
+    }
+  }
+  function safeNoteHTML(value){return esc(value).replace(/\r?\n/g,'<br>');}
+
+  // Change common renderer used by home, historical search, statistics and body backups.
+  if (typeof bodyMeasureText === 'function') {
+    bodyMeasureText = function(v){
+      const parts=[];
+      if(v.weight!==null && v.weight!==undefined && String(v.weight)!=='') parts.push(`體重 ${esc(v.weight)} kg`);
+      if(v.fat!==null && v.fat!==undefined && String(v.fat)!=='') parts.push(`體脂 ${esc(v.fat)} %`);
+      if(v.systolic || v.diastolic) parts.push(`血壓 ${esc(v.systolic||'—')}/${esc(v.diastolic||'—')} mmHg`);
+      if(v.pulse!==null && v.pulse!==undefined && String(v.pulse)!=='') parts.push(`脈搏 ${esc(v.pulse)} 次／分`);
+      return parts.join('・')||'未輸入測量數值';
+    };
+  }
+  // In the data-entry form, move "fat %" immediately after "weight kg".
+  const fatBlock=document.getElementById('bFat')?.parentElement;
+  const bloodBlock=document.getElementById('bSystolic')?.parentElement;
+  if(fatBlock && bloodBlock && fatBlock.parentElement===bloodBlock.parentElement){
+    bloodBlock.parentElement.insertBefore(fatBlock,bloodBlock);
+  }
+
+  if(typeof renderToday==='function'){
+    const oldRenderToday=renderToday;
+    renderToday=async function(...args){
+      const result=await oldRenderToday.apply(this,args);
+      refreshNoteUi();
+      return result;
+    };
+  }
+  if(typeof renderHistory==='function'){
+    const oldRenderHistory=renderHistory;
+    renderHistory=function(...args){
+      const result=oldRenderHistory.apply(this,args);
+      const list=document.getElementById('historyList');
+      const start=document.getElementById('hStart')?.value||'';
+      const end=document.getElementById('hEnd')?.value||'';
+      const type=document.getElementById('hType')?.value||'all';
+      if(!list || !start || !end || type!=='all')return result;
+      const s=start<=end?start:end,e=start<=end?end:start;
+      const notes=Object.entries(getNotes()).filter(([d,r])=>d>=s && d<=e && String(r?.text ?? r ?? '').trim());
+      if(!notes.length)return result;
+      const cards=new Map();
+      list.querySelectorAll('.history-day').forEach(node=>{
+        const d=node.querySelector('.history-day-title')?.textContent?.slice(0,10);
+        if(d)cards.set(d,node);
+      });
+      for(const [d] of notes){
+        const t=getDailyRecord(d).text;
+        const noteHtml=`<div class="history-food"><b>📝 每日備註</b><div class="small" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:6px">${safeNoteHTML(t)}</div></div>`;
+        const card=cards.get(d);
+        if(card){ card.querySelector('.history-day-body')?.insertAdjacentHTML('beforeend',noteHtml); }
+        else {
+          const weekday=typeof historyWeekday==='function'?historyWeekday(d):'';
+          const el=document.createElement('details');
+          el.className='history-day';
+          el.innerHTML=`<summary><div class="history-day-main"><div class="history-day-title">${esc(d)}（${esc(weekday)}）</div><div class="history-day-meta">每日備註 1 筆</div></div><span class="history-day-arrow">⌄</span></summary><div class="history-day-body">${noteHtml}</div>`;
+          list.appendChild(el);cards.set(d,el);
+        }
+      }
+      for(const el of [...list.querySelectorAll(':scope > details.history-day')].sort((a,b)=>{
+        const da=a.querySelector('.history-day-title')?.textContent?.slice(0,10)||'';
+        const dbb=b.querySelector('.history-day-title')?.textContent?.slice(0,10)||'';
+        return dbb.localeCompare(da);
+      })) list.appendChild(el);
+      const empty=list.querySelector(':scope > .empty');if(empty)empty.remove();
+      return result;
+    };
+  }
+  // Reorder print table columns; append the selected day's notes to printable A4 preview.
+  if(typeof printHistory==='function'){
+    const oldPrintHistory=printHistory;
+    printHistory=function(...args){
+      saveNoteFromInput(false);
+      const result=oldPrintHistory.apply(this,args);
+      const sheet=document.getElementById('printPreviewSheet');
+      if(!sheet)return result;
+      const start=document.getElementById('hStart')?.value||'';
+      const end=document.getElementById('hEnd')?.value||'';
+      if(!start||!end)return result;
+      const s=start<=end?start:end,e=start<=end?end:start;
+      const articles=[...sheet.querySelectorAll('.pp-day')];
+      const existing=new Set();
+      for(const article of articles){
+        const date=article.querySelector('.pp-day-head h2')?.textContent?.slice(0,10);
+        if(!date)continue;
+        existing.add(date);
+        // Table order: period/time/weight/fat/blood-pressure/pulse.
+        article.querySelectorAll('.pp-group').forEach(section=>{
+          const h=section.querySelector('h3')?.textContent||'';
+          if(!h.startsWith('體重／血壓'))return;
+          section.querySelectorAll('tr').forEach(tr=>{
+            const cells=[...tr.children];
+            if(cells.length!==6)return;
+            [0,1,2,5,3,4].forEach(i=>tr.appendChild(cells[i]));
+          });
+        });
+        const note=getDailyRecord(date).text;
+        if(note.trim()){
+          const section=document.createElement('section');section.className='pp-group kyc-daily-note-print';
+          const h=document.createElement('h3');h.textContent='每日備註';
+          const p=document.createElement('div');p.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;padding:6px 0';p.textContent=note;
+          section.append(h,p);article.appendChild(section);
+        }
+      }
+      // Include days that have only a daily note and no food/exercise/vital records.
+      const notes=Object.keys(getNotes()).filter(d=>d>=s && d<=e && getDailyRecord(d).text.trim() && !existing.has(d));
+      for(const d of notes.sort()){
+        sheet.querySelector('.pp-empty')?.remove();
+        if(sheet.querySelector('.pp-day')){
+          const pagebreak=document.createElement('div');pagebreak.className='html2pdf__page-break pp-hard-break';
+          sheet.appendChild(pagebreak);
+        }
+        const article=document.createElement('article');article.className='pp-day pp-day-next';
+        const header=document.createElement('div');header.className='pp-day-head';
+        const h=document.createElement('h2');h.textContent=d;
+        header.appendChild(h);
+        const section=document.createElement('section');section.className='pp-group kyc-daily-note-print';
+        const title=document.createElement('h3');title.textContent='每日備註';
+        const text=document.createElement('div');text.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;padding:6px 0';
+        text.textContent=getDailyRecord(d).text;
+        section.append(title,text);article.append(header,section);sheet.appendChild(article);
+      }
+      return result;
+    };
+  }
+
+  // Sync only when the optional user-owned `daily_notes` table has been created.
+  // If absent, don't touch existing food/weight/blood-pressure cloud tables.
+  async function syncDailyNotesCloud(){
+    if(cloudNotesSyncRunning || !cloudSession?.user?.id)return;
+    cloudNotesSyncRunning=true;
+    try{
+      const userId=cloudSession.user.id;
+      const rows=await cloudFetch(`/rest/v1/daily_notes?select=note_date,content,updated_at&user_id=eq.${encodeURIComponent(userId)}`);
+      if(!Array.isArray(rows))throw new Error('每日備註同步回傳內容異常');
+      let localUpdated=false;
+      const remoteByDate=new Map();
+      for(const row of rows){
+        const date=row.note_date;remoteByDate.set(date,row);
+        const remoteTime=Date.parse(row.updated_at)||0;
+        const current=getDailyRecord(date);
+        const localTime=Date.parse(current.updatedAt)||0;
+        if(remoteTime>localTime){
+          getNotes()[date]={text:String(row.content??''),updatedAt:row.updated_at};
+          localUpdated=true;
+        }
+      }
+      const uploads=[];
+      for(const [d] of Object.entries(getNotes())){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(d))continue;
+        const rec=getDailyRecord(d),remote=remoteByDate.get(d);
+        const t=Date.parse(rec.updatedAt)||0;
+        if(!remote || t>(Date.parse(remote.updated_at)||0))uploads.push({user_id:userId,note_date:d,content:rec.text,updated_at:rec.updatedAt});
+      }
+      if(uploads.length){
+        await cloudFetch('/rest/v1/daily_notes?on_conflict=user_id,note_date',{
+          method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(uploads)
+        });
+      }
+      if(localUpdated){persistLocalOnly();refreshNoteUi();renderHistory();}
+      noteCloudState='ok';
+      const el=document.getElementById('kycDailyNoteCloudInfo');
+      if(el)el.textContent='每日備註雲端同步已啟用';
+    }catch(e){
+      noteCloudState='local';
+      const info=document.getElementById('kycDailyNoteCloudInfo');
+      if(info)info.textContent='每日備註目前僅儲存在此裝置（如需跨裝置同步，請先執行 daily_notes_supabase.sql）';
+      console.warn('每日備註雲端尚未同步，原本的飲食／身體資料不受影響',e);
+    }finally{cloudNotesSyncRunning=false;}
+  }
+  if(typeof syncCloud==='function'){
+    const oldSyncCloud=syncCloud;
+    syncCloud=async function(...args){
+      const result=await oldSyncCloud.apply(this,args);
+      await syncDailyNotesCloud();
+      return result;
+    };
+  }
+  // Ensure note status stays explicit before SQL setup, with no false "synced" claim.
+  buildNoteUi();
+  const noteCard=document.getElementById('kycDailyNoteCard');
+  if(noteCard){
+    const info=document.createElement('div');info.id='kycDailyNoteCloudInfo';info.className='note';
+    info.style.marginTop='4px';info.textContent='每日備註先安全儲存在本機；跨裝置同步需新增 Supabase daily_notes 資料表';
+    noteCard.querySelector('#kycDailyNoteStatus')?.insertAdjacentElement('afterend',info);
+  }
+  refreshNoteUi();
+  if(document.getElementById('historyList'))renderHistory();
+})();
