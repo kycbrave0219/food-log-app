@@ -132,19 +132,48 @@ if (typeof deleteBody === 'function') {
   if(!historyTarget)return;
   historyTarget.insertAdjacentHTML('afterend', '<details class="fold" style="margin-top:12px" ontoggle="if(this.open)renderBodyBackups()">\n<summary>↶ 身體記錄備份與補回</summary>\n<div class="fold-body"><div class="note">修正後修改身體紀錄前會自動備份舊值。點選補回不會覆蓋已存在的體重、血壓或體脂。</div><div id="bodyBackupList" style="margin-top:10px"></div></div></details>');
 })();
-/* KYC DAILY_NOTE_V2 2026-10-13
+/* KYC DAILY_NOTE_V3 2026-10-13
    Append this portion to body-merge-hotfix.js. No change to index.html needed.
    Daily notes: exactly one dated note, local backup, optional Supabase table sync.
    Display order: weight → fat → blood pressure → pulse (form/home/history/print).
 */
 (function kycDailyNotesAndVitalsOrder(){
   'use strict';
-  if (window.__KYC_DAILY_NOTES_V2__) return;
-  window.__KYC_DAILY_NOTES_V2__ = true;
+  if (window.__KYC_DAILY_NOTES_V3__) return;
+  window.__KYC_DAILY_NOTES_V3__ = true;
 
   const NOTES_REVISION_KEY = 'foodlog_daily_note_revisions_v2';
+  const NOTES_DRAFT_KEY = 'foodlog_daily_note_drafts_v3';
   const ID_NOTE_BOX = 'kycDailyNoteText';
+  let noteDraftDirty = false;
+  let noteIsComposing = false;
+  let displayedSavedText = '';
+  // No autosave timer while composing Chinese text; saving is explicit.
   let noteSaveTimer = null;
+
+  function readNoteDrafts(){
+    try{const drafts=JSON.parse(localStorage.getItem(NOTES_DRAFT_KEY)||'{}');
+      return drafts && typeof drafts==='object' && !Array.isArray(drafts)?drafts:{};
+    }catch(e){return {};}
+  }
+  function writeNoteDraft(date,text){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
+    try{
+      const drafts=readNoteDrafts();
+      drafts[date]=String(text);
+      // Keep only 45 recent dates to avoid unbounded localStorage use.
+      const trimmed=Object.fromEntries(Object.entries(drafts).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,45));
+      localStorage.setItem(NOTES_DRAFT_KEY,JSON.stringify(trimmed));
+    }catch(e){console.warn('每日備註草稿未儲存',e);}
+  }
+  function removeNoteDraft(date){
+    try{
+      const drafts=readNoteDrafts();
+      if(Object.prototype.hasOwnProperty.call(drafts,date)){
+        delete drafts[date];localStorage.setItem(NOTES_DRAFT_KEY,JSON.stringify(drafts));
+      }
+    }catch(e){console.warn('每日備註草稿清除未完成',e);}
+  }
   let noteCloudState = 'local';
   let cloudNotesSyncRunning = false;
 
@@ -180,20 +209,33 @@ if (typeof deleteBody === 'function') {
     if (el) el.textContent=message;
   }
   function saveNoteFromInput(showMessage){
-    if(noteSaveTimer){clearTimeout(noteSaveTimer);noteSaveTimer=null;}
     const el=document.getElementById(ID_NOTE_BOX);
-    if (!el) return;
+    if(!el)return;
+    if(noteIsComposing){
+      status('中文選字尚未完成，請先選定文字再按儲存');
+      return;
+    }
     const date=el.dataset.noteDate;
-    if (!date) return;
-    const isChanged=setDailyRecord(date,el.value);
-    const cloudText=noteCloudState==='ok'?'，可跨裝置同步':'，目前先儲存在此裝置';
-    if (showMessage) status((isChanged?'已儲存':'內容沒有變更')+`（${date}${cloudText}）`);
-    else if(isChanged) status(`已自動儲存 ${date}${cloudText}`);
+    if(!date)return;
+    const text=el.value;
+    const changed=setDailyRecord(date,text);
+    const saved=getDailyRecord(date).text===text;
+    if(!saved){status('儲存未完成，請再試一次');return;}
+    noteDraftDirty=false;
+    displayedSavedText=text;
+    removeNoteDraft(date);
+    const cloudText=noteCloudState==='ok'?'，待雲端同步':'，已存此裝置';
+    if(showMessage)status((changed?'已儲存':'內容沒有變更')+`（${date}${cloudText}）`);
+    else if(changed)status(`已儲存 ${date}${cloudText}`);
   }
   function noteInputChanged(){
-    status('正在輸入，稍後自動儲存…');
-    if(noteSaveTimer)clearTimeout(noteSaveTimer);
-    noteSaveTimer=setTimeout(()=>saveNoteFromInput(false),800);
+    const input=document.getElementById(ID_NOTE_BOX);
+    if(!input)return;
+    noteDraftDirty=true;
+    // Persist an independent local *draft*, but do not write the actual daily note,
+    // schedule cloud sync or programmatically touch textarea.value during iOS IME input.
+    writeNoteDraft(input.dataset.noteDate,input.value);
+    status('尚未儲存（草稿已暫存於此裝置）・完成選字後請按「儲存每日備註」');
   }
   function noteCurrentDate(){
     return document.getElementById('homeDate')?.value || homeSelectedDate || dn();
@@ -221,26 +263,48 @@ if (typeof deleteBody === 'function') {
       </details>`;
     anchor.insertAdjacentElement('afterend',node);
     const input=document.getElementById(ID_NOTE_BOX);
+    input.addEventListener('compositionstart',()=>{noteIsComposing=true;});
+    input.addEventListener('compositionend',()=>{noteIsComposing=false;noteInputChanged();});
     input.addEventListener('input',noteInputChanged);
-    input.addEventListener('blur',()=>saveNoteFromInput(false));
-    document.getElementById('kycDailyNoteSave').addEventListener('click',()=>saveNoteFromInput(true));
+    // Do not save or overwrite the field on blur: iOS IME can temporarily blur
+    // the textarea while the user is choosing Traditional Chinese characters.
+    document.getElementById('kycDailyNoteSave').addEventListener('click',()=>{
+      if(noteIsComposing){
+        input.blur();
+        setTimeout(()=>saveNoteFromInput(true),180);
+      }else saveNoteFromInput(true);
+    });
   }
   function refreshNoteUi(){
     buildNoteUi();
     const input=document.getElementById(ID_NOTE_BOX);
     if(!input)return;
     const d=noteCurrentDate();
-    if(input.dataset.noteDate && input.dataset.noteDate!==d){
-      // Persist the old day's unfinished draft before showing the new date.
-      saveNoteFromInput(false);
-    }
     if(input.dataset.noteDate!==d){
+      // On changing dates, keep the current draft independently; never auto-commit it.
+      if(input.dataset.noteDate && noteDraftDirty)
+        writeNoteDraft(input.dataset.noteDate,input.value);
       input.dataset.noteDate=d;
-      input.value=getDailyRecord(d).text;
+      const saved=getDailyRecord(d).text;
+      const drafts=readNoteDrafts();
+      const hasDraft=Object.prototype.hasOwnProperty.call(drafts,d) && drafts[d]!==saved;
+      // Only change textarea.value on an intentional date switch, not during editing.
+      input.value=hasDraft?drafts[d]:saved;
+      displayedSavedText=saved;
+      noteDraftDirty=hasDraft;
+      noteIsComposing=false;
       document.getElementById('kycDailyNoteDate').textContent=`日期：${d}（一天一筆）`;
-      status(input.value?'已載入該日期備註':'該日期尚無備註');
-    }else if(document.activeElement!==input && !noteSaveTimer && input.value!==getDailyRecord(d).text){
-      input.value=getDailyRecord(d).text;
+      status(hasDraft?'已恢復未儲存草稿，請檢查後按儲存':saved?'已載入該日期備註':'該日期尚無備註');
+    }else{
+      // When cloud sync renders the page, update only if the field is completely
+      // untouched since the last programmatic fill. Never erase an active draft.
+      const saved=getDailyRecord(d).text;
+      if(!noteDraftDirty && !noteIsComposing && document.activeElement!==input &&
+         input.value===displayedSavedText && saved!==displayedSavedText){
+        input.value=saved;
+        displayedSavedText=saved;
+        status('已載入此日期最新備註');
+      }
     }
   }
   function safeNoteHTML(value){return esc(value).replace(/\r?\n/g,'<br>');}
@@ -425,7 +489,7 @@ if (typeof deleteBody === 'function') {
   const noteCard=document.getElementById('kycDailyNoteCard');
   if(noteCard){
     const info=document.createElement('div');info.id='kycDailyNoteCloudInfo';info.className='note';
-    info.style.marginTop='4px';info.textContent='每日備註先安全儲存在本機；跨裝置同步需新增 Supabase daily_notes 資料表';
+    info.style.marginTop='4px';info.textContent='輸入時保留草稿，按儲存才正式寫入；已設定 Supabase 時可進行跨裝置同步';
     noteCard.querySelector('#kycDailyNoteStatus')?.insertAdjacentElement('afterend',info);
   }
   refreshNoteUi();
