@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.14.01 明日預排快速記錄版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.14.02 血壓修改定位修正版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -466,7 +466,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.14.01</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.14.02</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
@@ -3838,6 +3838,14 @@ document.getElementById('bFat').value=x.fat||'';
 document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('修改體重／血壓紀錄'));
 document.getElementById('cancelBodyEditBtn').style.display='inline-flex';
 goTab('add');
+// Wait until the destination tab is visible before locating the editing form.
+requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  const entry=document.getElementById('bodyEntry');
+  if(!entry||editingBodyId!==String(x.id))return;
+  entry.open=true;
+  entry.style.scrollMarginTop='16px';
+  entry.scrollIntoView({behavior:'smooth',block:'start'});
+}));
 }
 function cancelBodyEdit(){
 editingBodyId='';
