@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.14.02 血壓修改定位修正版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.14.03 今天按鈕修正版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -466,14 +466,14 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.14.02</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.14.03</div>
 </div>
 <section id="today" class="section active">
 <div class="card">
   <div class="itemtitle" id="todayLabel"></div>
   <div class="grid no-print" style="margin-top:10px;align-items:end">
     <div><label for="homeDate">查詢日期</label><input id="homeDate" type="date" onchange="setHomeDate(this.value)"><div id="homeDateWeekday" class="food-date-label"></div></div>
-    <div class="btnrow"><button class="secondary" type="button" onclick="shiftHomeDate(-1)">前一天</button><button class="secondary" type="button" onclick="setHomeDate(dn())">回到今天</button><button class="secondary" type="button" onclick="shiftHomeDate(1)">後一天</button></div>
+    <div class="btnrow"><button class="secondary" type="button" onclick="shiftHomeDate(-1)">前一天</button><button class="secondary" type="button" onclick="setHomeDate(dn())">今天</button><button class="secondary" type="button" onclick="shiftHomeDate(1)">後一天</button></div>
   </div>
   <div class="kpis" style="margin-top:10px">
     <div class="kpi">
@@ -1727,7 +1727,12 @@ if(id==='history')renderHistory();
 if(id==='stats')renderStats();
 if(id==='settings')loadSettings();
 }
-function setHomeDate(value){homeSelectedDate=value||dn();renderToday()}
+function setHomeDate(value){
+homeSelectedDate=value||dn();
+const input=document.getElementById('homeDate');
+if(input)input.value=homeSelectedDate;
+return renderToday();
+}
 function shiftHomeDate(delta){
 const value=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
 const date=new Date(`${value}T12:00:00`);date.setDate(date.getDate()+delta);
