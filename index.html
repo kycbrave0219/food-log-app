@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.16.01 日期釘選與內臟脂肪整合版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.16.02 內臟脂肪儲存後清空與成功提示修正版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -436,6 +436,11 @@ img,svg,video,canvas{max-width:100%;height:auto}
 .pinned-date-nav button:active{transform:scale(.98)}
 @media(min-width:700px){.pinned-date-nav{flex-direction:row;justify-content:space-between}.pinned-date-nav .pinned-date-buttons{max-width:380px}}
 @media print{.pinned-date-nav{display:none!important}}
+/* 2026-10-16 BODY_SAVE_CLEAR_V2：儲存回饋與 iPhone 輸入清空確認 */
+.body-save-feedback{display:none;margin-top:10px;padding:10px 12px;background:#edf9f0;border:1px solid #b5dec3;color:#176534;border-radius:11px;font-size:13px;line-height:1.5}
+.body-save-feedback.show{display:block}
+.body-save-feedback.error{background:#fff3f2;color:#a52222;border-color:#f0bbb9}
+#saveBodyBtn:disabled{opacity:.66;cursor:wait}
 </style>
 <style>#exercise input,#exercise select,#exercise textarea{box-sizing:border-box;max-width:100%;min-width:0}#exercise .grid>div{min-width:0}#exerciseEntry>summary{padding:6px 0}#exerciseEntry[open]>summary{margin-bottom:12px}</style>
 <style>
@@ -475,7 +480,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.16.01</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.16.02</div>
 </div>
 <section id="today" class="section active">
 <div id="homePinnedDateNav" class="pinned-date-nav no-print" aria-label="固定日期切換">
@@ -749,10 +754,9 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div><label>脈搏 次／分（選填）</label><input id="bPulse" inputmode="decimal"></div>
 </div>
 <div class="note" style="margin-top:8px">內臟脂肪請依體脂計顯示的等級填寫，非體脂率 %。同一天、同時段補填資料時，空白項目不會清除已儲存的數值；要刪除舊數值請使用「修改」。</div>
-<button class="primary" style="margin-top:10px" onclick="saveBody()">
-儲存
-</button>
+<button class="primary" id="saveBodyBtn" type="button" style="margin-top:10px" onclick="saveBody()">儲存</button>
 <button id="cancelBodyEditBtn" class="secondary" style="display:none;margin-top:10px" type="button" onclick="cancelBodyEdit()">取消修改</button>
+<div id="bodySaveFeedback" class="body-save-feedback" role="status" aria-live="polite"></div>
 </details>
 </div>
 </section>
@@ -1343,12 +1347,13 @@ function save(){
 const ok=persistLocalOnly();
 if(!ok){
 alert('本機資料儲存空間不足。照片已改用 IndexedDB／Supabase Storage，請重新整理後再試一次。');
-return;
+return false;
 }
 if(!cloudSuppress && cloudSession && localStorage.getItem(cloudReadyKey())){
 clearTimeout(cloudSyncTimer);
 cloudSyncTimer=setTimeout(()=>syncCloud(),1200)
 }
+return true;
 }
 const DEFAULT_CLOUD_URL='https://tfyffsondjlvxbezsckr.supabase.co';
 const CLOUD_CONFIG_KEY='foodlog_cloud_config_v1';
@@ -3839,40 +3844,89 @@ async function syncKnowledgeCloud(){
   return {ok:true,count:db.knowledge.length};
 }
 
+/* 清空的是「輸入框」，不是已存的紀錄；日期維持不變方便連續記錄。 */
+const BODY_MEASURE_INPUT_IDS=['bWeight','bFat','bVisceralFat','bSystolic','bDiastolic','bPulse'];
+function showBodySaveFeedback(message, isError=false){
+  const box=document.getElementById('bodySaveFeedback');
+  if(!box)return;
+  box.textContent=message;
+  box.classList.add('show');
+  box.classList.toggle('error',!!isError);
+}
+function hideBodySaveFeedback(){
+  const box=document.getElementById('bodySaveFeedback');
+  if(box){box.textContent='';box.classList.remove('show','error');}
+}
+function resetBodyMeasurementInputs(){
+  // iOS Safari 的數字鍵盤在仍有焦點時，可能把編輯中的值重新顯示；先結束編輯再清空。
+  const active=document.activeElement;
+  if(active && BODY_MEASURE_INPUT_IDS.includes(active.id))try{active.blur()}catch(_e){}
+  for(const id of BODY_MEASURE_INPUT_IDS){
+    const field=document.getElementById(id);
+    if(!field)continue;
+    field.value='';
+    field.defaultValue='';
+  }
+  document.getElementById('bPeriod').value='早上';
+  document.getElementById('bTime').value=tn();
+}
 async function saveBody(){
-const date=document.getElementById('bDate').value;
-const period=document.getElementById('bPeriod').value;
-const weight=document.getElementById('bWeight').value.trim();
-const systolic=document.getElementById('bSystolic').value.trim();
-const diastolic=document.getElementById('bDiastolic').value.trim();
-const pulse=document.getElementById('bPulse').value.trim();
-const fat=document.getElementById('bFat').value.trim();
-const visceralFat=document.getElementById('bVisceralFat').value.trim();
-if(!date){alert('請先選擇日期');return}
-if(!weight&&!systolic&&!diastolic&&!pulse&&!fat&&!visceralFat){alert('請至少輸入體重、血壓、脈搏、體脂或內臟脂肪其中一項');return}
-if(visceralFat && (!Number.isFinite(Number(visceralFat)) || Number(visceralFat)<0)){alert('內臟脂肪請輸入體脂計顯示的非負數值');return}
-if((systolic&&!diastolic)||(!systolic&&diastolic)){alert('血壓請同時輸入收縮壓和舒張壓');return}
-let x=editingBodyId?db.body.find(v=>String(v.id)===String(editingBodyId)):db.body.find(v=>v.date===date&&(v.period||'')===period);
-if(!x){x={id:uid()};db.body.push(x)}
-const incoming={date,period,time:document.getElementById('bTime').value,weight,systolic,diastolic,pulse,fat,visceralFat};
-if(editingBodyId){Object.assign(x,incoming)}
-else{ // 補填同日同時段的內臟脂肪時，不可把先前的血壓、體重等空白覆寫
-  for(const [key,value] of Object.entries(incoming)){
-    if(key==='date'||key==='period'||(value!==''&&value!=null))x[key]=value;
-    else if(x[key]==null)x[key]='';
+  const btn=document.getElementById('saveBodyBtn');
+  if(btn?.disabled)return;
+  hideBodySaveFeedback();
+  const date=document.getElementById('bDate').value;
+  const period=document.getElementById('bPeriod').value;
+  const weight=document.getElementById('bWeight').value.trim();
+  const systolic=document.getElementById('bSystolic').value.trim();
+  const diastolic=document.getElementById('bDiastolic').value.trim();
+  const pulse=document.getElementById('bPulse').value.trim();
+  const fat=document.getElementById('bFat').value.trim();
+  const visceralFat=document.getElementById('bVisceralFat').value.trim();
+  if(!date){alert('請先選擇日期');return}
+  if(!weight&&!systolic&&!diastolic&&!pulse&&!fat&&!visceralFat){alert('請至少輸入體重、血壓、脈搏、體脂或內臟脂肪其中一項');return}
+  if(visceralFat && (!Number.isFinite(Number(visceralFat)) || Number(visceralFat)<0)){alert('內臟脂肪請輸入體脂計顯示的非負數值');return}
+  if((systolic&&!diastolic)||(!systolic&&diastolic)){alert('血壓請同時輸入收縮壓和舒張壓');return}
+  if(btn){btn.disabled=true;btn.textContent='儲存中…';}
+  const oldEditingId=editingBodyId;
+  let x=null,wasCreated=false,oldValues=null;
+  try{
+    // 資料送出前先讓 iPhone 的鍵盤完成輸入，避免殘留舊字。
+    if(document.activeElement?.blur)document.activeElement.blur();
+    x=editingBodyId?db.body.find(v=>String(v.id)===String(editingBodyId)):db.body.find(v=>v.date===date&&(v.period||'')===period);
+    if(!x){x={id:uid()};db.body.push(x);wasCreated=true;}
+    else oldValues={...x};
+    const incoming={date,period,time:document.getElementById('bTime').value,weight,systolic,diastolic,pulse,fat,visceralFat};
+    if(editingBodyId){Object.assign(x,incoming)}
+    else{
+      // 同日同時段補填：空白欄位不得蓋掉先前已存的體重與血壓。
+      for(const [key,value] of Object.entries(incoming)){
+        if(key==='date'||key==='period'||(value!==''&&value!=null))x[key]=value;
+        else if(x[key]==null)x[key]='';
+      }
+    }
+    if(save()===false)throw new Error('本機資料儲存未完成');
+    editingBodyId='';
+    resetBodyMeasurementInputs();
+    document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
+    document.getElementById('cancelBodyEditBtn').style.display='none';
+    showBodySaveFeedback(`✓ ${date} ${period} 已儲存，內臟脂肪等輸入框已清空。`);
+    // 若其它列表重繪異常，資料已儲存；不可再把舊輸入值帶回表單。
+    try{await renderToday();renderHistory();renderStats();}
+    catch(e){console.error('體徵已儲存，但列表更新發生問題',e);showBodySaveFeedback('✓ 已儲存並清空輸入框，但列表更新遇到問題，請切換頁面查看。');}
+    afterSaved('add');
+  }catch(e){
+    // 寫入失敗：回復記憶體狀態、保留輸入值，不能誤報已儲存。
+    if(wasCreated && x)db.body=db.body.filter(v=>v!==x);
+    else if(x && oldValues)Object.assign(x,oldValues);
+    editingBodyId=oldEditingId;
+    console.error('體徵儲存失敗',e);
+    showBodySaveFeedback(`儲存失敗：${e?.message||e}。輸入值已保留，請稍後重試。`,true);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='儲存';}
   }
 }
-editingBodyId='';save();
-for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat','bVisceralFat'])document.getElementById(id).value='';
-document.getElementById('bPeriod').value='早上';
-document.getElementById('bTime').value=tn();
-document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
-document.getElementById('cancelBodyEditBtn').style.display='none';
-await renderToday();renderHistory();renderStats();
-alert('早晚體重／血壓已儲存');
-afterSaved('add');
-}
 function editBody(id){
+hideBodySaveFeedback();
 document.getElementById('bodyEntry').open=true;
 const x=db.body.find(v=>String(v.id)===String(id));if(!x)return;
 editingBodyId=String(x.id);
@@ -3894,8 +3948,8 @@ requestAnimationFrame(()=>requestAnimationFrame(()=>{
 }
 function cancelBodyEdit(){
 editingBodyId='';
-for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat','bVisceralFat'])document.getElementById(id).value='';
-document.getElementById('bPeriod').value='早上';document.getElementById('bTime').value=tn();
+hideBodySaveFeedback();
+resetBodyMeasurementInputs();
 document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
 document.getElementById('cancelBodyEditBtn').style.display='none';
 }
