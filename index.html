@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.14.03 今天按鈕修正版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.16.01 日期釘選與內臟脂肪整合版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -427,6 +427,15 @@ img,svg,video,canvas{max-width:100%;height:auto}
 #foodSaveFeedback.show{display:block}
 #fStatus{font-weight:700}
 .plan-paste-btn{width:auto}
+/* 2026-10-16 PINNED_DATE_V1: the navigation is a sibling of cards, so sticky persists across the entire Today section */
+.pinned-date-nav{position:sticky;top:max(8px,env(safe-area-inset-top));z-index:70;display:flex;flex-direction:column;gap:6px;align-items:center;margin:0 0 12px;padding:9px 11px;border:1px solid #dbe3ed;border-radius:15px;background:rgba(250,251,253,.96);box-shadow:0 3px 12px rgba(15,23,42,.09);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.pinned-date-nav .pinned-date-label{font-size:12px;font-weight:750;color:#415a76;font-variant-numeric:tabular-nums;line-height:1.2}
+.pinned-date-nav .pinned-date-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%}
+.pinned-date-nav button{border:1px solid #d7e0ec;border-radius:11px;min-height:41px;padding:8px 5px;font-size:14px;font-weight:750;color:#1765bf;background:#eef4fb;cursor:pointer;touch-action:manipulation}
+.pinned-date-nav button.is-current{background:#1765bf;border-color:#1765bf;color:#fff}
+.pinned-date-nav button:active{transform:scale(.98)}
+@media(min-width:700px){.pinned-date-nav{flex-direction:row;justify-content:space-between}.pinned-date-nav .pinned-date-buttons{max-width:380px}}
+@media print{.pinned-date-nav{display:none!important}}
 </style>
 <style>#exercise input,#exercise select,#exercise textarea{box-sizing:border-box;max-width:100%;min-width:0}#exercise .grid>div{min-width:0}#exerciseEntry>summary{padding:6px 0}#exerciseEntry[open]>summary{margin-bottom:12px}</style>
 <style>
@@ -466,14 +475,22 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.14.03</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.16.01</div>
 </div>
 <section id="today" class="section active">
+<div id="homePinnedDateNav" class="pinned-date-nav no-print" aria-label="固定日期切換">
+  <div id="homePinnedDateLabel" class="pinned-date-label" aria-live="polite">日期載入中…</div>
+  <div class="pinned-date-buttons">
+    <button type="button" onclick="shiftHomeDate(-1)">前一天</button>
+    <button type="button" id="homePinnedTodayBtn" onclick="setHomeDate(dn())">今天</button>
+    <button type="button" onclick="shiftHomeDate(1)">後一天</button>
+  </div>
+</div>
 <div class="card">
   <div class="itemtitle" id="todayLabel"></div>
   <div class="grid no-print" style="margin-top:10px;align-items:end">
     <div><label for="homeDate">查詢日期</label><input id="homeDate" type="date" onchange="setHomeDate(this.value)"><div id="homeDateWeekday" class="food-date-label"></div></div>
-    <div class="btnrow"><button class="secondary" type="button" onclick="shiftHomeDate(-1)">前一天</button><button class="secondary" type="button" onclick="setHomeDate(dn())">今天</button><button class="secondary" type="button" onclick="shiftHomeDate(1)">後一天</button></div>
+
   </div>
   <div class="kpis" style="margin-top:10px">
     <div class="kpi">
@@ -725,14 +742,13 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <label>體重 kg</label>
 <input id="bWeight">
 </div>
+<div><label for="bFat">體脂肪 %（選填）</label><input id="bFat" inputmode="decimal" type="number" min="0" max="100" step="any"></div>
+<div><label for="bVisceralFat">內臟脂肪（等級，選填）</label><input id="bVisceralFat" inputmode="decimal" type="number" min="0" step="any" placeholder="依體脂計顯示的等級"></div>
 <div><label for="bSystolic">收縮壓 mmHg <span class="bp-reference" title="一般成人參考範圍，非個人診斷標準">正常：90～119</span></label><input id="bSystolic" inputmode="decimal" placeholder="例如 120"></div>
 <div><label for="bDiastolic">舒張壓 mmHg <span class="bp-reference" title="一般成人參考範圍，非個人診斷標準">正常：60～79</span></label><input id="bDiastolic" inputmode="decimal" placeholder="例如 80"></div>
 <div><label>脈搏 次／分（選填）</label><input id="bPulse" inputmode="decimal"></div>
-<div>
-<label>體脂 %</label>
-<input id="bFat">
 </div>
-</div>
+<div class="note" style="margin-top:8px">內臟脂肪請依體脂計顯示的等級填寫，非體脂率 %。同一天、同時段補填資料時，空白項目不會清除已儲存的數值；要刪除舊數值請使用「修改」。</div>
 <button class="primary" style="margin-top:10px" onclick="saveBody()">
 儲存
 </button>
@@ -1340,7 +1356,7 @@ const CLOUD_SESSION_KEY='foodlog_cloud_session_v1';
 let cloudConfig={},cloudSession=null;
 try{cloudConfig=JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY)||'{}')||{}}catch{}
 try{cloudSession=JSON.parse(localStorage.getItem(CLOUD_SESSION_KEY)||'null')}catch{}
-let cloudSuppress=false,cloudSyncTimer=0,bodyVitalsCloudMissing=false;
+let cloudSuppress=false,cloudSyncTimer=0,bodyVitalsCloudMissing=false,bodyVisceralCloudMissing=false;
 function cloudReadyKey(){return 'foodlog_cloud_ready_'+(cloudSession?.user?.id||'')}
 function setCloudStatus(s){if(document.getElementById('cloudStatus'))cloudStatus.textContent=s}
 function loadCloudFields(){cloudUrl.value=cloudConfig.url||DEFAULT_CLOUD_URL;cloudKey.value=cloudConfig.key||'';if(cloudSession?.user?.email)cloudEmail.value=cloudSession.user.email;setCloudStatus(cloudSession?.user?`已登入：${cloudSession.user.email||cloudSession.user.id}`:'尚未登入 Supabase。')}
@@ -1376,7 +1392,7 @@ function cloudSignOut(){persistCloudSession(null);setCloudStatus('已登出；�
 async function stableCloudId(userId,table,legacyId){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${userId}:${table}:${legacyId}`));const h=[...new Uint8Array(bytes)].slice(0,16);h[6]=(h[6]&15)|80;h[8]=(h[8]&63)|128;const s=[...h].map(x=>x.toString(16).padStart(2,'0')).join('');return `${s.slice(0,8)}-${s.slice(8,12)}-${s.slice(12,16)}-${s.slice(16,20)}-${s.slice(20)}`}
 function cloudRows(){const u=cloudSession.user.id;return [
 ['food_logs',db.foods,x=>({log_date:x.date,meal_time:x.time,meal:x.meal,master_legacy_id:x.masterId||null,food:x.food,qty:x.qty,unit:x.unit,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,note:packFoodNote(x)})],
-['body_logs',db.body,x=>({log_date:x.date,weight:x.weight,fat:x.fat,measurement_period:x.period||null,measurement_time:x.time||null,systolic:x.systolic||null,diastolic:x.diastolic||null,pulse:x.pulse||null})],
+['body_logs',db.body,x=>({log_date:x.date,weight:x.weight,fat:x.fat,visceral_fat:(x.visceralFat==null||x.visceralFat==='')?null:Number(x.visceralFat),measurement_period:x.period||null,measurement_time:x.time||null,systolic:x.systolic||null,diastolic:x.diastolic||null,pulse:x.pulse||null})],
 ['exercise_logs',db.exercise,x=>({log_date:x.date,exercise_type:x.type,exercise_class:x.class,start_time:x.start,end_time:x.end,minutes:x.minutes,kcal:x.kcal,note:packExerciseNote(x)})],
 ['food_masters',db.masters,x=>({brand:x.brand,name:x.name,barcode:x.barcode,serving:x.serving,kcal:x.kcal,protein:x.protein,carb:x.carb,sugar:x.sugar,fat:x.fat,fiber:x.fiber,sodium:x.sodium,source:x.source,confirmed:!!x.confirmed,note:x.note})]
 ].map(([table,items,convert])=>({table,rows:items.map(x=>({user_id:u,legacy_id:String(x.id||uid()),...convert(x)}))}))}
@@ -1445,20 +1461,30 @@ if(rows.length)await cloudFetch('/rest/v1/exercise_logs?on_conflict=id',{method:
 async function uploadLocalCloud(){
 if(!cloudSession?.user)throw new Error('請先登入。');
 bodyVitalsCloudMissing=false;
+bodyVisceralCloudMissing=false;
 for(const g of await localRowsWithIds()){
 if(!g.rows.length)continue;
 const path=`/rest/v1/${g.table}?on_conflict=id`,options={method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(g.rows)};
 try{await cloudFetch(path,options)}catch(e){
 const schemaColumnError=/column|schema cache|42703|PGRST204/i.test(String(e?.message||e));
 if(g.table!=='body_logs'||!schemaColumnError)throw e;
-bodyVitalsCloudMissing=true;
-const legacyRows=g.rows.map(({measurement_period,measurement_time,systolic,diastolic,pulse,...row})=>row);
-await cloudFetch(path,{...options,body:JSON.stringify(legacyRows)});
+// 舊資料庫可能只有少了新「內臟脂肪」欄位，先保留原有早晚/血壓欄位重試。
+const withoutVisceral=g.rows.map(({visceral_fat,...row})=>row);
+try{
+  await cloudFetch(path,{...options,body:JSON.stringify(withoutVisceral)});
+  bodyVisceralCloudMissing=true;
+}catch(e2){
+  if(!/column|schema cache|42703|PGRST204/i.test(String(e2?.message||e2)))throw e2;
+  bodyVisceralCloudMissing=true;
+  bodyVitalsCloudMissing=true;
+  const legacyRows=withoutVisceral.map(({measurement_period,measurement_time,systolic,diastolic,pulse,...row})=>row);
+  await cloudFetch(path,{...options,body:JSON.stringify(legacyRows)});
+}
 }
 }
 const s=db.settings;await cloudFetch('/rest/v1/user_settings?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:cloudSession.user.id,goal_kcal:s.goalKcal||null,goal_protein:s.goalProtein||null,warn_percent:s.warnPercent||80,summary_time:s.summaryTime||'20:30'})})
 }
-function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,...unpackFoodNote(r.note),photoId:''};if(table==='body_logs')return{id,date:r.log_date,period:r.measurement_period||'',time:r.measurement_time||'',weight:r.weight,systolic:r.systolic||'',diastolic:r.diastolic||'',pulse:r.pulse||'',fat:r.fat};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,...unpackExerciseNote(r.note)};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
+function cloudLocalRow(table,r){const id=r.legacy_id||r.id;if(table==='food_logs')return{id,date:r.log_date,time:r.meal_time,meal:r.meal,masterId:r.master_legacy_id||'',food:r.food,qty:r.qty,unit:r.unit,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,...unpackFoodNote(r.note),photoId:''};if(table==='body_logs')return{id,date:r.log_date,period:r.measurement_period||'',time:r.measurement_time||'',weight:r.weight,systolic:r.systolic||'',diastolic:r.diastolic||'',pulse:r.pulse||'',fat:r.fat,visceralFat:r.visceral_fat??''};if(table==='exercise_logs')return{id,date:r.log_date,type:r.exercise_type,class:r.exercise_class,start:r.start_time,end:r.end_time,minutes:r.minutes,kcal:r.kcal,...unpackExerciseNote(r.note)};return{id,brand:r.brand,name:r.name,barcode:r.barcode,serving:r.serving,kcal:r.kcal,protein:r.protein,carb:r.carb,sugar:r.sugar,fat:r.fat,fiber:r.fiber,sodium:r.sodium,source:r.source,confirmed:r.confirmed?'雲端已確認':'',note:r.note,photoId:'',photoIds:[]}}
 async function pullCloudTable(table,key){
 const rows=await cloudFetch(`/rest/v1/${table}?select=*`);
 const local=db[key];
@@ -1516,7 +1542,7 @@ const photoMsg=photoResult.failed
 const knowledgeMsg=knowledgeResult.ok
 ?`、知識 ${knowledgeResult.count||0} 筆`
 :`；知識庫雲端同步暫未完成${knowledgeResult.message?`：${knowledgeResult.message}`:''}`;
-setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆${bodyVitalsCloudMissing?'；雲端尚未加入早晚／血壓欄位，體重可同步，早晚與血壓細項暫存在本機':''}${knowledgeMsg}${photoMsg}。`);
+setCloudStatus(`同步完成：飲食 ${db.foods.length} 筆、體重 ${db.body.length} 筆、運動 ${db.exercise.length} 筆、食品 ${db.masters.length} 筆${bodyVitalsCloudMissing?'；雲端尚未加入早晚／血壓欄位，體重可同步，早晚與血壓細項暫存在本機':''}${bodyVisceralCloudMissing?'；⚠️ 內臟脂肪目前僅存在這台裝置，請執行附帶 SQL 為 body_logs 新增 visceral_fat 欄位':''}${knowledgeMsg}${photoMsg}。`);
 }catch(e){
 cloudSuppress=false;
 setCloudStatus('同步失敗：'+e.message);
@@ -2134,6 +2160,10 @@ let planned=db.foods.filter(x=>x.date===d&&isFoodPlanned(x));
 let e=db.exercise.filter(x=>x.date===d);
 const label=d===dn()?`今天 ${d}（${historyWeekday(d)}）`:`查看 ${d}（${historyWeekday(d)}）`;
 const wk=document.getElementById('homeDateWeekday');if(wk)wk.textContent=formatFoodDate(d);
+const pinnedLabel=document.getElementById('homePinnedDateLabel');
+if(pinnedLabel)pinnedLabel.textContent=`${d}（${historyWeekday(d)}）`;
+const pinnedToday=document.getElementById('homePinnedTodayBtn');
+if(pinnedToday){pinnedToday.classList.toggle('is-current',d===dn());pinnedToday.setAttribute('aria-label',d===dn()?'今天（目前選取）':'回到今天');}
 todayLabel.textContent=label;
 document.querySelector('#foodToday')?.closest('.card')?.querySelector('.itemtitle')?.replaceChildren(document.createTextNode(`${d===dn()?'今日':'當日'}飲食`));
 document.querySelector('#exerciseToday')?.closest('.card')?.querySelector('.itemtitle')?.replaceChildren(document.createTextNode(`${d===dn()?'今日':'當日'}運動`));
@@ -2183,9 +2213,10 @@ function bodyPeriodText(v){return v.period||'未分時段'}
 function bodyPressureText(v){return v.systolic||v.diastolic?`血壓 ${esc(v.systolic||'—')}/${esc(v.diastolic||'—')} mmHg${v.pulse?`・脈搏 ${esc(v.pulse)} 次／分`:''}`:''}
 function bodyMeasureText(v){
 const parts=[];
-if(v.weight)parts.push(`體重 ${esc(v.weight)} kg`);
+if(v.weight!==''&&v.weight!=null)parts.push(`體重 ${esc(v.weight)} kg`);
+if(v.fat!==''&&v.fat!=null)parts.push(`體脂 ${esc(v.fat)} %`);
+if(v.visceralFat!==''&&v.visceralFat!=null)parts.push(`內臟脂肪 ${esc(v.visceralFat)} 級`);
 if(v.systolic||v.diastolic)parts.push(bodyPressureText(v));
-if(v.fat)parts.push(`體脂 ${esc(v.fat)} %`);
 
 return parts.join('・')||'未輸入測量數值';
 }
@@ -3816,14 +3847,23 @@ const systolic=document.getElementById('bSystolic').value.trim();
 const diastolic=document.getElementById('bDiastolic').value.trim();
 const pulse=document.getElementById('bPulse').value.trim();
 const fat=document.getElementById('bFat').value.trim();
+const visceralFat=document.getElementById('bVisceralFat').value.trim();
 if(!date){alert('請先選擇日期');return}
-if(!weight&&!systolic&&!diastolic&&!pulse&&!fat){alert('請至少輸入體重、血壓、脈搏或體脂其中一項');return}
+if(!weight&&!systolic&&!diastolic&&!pulse&&!fat&&!visceralFat){alert('請至少輸入體重、血壓、脈搏、體脂或內臟脂肪其中一項');return}
+if(visceralFat && (!Number.isFinite(Number(visceralFat)) || Number(visceralFat)<0)){alert('內臟脂肪請輸入體脂計顯示的非負數值');return}
 if((systolic&&!diastolic)||(!systolic&&diastolic)){alert('血壓請同時輸入收縮壓和舒張壓');return}
 let x=editingBodyId?db.body.find(v=>String(v.id)===String(editingBodyId)):db.body.find(v=>v.date===date&&(v.period||'')===period);
 if(!x){x={id:uid()};db.body.push(x)}
-Object.assign(x,{date,period,time:document.getElementById('bTime').value,weight,systolic,diastolic,pulse,fat});
+const incoming={date,period,time:document.getElementById('bTime').value,weight,systolic,diastolic,pulse,fat,visceralFat};
+if(editingBodyId){Object.assign(x,incoming)}
+else{ // 補填同日同時段的內臟脂肪時，不可把先前的血壓、體重等空白覆寫
+  for(const [key,value] of Object.entries(incoming)){
+    if(key==='date'||key==='period'||(value!==''&&value!=null))x[key]=value;
+    else if(x[key]==null)x[key]='';
+  }
+}
 editingBodyId='';save();
-for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat'])document.getElementById(id).value='';
+for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat','bVisceralFat'])document.getElementById(id).value='';
 document.getElementById('bPeriod').value='早上';
 document.getElementById('bTime').value=tn();
 document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
@@ -3839,7 +3879,7 @@ editingBodyId=String(x.id);
 document.getElementById('bDate').value=x.date||dn();document.getElementById('bPeriod').value=x.period||'早上';
 document.getElementById('bTime').value=x.time||'';document.getElementById('bWeight').value=x.weight||'';
 document.getElementById('bSystolic').value=x.systolic||'';document.getElementById('bDiastolic').value=x.diastolic||'';document.getElementById('bPulse').value=x.pulse||'';
-document.getElementById('bFat').value=x.fat||'';
+document.getElementById('bFat').value=x.fat??'';document.getElementById('bVisceralFat').value=x.visceralFat??'';
 document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('修改體重／血壓紀錄'));
 document.getElementById('cancelBodyEditBtn').style.display='inline-flex';
 goTab('add');
@@ -3854,7 +3894,7 @@ requestAnimationFrame(()=>requestAnimationFrame(()=>{
 }
 function cancelBodyEdit(){
 editingBodyId='';
-for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat'])document.getElementById(id).value='';
+for(const id of ['bWeight','bSystolic','bDiastolic','bPulse','bFat','bVisceralFat'])document.getElementById(id).value='';
 document.getElementById('bPeriod').value='早上';document.getElementById('bTime').value=tn();
 document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
 document.getElementById('cancelBodyEditBtn').style.display='none';
@@ -4122,7 +4162,7 @@ function printHistory(){
 
     const exerciseSection=de.length?`<section class="pp-group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="pp-num">分鐘</th><th class="pp-num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="pp-num">${esc(v.minutes||'—')}</td><td class="pp-num">${esc(v.kcal||'—')}</td></tr>${exerciseExtrasText(v)?`<tr class="pp-note-row"><td></td><td colspan="4">${esc(exerciseExtrasText(v))}</td></tr>`:''}${v.note?`<tr class="pp-note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
 
-    const bodySection=dbd.length?`<section class="pp-group"><h3>體重／血壓</h3><table><thead><tr><th>時段</th><th>時間</th><th>體重 kg</th><th>血壓 mmHg</th><th>脈搏 次／分</th><th>體脂 %</th></tr></thead><tbody>${dbd.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(v=>`<tr><td>${esc(bodyPeriodText(v))}</td><td>${esc(v.time||'—')}</td><td>${esc(v.weight||'—')}</td><td>${v.systolic||v.diastolic?`${esc(v.systolic||'—')}/${esc(v.diastolic||'—')}`:'—'}</td><td>${esc(v.pulse||'—')}</td><td>${esc(v.fat||'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
+    const bodySection=dbd.length?`<section class="pp-group"><h3>體重／血壓</h3><table><thead><tr><th>時段</th><th>時間</th><th>體重 kg</th><th>血壓 mmHg</th><th>脈搏 次／分</th><th>體脂 %</th><th>內臟脂肪（級）</th></tr></thead><tbody>${dbd.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(v=>`<tr><td>${esc(bodyPeriodText(v))}</td><td>${esc(v.time||'—')}</td><td>${esc(v.weight||'—')}</td><td>${v.systolic||v.diastolic?`${esc(v.systolic||'—')}/${esc(v.diastolic||'—')}`:'—'}</td><td>${esc(v.pulse||'—')}</td><td>${esc(v.fat??'—')}</td><td>${esc(v.visceralFat??'—')}</td></tr>`).join('')}</tbody></table></section>`:'';
 
     const hardBreak=dayIndex===0?'':'<div class="html2pdf__page-break pp-hard-break" aria-hidden="true"></div>';
     return `${hardBreak}<article class="pp-day ${dayIndex===0?'pp-day-first':'pp-day-next'}"><div class="pp-day-head"><h2>${esc(d)}（${historyWeekday(d)}）</h2><div>${meta.join('｜')}</div></div>${mealSections}${exerciseSection}${bodySection}</article>`;
