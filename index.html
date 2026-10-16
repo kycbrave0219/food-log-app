@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.16.02 內臟脂肪儲存後清空與成功提示修正版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.16.03 體徵儲存按鈕避開底部導覽與清空確認修正版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -441,6 +441,17 @@ img,svg,video,canvas{max-width:100%;height:auto}
 .body-save-feedback.show{display:block}
 .body-save-feedback.error{background:#fff3f2;color:#a52222;border-color:#f0bbb9}
 #saveBodyBtn:disabled{opacity:.66;cursor:wait}
+/* v2026.10.16.03: iPhone 固定底部分頁不可遮住體徵儲存按鈕。 */
+#bodyEntry{overflow:visible}
+.body-save-actions{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));z-index:76;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:14px 0 0;padding:9px 10px;background:rgba(255,255,255,.97);border:1px solid #dbe3ed;border-radius:14px;box-shadow:0 5px 18px rgba(15,23,42,.12);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.body-save-actions button{margin:0!important;min-height:44px;font-weight:750}
+.body-save-actions #saveBodyBtn{flex:1 1 140px}
+.body-save-hint{font-size:11px;color:#5d6b7b;margin:0}
+.body-build-tag{font-size:11px;color:#356a9a;margin:8px 0 0}
+#bodySaveToast{display:none;position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:110;width:max-content;max-width:calc(100vw - 28px);padding:11px 16px;background:#166534;color:#fff;border-radius:13px;box-shadow:0 10px 30px rgba(0,0,0,.17);font-size:14px;font-weight:750;text-align:center;pointer-events:none}
+#bodySaveToast.show{display:block}
+#bodySaveToast.error{background:#b91c1c}
+@media print{#bodySaveToast{display:none!important}}
 </style>
 <style>#exercise input,#exercise select,#exercise textarea{box-sizing:border-box;max-width:100%;min-width:0}#exercise .grid>div{min-width:0}#exerciseEntry>summary{padding:6px 0}#exerciseEntry[open]>summary{margin-bottom:12px}</style>
 <style>
@@ -468,6 +479,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div id="pickerList"></div>
   </div>
 </div>
+<div id="bodySaveToast" role="status" aria-live="polite"></div>
 <div id="imageZoom" class="zoom-backdrop" onclick="closeImageZoom()">
   <button class="zoom-close" type="button" aria-label="關閉" onclick="closeImageZoom();event.stopPropagation()">×</button>
   <img id="imageZoomImg" alt="食品照片放大預覽" onclick="event.stopPropagation()">
@@ -480,7 +492,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.16.02</div>
+  <div class="note" style="margin-top:3px">版本 v2026.10.16.03</div>
 </div>
 <section id="today" class="section active">
 <div id="homePinnedDateNav" class="pinned-date-nav no-print" aria-label="固定日期切換">
@@ -754,8 +766,12 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div><label>脈搏 次／分（選填）</label><input id="bPulse" inputmode="decimal"></div>
 </div>
 <div class="note" style="margin-top:8px">內臟脂肪請依體脂計顯示的等級填寫，非體脂率 %。同一天、同時段補填資料時，空白項目不會清除已儲存的數值；要刪除舊數值請使用「修改」。</div>
-<button class="primary" id="saveBodyBtn" type="button" style="margin-top:10px" onclick="saveBody()">儲存</button>
-<button id="cancelBodyEditBtn" class="secondary" style="display:none;margin-top:10px" type="button" onclick="cancelBodyEdit()">取消修改</button>
+<div class="body-build-tag">體徵記錄功能 v2026.10.16.03</div>
+<div id="bodySaveActions" class="body-save-actions no-print">
+  <button class="primary" id="saveBodyBtn" type="button" onclick="saveBody()">儲存並清空</button>
+  <button id="cancelBodyEditBtn" class="secondary" style="display:none" type="button" onclick="cancelBodyEdit()">取消修改</button>
+  <span class="body-save-hint">成功後清空輸入框，已儲存紀錄保留</span>
+</div>
 <div id="bodySaveFeedback" class="body-save-feedback" role="status" aria-live="polite"></div>
 </details>
 </div>
@@ -3857,6 +3873,16 @@ function hideBodySaveFeedback(){
   const box=document.getElementById('bodySaveFeedback');
   if(box){box.textContent='';box.classList.remove('show','error');}
 }
+let bodySaveToastTimer=0;
+function showBodySaveToast(message,isError=false){
+  const el=document.getElementById('bodySaveToast');
+  if(!el)return;
+  clearTimeout(bodySaveToastTimer);
+  el.textContent=message;
+  el.classList.toggle('error',!!isError);
+  el.classList.add('show');
+  bodySaveToastTimer=setTimeout(()=>el.classList.remove('show'),4200);
+}
 function resetBodyMeasurementInputs(){
   // iOS Safari 的數字鍵盤在仍有焦點時，可能把編輯中的值重新顯示；先結束編輯再清空。
   const active=document.activeElement;
@@ -3867,7 +3893,7 @@ function resetBodyMeasurementInputs(){
     field.value='';
     field.defaultValue='';
   }
-  document.getElementById('bPeriod').value='早上';
+  // 日期／時段不自動切換，以免晚上記錄後誤顯示「早上」。
   document.getElementById('bTime').value=tn();
 }
 async function saveBody(){
@@ -3909,11 +3935,18 @@ async function saveBody(){
     resetBodyMeasurementInputs();
     document.querySelector('#bodyEntry > summary')?.replaceChildren(document.createTextNode('新增早晚體重／血壓'));
     document.getElementById('cancelBodyEditBtn').style.display='none';
-    showBodySaveFeedback(`✓ ${date} ${period} 已儲存，內臟脂肪等輸入框已清空。`);
+    showBodySaveFeedback(`✓ ${date} ${period} 已儲存至本機，輸入框已清空。`);
+    showBodySaveToast('✓ 已儲存，輸入框已清空');
     // 若其它列表重繪異常，資料已儲存；不可再把舊輸入值帶回表單。
     try{await renderToday();renderHistory();renderStats();}
     catch(e){console.error('體徵已儲存，但列表更新發生問題',e);showBodySaveFeedback('✓ 已儲存並清空輸入框，但列表更新遇到問題，請切換頁面查看。');}
-    afterSaved('add');
+    // 保留使用者現在查看的輸入位置，不跳回頂端，避免誤以為沒有儲存。
+    requestAnimationFrame(()=>{
+      // iOS 快取表單值時再確認一次：只清空輸入框，不動資料庫。
+      if(!editingBodyId)for(const id of BODY_MEASURE_INPUT_IDS){
+        const field=document.getElementById(id);if(field)field.value='';
+      }
+    });
   }catch(e){
     // 寫入失敗：回復記憶體狀態、保留輸入值，不能誤報已儲存。
     if(wasCreated && x)db.body=db.body.filter(v=>v!==x);
@@ -3921,8 +3954,9 @@ async function saveBody(){
     editingBodyId=oldEditingId;
     console.error('體徵儲存失敗',e);
     showBodySaveFeedback(`儲存失敗：${e?.message||e}。輸入值已保留，請稍後重試。`,true);
+    showBodySaveToast('儲存失敗，輸入值已保留',true);
   }finally{
-    if(btn){btn.disabled=false;btn.textContent='儲存';}
+    if(btn){btn.disabled=false;btn.textContent='儲存並清空';}
   }
 }
 function editBody(id){
