@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.16.03 體徵儲存按鈕避開底部導覽與清空確認修正版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.10.31.01 餐點照片直接補拍與列印圖片整合版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -441,6 +441,25 @@ img,svg,video,canvas{max-width:100%;height:auto}
 .body-save-feedback.show{display:block}
 .body-save-feedback.error{background:#fff3f2;color:#a52222;border-color:#f0bbb9}
 #saveBodyBtn:disabled{opacity:.66;cursor:wait}
+
+/* KYC_MEAL_PHOTO_20261031：每筆餐點的拍照入口、縮圖與列印欄 */
+.food-record-main{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
+.food-record-copy{min-width:0;flex:1 1 auto;overflow-wrap:anywhere}
+.food-record-photo{flex:0 0 96px;width:96px;text-align:center}
+.food-photo-thumb{width:84px!important;height:73px!important;max-width:none;object-fit:cover!important;border-radius:10px;border:1px solid #d7e0ec;cursor:zoom-in;display:block;margin:0 auto}
+.food-photo-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;width:84px;min-height:66px;margin:auto;border:1px dashed #9ab6d6;border-radius:10px;background:#f3f8ff;color:#1765bf;font-size:11px;cursor:pointer}
+.food-photo-empty .food-camera-symbol{font-size:22px;line-height:1.15}
+.food-photo-tools{display:flex;justify-content:center;flex-wrap:wrap;gap:3px;margin-top:5px}
+.food-photo-tools button{border:0;background:#eef4fb;color:#1765bf;border-radius:7px;padding:4px 5px;line-height:1.25;font-size:10px;cursor:pointer;min-height:25px}
+.food-photo-tools .food-photo-remove{background:#fff0f0;color:#b91c1c}
+.food-photo-uploading{font-size:10px;color:#51647b;margin-top:3px}
+.print-preview-sheet .pp-meal-photo-cell{width:78px;text-align:center;vertical-align:middle}
+.print-preview-sheet .pp-meal-photo{display:block;width:68px!important;height:62px!important;max-width:68px!important;max-height:62px!important;object-fit:cover!important;border-radius:5px;border:1px solid #e5e7eb;margin:auto}
+.print-preview-sheet .pp-photo-missing{font-size:10px;color:#9ca3af}
+.print-preview-sheet tr.pp-meal-row{break-inside:avoid;page-break-inside:avoid}
+@media(max-width:420px){.food-record-photo{flex-basis:92px;width:92px}.food-photo-thumb,.food-photo-empty{width:78px!important}}
+@media print{.print-preview-sheet .pp-meal-photo{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
 /* v2026.10.16.03: iPhone 固定底部分頁不可遮住體徵儲存按鈕。 */
 #bodyEntry{overflow:visible}
 .body-save-actions{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));z-index:76;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:14px 0 0;padding:9px 10px;background:rgba(255,255,255,.97);border:1px solid #dbe3ed;border-radius:14px;box-shadow:0 5px 18px rgba(15,23,42,.12);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -480,6 +499,10 @@ img,svg,video,canvas{max-width:100%;height:auto}
   </div>
 </div>
 <div id="bodySaveToast" role="status" aria-live="polite"></div>
+
+<!-- KYC 餐點列表：直接拍照／從相簿選擇，不需要進入修改表單 -->
+<input id="quickMealPhotoCamera" type="file" accept="image/*" capture="environment" style="display:none" onchange="quickFoodPhotoSelected(event)">
+<input id="quickMealPhotoLibrary" type="file" accept="image/*" style="display:none" onchange="quickFoodPhotoSelected(event)">
 <div id="imageZoom" class="zoom-backdrop" onclick="closeImageZoom()">
   <button class="zoom-close" type="button" aria-label="關閉" onclick="closeImageZoom();event.stopPropagation()">×</button>
   <img id="imageZoomImg" alt="食品照片放大預覽" onclick="event.stopPropagation()">
@@ -1620,17 +1643,17 @@ const KYC_FOOD_META_TAG='\n[KYC_FOOD_V1:';
 function isFoodPlanned(x){return x?.status==='planned';}
 function packFoodNote(x){
  const raw=String(x.note||'');
- if(!isFoodPlanned(x)&&!x.updatedAt)return raw;
- return raw+KYC_FOOD_META_TAG+JSON.stringify({status:isFoodPlanned(x)?'planned':'actual',updatedAt:Number(x.updatedAt||0)})+']';
+ if(!isFoodPlanned(x)&&!x.updatedAt&&!x.photoRemoved)return raw;
+ return raw+KYC_FOOD_META_TAG+JSON.stringify({status:isFoodPlanned(x)?'planned':'actual',updatedAt:Number(x.updatedAt||0),photoRemoved:!!x.photoRemoved})+']';
 }
 function unpackFoodNote(value){
  const raw=String(value||'');
  const match=raw.match(/\n\[KYC_FOOD_V1:(\{[^\n]*\})\]$/);
  if(match){try{
  const meta=JSON.parse(match[1]);
- return {note:raw.slice(0,match.index),status:meta.status==='planned'?'planned':'actual',updatedAt:Number(meta.updatedAt||0)};
+ return {note:raw.slice(0,match.index),status:meta.status==='planned'?'planned':'actual',updatedAt:Number(meta.updatedAt||0),photoRemoved:!!meta.photoRemoved};
  }catch(e){}}
- return {note:raw,status:'actual',updatedAt:0};
+ return {note:raw,status:'actual',updatedAt:0,photoRemoved:false};
 }
 function formatFoodDate(s){const w=historyWeekday(s);if(!s)return '';const [y,m,d]=s.split('-');return `${y}年${Number(m)}月${Number(d)}日（${w}）`;}
 function dateOffset(s,delta){const d=new Date((s||dn())+'T12:00:00');d.setDate(d.getDate()+delta);return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
@@ -1694,7 +1717,7 @@ async function copyFoodDayToSelected(){
  for(const x of source){
   if(db.foods.some(v=>v.date===target&&isFoodPlanned(v)&&v.meal===x.meal&&v.time===x.time&&v.food===x.food&&String(v.qty)===String(x.qty)&&v.unit===x.unit))continue;
   const {id,photoId,photoData,photoDatas,updatedAt,status,...rest}=x;
-  db.foods.push({...rest,id:uid(),photoId:'',date:target,status:'planned',updatedAt:Date.now()+added});added++;
+  db.foods.push({...rest,id:uid(),photoId:'',photoRemoved:false,date:target,status:'planned',updatedAt:Date.now()+added});added++;
  }
  if(!added){alert('這些預排餐點已存在，沒有重複新增。');return;}
  save();await renderToday();renderFoodPlanArea();renderHistory();renderStats();
@@ -1707,16 +1730,18 @@ function renderFoodPlanArea(){
  const title=document.getElementById('planDateTitle');if(title)title.textContent='目前查看 '+formatFoodDate(d);
  const items=db.foods.filter(v=>v.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||'')||(a.meal||'').localeCompare(b.meal||''));
  const actual=items.filter(x=>!isFoodPlanned(x)),planned=items.filter(isFoodPlanned);
- const makeRow=x=>`<div class="food-plan-row"><b>${esc(x.meal||'其他')}・${esc(x.food||'')}</b><div class="small">${esc(x.time||'')}・${esc(x.qty||'')} ${esc(x.unit||'')}・${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g</div><div class="record-actions">${isFoodPlanned(x)?`<button type="button" class="primary" onclick="markFoodEaten('${x.id}')">✓ 確認已吃</button>`:''}<button type="button" class="secondary" onclick="editFood('${x.id}')">修改</button><button type="button" class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
+ const makeRow=x=>`<div class="food-plan-row"><div class="food-record-main"><div class="food-record-copy"><b>${esc(x.meal||'其他')}・${esc(x.food||'')}</b><div class="small">${esc(x.time||'')}・${esc(x.qty||'')} ${esc(x.unit||'')}・${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g</div></div>${foodRecordPhotoSlot(x,kycFoodPhotoUrls.get(String(x.id))||'')}</div><div class="record-actions">${isFoodPlanned(x)?`<button type="button" class="primary" onclick="markFoodEaten('${x.id}')">✓ 確認已吃</button>`:''}<button type="button" class="secondary" onclick="editFood('${x.id}')">修改</button><button type="button" class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
  const makeBox=(arr,kind)=>{if(!arr.length)return '';const k=Math.round(arr.reduce((a,x)=>a+num(x.kcal),0)),pr=arr.reduce((a,x)=>a+num(x.protein),0).toFixed(1);return `<div class="food-plan-card ${kind==='planned'?'planned':''}"><div class="food-plan-head"><div><span class="food-plan-label ${kind==='actual'?'done':''}">${kind==='planned'?'🗓 預排':'✓ 已吃'}</span><b>${arr.length} 筆</b></div><span class="small">${kind==='planned'?'預估':'實際'} ${k} kcal／蛋白質 ${pr} g</span></div>${arr.map(makeRow).join('')}</div>`;};
  target.innerHTML=(makeBox(planned,'planned')+makeBox(actual,'actual'))||'<div class="empty">這一天尚無飲食安排。可以在上方新增，或複製其他日期的飲食。</div>';
+ foodRecordPhotoPlaceholders(target);
 }
 async function renderHomePlanned(date,planned){
  const el=document.getElementById('foodPlannedToday');if(!el)return;
  if(!planned.length){el.innerHTML='';return;}
  const groups=new Map();for(const x of planned){const key=x.meal||'其他';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(x);}
  const kc=Math.round(planned.reduce((a,x)=>a+num(x.kcal),0)),pr=planned.reduce((a,x)=>a+num(x.protein),0).toFixed(1);
- el.innerHTML=`<details class="today-meal-group" open><summary><div class="today-meal-summary-main"><div class="today-meal-name">🗓 預排飲食（未計入實際攝取）</div><div class="today-meal-meta">${planned.length} 筆・預估 ${kc} kcal・蛋白質 ${pr} g</div></div><span class="today-meal-arrow">⌄</span></summary><div class="today-meal-body">${[...groups].map(([m,rows])=>`<div class="small" style="font-weight:800;margin-top:9px">${esc(m)}</div>${rows.map(x=>`<div class="item"><b>${esc(x.food)}</b><div class="small">${esc(x.time||'')}・${esc(x.qty||'')} ${esc(x.unit||'')}・${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g</div><div class="record-actions"><button class="primary" onclick="markFoodEaten('${x.id}')">✓ 確認已吃</button><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`).join('')}`).join('')}</div></details>`;
+ el.innerHTML=`<details class="today-meal-group" open><summary><div class="today-meal-summary-main"><div class="today-meal-name">🗓 預排飲食（未計入實際攝取）</div><div class="today-meal-meta">${planned.length} 筆・預估 ${kc} kcal・蛋白質 ${pr} g</div></div><span class="today-meal-arrow">⌄</span></summary><div class="today-meal-body">${[...groups].map(([m,rows])=>`<div class="small" style="font-weight:800;margin-top:9px">${esc(m)}</div>${rows.map(x=>`<div class="item"><div class="food-record-main"><div class="food-record-copy"><b>${esc(x.food)}</b><div class="small">${esc(x.time||'')}・${esc(x.qty||'')} ${esc(x.unit||'')}・${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g</div></div>${foodRecordPhotoSlot(x,kycFoodPhotoUrls.get(String(x.id))||'')}</div><div class="record-actions"><button class="primary" onclick="markFoodEaten('${x.id}')">✓ 確認已吃</button><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`).join('')}`).join('')}</div></details>`;
+ foodRecordPhotoPlaceholders(el);
 }
 async function reconcileCloudFoodUpdates(){
  if(!cloudSession?.user)return;
@@ -1992,6 +2017,7 @@ if(b){await putP(cacheId,b);return b;}
 return null;
 }
 async function getFoodPhotoBlob(x){
+if(!x || x.photoRemoved)return null;
 if(x.photoId){const b=await getP(x.photoId);if(b)return b;}
 const cacheId=localPhotoCacheId('food',x.id,1);
 const cached=await getP(cacheId);if(cached)return cached;
@@ -2014,6 +2040,7 @@ async function uploadAllLocalPhotos(){
 if(!cloudSession?.user)return {uploaded:0,failed:0,message:''};
 let uploaded=0,failed=0,last='';
 for(const x of db.foods||[]){
+if(x.photoRemoved)continue;
 try{
 let b=x.photoId?await getP(x.photoId):null;
 if(!b)b=await getP(localPhotoCacheId('food',x.id,1));
@@ -2121,7 +2148,7 @@ compressed=await compressPhotoBlob(photo);
 photoId=`p_${safePhotoPart(recordId)}_1`;
 await putP(photoId,compressed);
 }
-const values={date:fDate.value||dn(),time:fTime.value||tn(),meal:fMeal.value.trim()||mealFromClock(fTime.value),status:fStatus.value==='planned'?'planned':'actual',updatedAt:Date.now(),masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
+const values={photoRemoved:photo?false:!!existing?.photoRemoved,date:fDate.value||dn(),time:fTime.value||tn(),meal:fMeal.value.trim()||mealFromClock(fTime.value),status:fStatus.value==='planned'?'planned':'actual',updatedAt:Date.now(),masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
 if(existing){Object.assign(existing,values);}else{db.foods.push({id:recordId,...values});}
 save();
 if(compressed&&cloudSession?.user){
@@ -2167,10 +2194,163 @@ if(String(editingFoodId)===String(id))clearFoodEntryForm();
 save();
 await renderToday();renderFoodPlanArea();renderHistory();renderStats();
 }
+/* KYC_MEAL_PHOTO_20261031：既有 IndexedDB + Supabase Storage，不建立新 SQL 欄位。 */
+const kycFoodPhotoUrls=new Map();
+let kycQuickFoodPhotoId='';
+function foodRecordPhotoSlot(x,src=''){
+  const id=esc(String(x.id));
+  const hasPhoto=!!src;
+  return `<div class="food-record-photo" data-food-photo-id="${id}">
+    ${hasPhoto?`<img class="food-photo-thumb" src="${src}" alt="${esc(x.food||'餐點')}的實際照片" title="點照片可放大" onclick="event.stopPropagation();openImageZoom(this.src)">`:
+      `<button class="food-photo-empty" type="button" onclick="quickFoodPhotoPick(this,'camera')" aria-label="替這筆餐點拍照"><span class="food-camera-symbol">📷</span><span>新增照片</span></button>`}
+    <div class="food-photo-tools">
+      <button type="button" onclick="quickFoodPhotoPick(this,'camera')">📷 拍照</button>
+      <button type="button" onclick="quickFoodPhotoPick(this,'library')">相簿</button>
+      ${hasPhoto?'<button type="button" class="food-photo-remove" onclick="quickFoodPhotoRemove(this)">移除</button>':''}
+    </div>
+  </div>`;
+}
+function foodRecordPhotoUrlReset(id){
+  const key=String(id),old=kycFoodPhotoUrls.get(key);
+  if(old){URL.revokeObjectURL(old);kycFoodPhotoUrls.delete(key)}
+}
+async function foodRecordPhotoUrl(x){
+  if(!x||x.photoRemoved)return '';
+  const id=String(x.id);
+  if(kycFoodPhotoUrls.has(id))return kycFoodPhotoUrls.get(id);
+  let blob=null;
+  try{blob=await getFoodPhotoBlob(x)}catch(e){console.warn('餐點照片讀取失敗',e)}
+  if(!blob)return '';
+  const url=URL.createObjectURL(blob);
+  kycFoodPhotoUrls.set(id,url);
+  return url;
+}
+function foodPhotoSlotVisibleInFolders(el){
+  for(let parent=el.parentElement;parent;parent=parent.parentElement){
+    if(parent.tagName==='DETAILS'&&!parent.open)return false;
+  }
+  return true;
+}
+function foodRecordPhotoPlaceholders(root){
+  if(!root)return;
+  const slots=[...root.querySelectorAll('.food-record-photo[data-food-photo-id]')].filter(foodPhotoSlotVisibleInFolders);
+  const ids=[...new Set(slots.map(el=>el.dataset.foodPhotoId))];
+  // 沒有照片的紀錄依舊提供拍照入口；舊照片則從 IndexedDB/雲端非同步載入。
+  for(const id of ids){
+    const x=db.foods.find(v=>String(v.id)===id);
+    if(!x)continue;
+    foodRecordPhotoUrl(x).then(url=>{
+      if(!url)return;
+      for(const el of root.querySelectorAll('.food-record-photo[data-food-photo-id]')){
+        if(el.isConnected&&el.dataset.foodPhotoId===id)el.outerHTML=foodRecordPhotoSlot(x,url);
+      }
+    }).catch(e=>console.warn('餐點縮圖載入失敗',e));
+  }
+}
+// 歷史資料可能有數百筆：只有使用者展開該日期／餐別，才載入對應照片。
+document.addEventListener('toggle',event=>{
+  const details=event.target;
+  if(details?.matches?.('details.history-day, details.history-group') && details.open){
+    foodRecordPhotoPlaceholders(details);
+  }
+},true);
+async function refreshFoodPhotoSlots(id){
+  const x=db.foods.find(v=>String(v.id)===String(id));
+  if(!x)return;
+  const url=await foodRecordPhotoUrl(x);
+  for(const el of document.querySelectorAll('.food-record-photo[data-food-photo-id]')){
+    if(el.dataset.foodPhotoId===String(id))el.outerHTML=foodRecordPhotoSlot(x,url);
+  }
+  if(String(editingFoodId)===String(id)){
+    if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null}
+    if(url){photoPreview.src=url;photoPreview.style.display='block'}
+    else{photoPreview.removeAttribute('src');photoPreview.style.display='none'}
+  }
+}
+function quickFoodPhotoPick(btn,mode){
+  const el=btn.closest('.food-record-photo');
+  const id=el?.dataset.foodPhotoId;
+  if(!id||!db.foods.some(x=>String(x.id)===id))return;
+  kycQuickFoodPhotoId=id;
+  const input=document.getElementById(mode==='camera'?'quickMealPhotoCamera':'quickMealPhotoLibrary');
+  if(!input)return;
+  input.value='';
+  input.click();
+}
+function forgetFoodPhotoUploadState(path){
+  const state=getPhotoUploadState();
+  delete state[path];
+  try{localStorage.setItem(PHOTO_UPLOAD_STATE_KEY,JSON.stringify(state))}catch{}
+  cloudPhotoMisses.delete(path);
+}
+async function quickFoodPhotoSelected(e){
+  const file=e.target.files?.[0];
+  const id=kycQuickFoodPhotoId;
+  e.target.value='';
+  if(!file||!id)return;
+  const x=db.foods.find(v=>String(v.id)===id);
+  if(!x)return;
+  const target=document.querySelector(`.food-record-photo[data-food-photo-id="${CSS.escape(id)}"]`);
+  const msg=document.createElement('div');msg.className='food-photo-uploading';msg.textContent='儲存照片中…';
+  if(target)target.appendChild(msg);
+  try{
+    const blob=await compressPhotoBlob(file,1200,.82);
+    if(!blob)throw new Error('照片無法讀取');
+    const photoId=`p_${safePhotoPart(id)}_1`;
+    await putP(photoId,blob);
+    x.photoId=photoId;
+    x.photoRemoved=false;
+    x.updatedAt=Date.now();
+    if(!save())throw new Error('飲食紀錄未能儲存');
+    foodRecordPhotoUrlReset(id);
+    await refreshFoodPhotoSlots(id);
+    if(cloudSession?.user){
+      try{
+        const path=photoStoragePath('food',id,1);
+        forgetFoodPhotoUploadState(path);
+        await uploadPhotoBlob(path,blob,true);
+      }catch(err){
+        console.warn('照片尚未同步雲端',err);
+        alert('照片已保存在這台裝置，但雲端上傳尚未完成：'+(err?.message||err)+'\n請在設定確認雲端同步。');
+      }
+    }
+  }catch(err){
+    console.error(err);
+    alert('照片儲存失敗：'+(err?.message||err));
+  }finally{msg.remove();kycQuickFoodPhotoId=''}
+}
+async function quickFoodPhotoRemove(btn){
+  const id=btn.closest('.food-record-photo')?.dataset.foodPhotoId;
+  const x=db.foods.find(v=>String(v.id)===id);
+  if(!x||!confirm(`確定移除「${x.food||'此餐點'}」的照片？飲食紀錄與營養數值會保留。`))return;
+  const oldId=x.photoId||'';
+  try{
+    // 先建立可跨裝置同步的移除標記，再刪本機與雲端圖片。
+    x.photoId='';x.photoRemoved=true;x.updatedAt=Date.now();
+    if(!save())throw new Error('移除設定無法儲存');
+    foodRecordPhotoUrlReset(id);
+    await Promise.all([oldId?delP(oldId):Promise.resolve(),delP(localPhotoCacheId('food',id,1))]);
+    await refreshFoodPhotoSlots(id);
+    if(cloudSession?.user){
+      try{
+        const path=photoStoragePath('food',id,1);
+        forgetFoodPhotoUploadState(path);
+        await deletePhotoBlob(path);
+      }catch(err){
+        console.warn('雲端照片尚未刪除',err);
+        alert('這台裝置已移除照片，雲端刪除尚未完成：'+(err?.message||err)+'\n請檢查雲端同步。');
+      }
+    }
+  }catch(err){console.error(err);alert('移除照片失敗：'+(err?.message||err))}
+}
+
 async function foodHtml(x){
-let pic='';
-{let b=await getFoodPhotoBlob(x);if(b)pic=`<img class="master-thumb" src="${URL.createObjectURL(b)}" alt="食品照片" onclick="event.stopPropagation();openImageZoom(this.src)">`;}
-return `<div class="item"><b>${esc(x.food)}</b><div class="small">${esc(x.meal)}・${esc(x.time)}${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}</div>${pic}<div class="small">${esc(x.kcal||'—')} kcal・蛋白質 ${esc(x.protein||'—')} g・碳水 ${esc(x.carb||'—')} g・脂肪 ${esc(x.fat||'—')} g・糖 ${esc(x.sugar||'—')} g・鈉 ${esc(x.sodium||'—')} mg</div><div class="record-actions"><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
+  const url=await foodRecordPhotoUrl(x);
+  return `<div class="item"><div class="food-record-main"><div class="food-record-copy">
+    <b>${esc(x.food)}</b><div class="small">${esc(x.meal)}・${esc(x.time)}${x.qty?`・${esc(x.qty)} ${esc(x.unit)}`:''}</div>
+    <div class="small">${esc(x.kcal??'—')} kcal・蛋白質 ${esc(x.protein??'—')} g・碳水 ${esc(x.carb??'—')} g・脂肪 ${esc(x.fat??'—')} g・糖 ${esc(x.sugar??'—')} g・鈉 ${esc(x.sodium??'—')} mg</div>
+    </div>${foodRecordPhotoSlot(x,url)}</div>
+    <div class="record-actions"><button class="secondary" onclick="editFood('${x.id}')">修改</button><button class="danger" onclick="deleteFood('${x.id}')">刪除</button></div></div>`;
 }
 async function renderToday(){
 let d=document.getElementById('homeDate')?.value||homeSelectedDate||dn();
@@ -4005,7 +4185,7 @@ if(Number.isNaN(d.getTime()))return '';
 return ['日','一','二','三','四','五','六'][d.getDay()];
 }
 function historyFoodRow(v){
-return `<div class="history-food"><b>${isFoodPlanned(v)?'<span class="food-plan-label">預排</span>':''}${esc(v.food)}</b><div class="small">${esc(v.time||'')} ${v.qty?`・${esc(v.qty)} ${esc(v.unit||'')}`:''}・${esc(v.kcal||'—')} kcal${v.protein?`・蛋白質 ${esc(v.protein)} g`:''}</div><div class="record-actions">${isFoodPlanned(v)?`<button class="primary" onclick="markFoodEaten('${v.id}')">✓ 確認已吃</button>`:''}<button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`;
+return `<div class="history-food"><div class="food-record-main"><div class="food-record-copy"><b>${isFoodPlanned(v)?'<span class="food-plan-label">預排</span>':''}${esc(v.food)}</b><div class="small">${esc(v.time||'')} ${v.qty?`・${esc(v.qty)} ${esc(v.unit||'')}`:''}・${esc(v.kcal??'—')} kcal${v.protein?`・蛋白質 ${esc(v.protein)} g`:''}</div></div>${foodRecordPhotoSlot(v,kycFoodPhotoUrls.get(String(v.id))||'')}</div><div class="record-actions">${isFoodPlanned(v)?`<button class="primary" onclick="markFoodEaten('${v.id}')">✓ 確認已吃</button>`:''}<button class="secondary" onclick="editFood('${v.id}')">修改</button><button class="danger" onclick="deleteFood('${v.id}')">刪除</button></div></div>`;
 }
 function historyExerciseRow(v){
 return `<div class="history-food"><b>🏃 ${esc(v.type)}</b><div class="small">${exerciseTimeText(v)?`${esc(exerciseTimeText(v))}・`:''}${esc(v.class||'')}・${esc(v.duration||durationFromMinutes(v.minutes)||'—')}（總時間）・${esc(v.kcal||'—')} kcal</div>${exerciseExtrasHtml(v)}${v.note?`<div class="small" style="margin-top:4px">${esc(v.note)}</div>`:''}<div class="record-actions"><button class="secondary" onclick="editExercise('${v.id}')">修改</button><button class="danger" onclick="deleteExercise('${v.id}')">刪除</button></div></div>`;
@@ -4066,6 +4246,7 @@ groups.push(historyGroupHtml('⚖️ 體重／血壓',`${bodies.length} 筆`,bod
 return `<details class="history-day" ${dayIndex===0?'open':''}><summary><div class="history-day-main"><div class="history-day-title">${esc(d)}（${historyWeekday(d)}）</div><div class="history-day-meta">${dayMeta.join('<br>')}</div></div><span class="history-day-arrow">⌄</span></summary><div class="history-day-body">${groups.join('')||'<div class="history-empty">無資料</div>'}</div></details>`;
 }).join('');
 historyList.innerHTML=html||'<div class="empty">無資料</div>';
+foodRecordPhotoPlaceholders(historyList);
 }
 /* 2026-09-30 PRINT_INLINE_PREVIEW_V3
    iPhone/PWA 不再用 window.open()，先在同一頁顯示 A4 預覽。
@@ -4193,7 +4374,20 @@ async function runPrintPreview(){
 }
 window.addEventListener('afterprint',()=>document.body.classList.remove('kyc-printing'));
 
-function printHistory(){
+async function foodPhotoPrintDataUrl(blob){
+  if(!blob)return '';
+  try{
+    const scaled=await compressPhotoBlob(blob,750,.8);
+    return await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(typeof reader.result==='string'?reader.result:'');
+      reader.onerror=()=>reject(reader.error||new Error('讀取照片失敗'));
+      reader.readAsDataURL(scaled);
+    });
+  }catch(e){console.warn('列印照片無法轉換',e);return ''}
+}
+
+async function printHistory(){
   const startEl=document.getElementById('hStart');
   const endEl=document.getElementById('hEnd');
   const typeEl=document.getElementById('hType');
@@ -4211,6 +4405,13 @@ function printHistory(){
   if(type==='food'){exercises=[];bodies=[];}
   if(meal!=='all'&&(type==='all'||type==='food'))foods=foods.filter(v=>(v.meal||'其他')===meal);
 
+  const photoMap=new Map();
+  await Promise.all(foods.map(async v=>{
+    if(v.photoRemoved)return;
+    try{const b=await getFoodPhotoBlob(v);if(b){const url=await foodPhotoPrintDataUrl(b);if(url)photoMap.set(String(v.id),url)}}
+    catch(e){console.warn('列印時讀取餐點照片失敗',e)}
+  }));
+  const photoCell=v=>{const data=photoMap.get(String(v.id));return `<td class="pp-meal-photo-cell">${data?`<img class="pp-meal-photo" src="${data}" alt="${esc(v.food||'餐點')}照片">`:'<span class="pp-photo-missing">—</span>'}</td>`};
   const mealOrder=[...new Set(['早餐','午餐','下午點心','晚餐','宵夜','運動前','運動後','其他',...foods.map(x=>x.meal).filter(Boolean)])];
   const days=[...new Set([...foods.map(v=>v.date),...exercises.map(v=>v.date),...bodies.map(v=>v.date)])].sort();
   const fmt1=v=>num(v).toFixed(1).replace('.0','');
@@ -4238,14 +4439,14 @@ function printHistory(){
       if(!items.length)return '';
       const mkcal=Math.round(items.reduce((a,v)=>a+num(v.kcal),0));
       const mprotein=fmt1(items.reduce((a,v)=>a+num(v.protein),0));
-      const rows=items.map(v=>`<tr><td>${esc(v.time||'')}</td><td>${esc(v.food||'')}</td><td>${v.qty?`${esc(v.qty)} ${esc(v.unit||'')}`:'—'}</td><td class="pp-num">${esc(v.kcal||'—')}</td><td class="pp-num">${esc(v.protein||'—')}</td></tr>`).join('');
-      return `<section class="pp-group"><h3>${esc(m)} <span>${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g</span></h3><table><thead><tr><th>時間</th><th>食物／餐點</th><th>份量</th><th class="pp-num">kcal</th><th class="pp-num">蛋白質 g</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+      const rows=items.map(v=>`<tr class="pp-meal-row"><td>${esc(v.time||'')}</td>${photoCell(v)}<td>${esc(v.food||'')}</td><td>${v.qty?`${esc(v.qty)} ${esc(v.unit||'')}`:'—'}</td><td class="pp-num">${esc(v.kcal??'—')}</td><td class="pp-num">${esc(v.protein??'—')}</td></tr>`).join('');
+      return `<section class="pp-group"><h3>${esc(m)} <span>${items.length} 筆・${mkcal} kcal・蛋白質 ${mprotein} g</span></h3><table><thead><tr><th>時間</th><th>照片</th><th>食物／餐點</th><th>份量</th><th class="pp-num">kcal</th><th class="pp-num">蛋白質 g</th></tr></thead><tbody>${rows}</tbody></table></section>`;
     }).join('') + mealOrder.map(m=>{
       const items=pendingDf.filter(v=>(v.meal||'其他')===m);
       if(!items.length)return '';
       const pk=Math.round(items.reduce((a,v)=>a+num(v.kcal),0));
       const pp=fmt1(items.reduce((a,v)=>a+num(v.protein),0));
-      return `<section class="pp-group"><h3>🗓 預排・${esc(m)} <span>${items.length} 筆・預估 ${pk} kcal・蛋白質 ${pp} g（未計入）</span></h3><table><thead><tr><th>時間</th><th>食物／餐點</th><th>份量</th><th class="pp-num">kcal</th><th class="pp-num">蛋白質 g</th></tr></thead><tbody>${items.map(v=>`<tr><td>${esc(v.time||'')}</td><td>${esc(v.food||'')}</td><td>${v.qty?`${esc(v.qty)} ${esc(v.unit||'')}`:'—'}</td><td class="pp-num">${esc(v.kcal||'—')}</td><td class="pp-num">${esc(v.protein||'—')}</td></tr>`).join('')}</tbody></table></section>`;
+      return `<section class="pp-group"><h3>🗓 預排・${esc(m)} <span>${items.length} 筆・預估 ${pk} kcal・蛋白質 ${pp} g（未計入）</span></h3><table><thead><tr><th>時間</th><th>照片</th><th>食物／餐點</th><th>份量</th><th class="pp-num">kcal</th><th class="pp-num">蛋白質 g</th></tr></thead><tbody>${items.map(v=>`<tr class="pp-meal-row"><td>${esc(v.time||'')}</td>${photoCell(v)}<td>${esc(v.food||'')}</td><td>${v.qty?`${esc(v.qty)} ${esc(v.unit||'')}`:'—'}</td><td class="pp-num">${esc(v.kcal??'—')}</td><td class="pp-num">${esc(v.protein??'—')}</td></tr>`).join('')}</tbody></table></section>`;
     }).join('');
 
     const exerciseSection=de.length?`<section class="pp-group"><h3>運動 <span>${de.length} 筆・${totalMin} 分鐘${totalExKcal?`・${totalExKcal} kcal`:''}</span></h3><table><thead><tr><th>時間</th><th>運動</th><th>分類</th><th class="pp-num">分鐘</th><th class="pp-num">kcal</th></tr></thead><tbody>${de.map(v=>`<tr><td>${esc(exerciseTimeText(v)||'')}</td><td>${esc(v.type||'')}</td><td>${esc(v.class||'')}</td><td class="pp-num">${esc(v.minutes||'—')}</td><td class="pp-num">${esc(v.kcal||'—')}</td></tr>${exerciseExtrasText(v)?`<tr class="pp-note-row"><td></td><td colspan="4">${esc(exerciseExtrasText(v))}</td></tr>`:''}${v.note?`<tr class="pp-note-row"><td></td><td colspan="4">備註：${esc(v.note)}</td></tr>`:''}`).join('')}</tbody></table></section>`:'';
