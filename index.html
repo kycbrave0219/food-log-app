@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.11.02.01 食品庫照片帶入與餐點附圖選擇版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.11.05.01 食品庫備註自動帶入完整版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -769,6 +769,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div class="full">
 <label>備註</label>
 <textarea id="fNote"></textarea>
+<div class="small" style="margin-top:5px">從食品庫選擇食品時，將自動帶入食品庫備註；此處可補充或修改當餐內容，不會更動食品庫原始資料。</div>
 </div>
 </div>
 <div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若食品主檔曾修正，可按「依目前食品主檔重新計算」更新本次營養值。若不重新選照片，會保留原照片；也可改選食品庫照片或本次不附圖。</div>
@@ -1375,6 +1376,7 @@ exercisePhotoURLs=[],
 exercisePhotoURL=null,
 exercisePhotoRemove=false,
 selectedMasterId='',
+foodMasterNoteApplied='',
 editingFoodId='',
 editingExerciseId='',
 masterPhoto=null,
@@ -2190,6 +2192,7 @@ function clearFoodEntryForm(){
 clearMealMasterPhotoCandidates();
 mealPhotoMode='none';mealPhotoRemoveRequested=false;
 selectedMasterId='';
+foodMasterNoteApplied='';
 editingFoodId='';
 closeMasterDropdown();
 fMasterName.value='';
@@ -2226,6 +2229,7 @@ const num=(v)=>{if(v===undefined)return undefined;const m=String(v).replace(/,/g
 const name=pick(['品名','餐點名稱','食物／餐點','食物/餐點','餐點','品項','名稱']);
 if(name!==undefined)fFood.value=name;
 selectedMasterId='';
+foodMasterNoteApplied='';
 fMasterName.value='';
 clearMealMasterPhotoCandidates();
 closeMasterDropdown();
@@ -2317,6 +2321,10 @@ const m=db.masters.find(v=>String(v.id)===String(x.masterId||''));
 fMasterName.value=m?((m.brand?m.brand+' ':'')+m.name):'';
 fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';updateFoodQtyLabel();
 fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
+// 修改既有餐點保留當時的備註，不用最新食品庫備註覆寫。只有能明確辨識為自動帶入的前綴才在切換食品時替換。
+const originalMasterNote=String(m?.note||'').trim();
+const currentMealNote=String(x.note||'').trim();
+foodMasterNoteApplied=originalMasterNote && (currentMealNote===originalMasterNote || currentMealNote.startsWith(originalMasterNote+'\n')) ? originalMasterNote : '';
 photo=null;mealPhotoMode='existing';mealPhotoRemoveRequested=false;
 clearMealMasterPhotoCandidates();
 {const b=await getFoodPhotoBlob(x);setMealPhotoPreviewBlob(b);}
@@ -3563,6 +3571,8 @@ function onMasterSearchInput(){
 const current=db.masters.find(v=>String(v.id)===String(selectedMasterId));
 if(current && fMasterName.value.trim()!==masterDisplayName(current)){
 const oldName=masterDisplayName(current);
+// 手動改掉食品主檔搜尋文字時，移除先前自動帶入的食品庫備註，保留自行追加的備註。
+applyFoodMasterNote(null);
 selectedMasterId='';
 if(mealPhotoMode==='master'){mealPhotoMode='none';setMealPhotoPreviewBlob(null)}
 clearMealMasterPhotoCandidates();
@@ -3648,11 +3658,33 @@ ${esc(x.kcal||'—')} kcal/份
 `).join('')
 :'<div class="empty">找不到食品</div>';
 }
+/* KYC v2026.11.05.01：食品庫備註 → 新增飲食備註；切換主檔時不殘留舊主檔內容。 */
+function applyFoodMasterNote(master){
+  const incoming=String(master?.note||'').trim();
+  const oldAuto=String(foodMasterNoteApplied||'').trim();
+  let personal=String(fNote.value||'').trim();
+  // 只移除能完整辨識的舊自動備註，其他已編輯內容一律保留。
+  if(oldAuto){
+    if(personal===oldAuto){
+      personal='';
+    }else if(personal.startsWith(oldAuto+'\n')){
+      personal=personal.slice(oldAuto.length+1).replace(/^\n+/,'').trim();
+    }
+  }
+  // 避免重複選取同一食品而重複加入相同備註。
+  if(incoming && !(personal===incoming || personal.startsWith(incoming+'\n'))){
+    fNote.value=personal ? incoming+'\n'+personal : incoming;
+  }else{
+    fNote.value=personal;
+  }
+  foodMasterNoteApplied=incoming;
+}
 function useMaster(id){
 const x=db.masters.find(v=>String(v.id)===String(id));
 if(!x)return;
 
 selectedMasterId=String(id);
+applyFoodMasterNote(x);
 // 切換食品主檔時，舊主檔的候選照不可當成新食品的照片。
 if(mealPhotoMode==='master'){mealPhotoMode='none';setMealPhotoPreviewBlob(null)}
 fMasterName.value=masterDisplayName(x);
