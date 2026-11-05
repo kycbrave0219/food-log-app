@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.10.31.01 餐點照片直接補拍與列印圖片整合版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.11.02.01 食品庫照片帶入與餐點附圖選擇版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -460,6 +460,21 @@ img,svg,video,canvas{max-width:100%;height:auto}
 @media(max-width:420px){.food-record-photo{flex-basis:92px;width:92px}.food-photo-thumb,.food-photo-empty{width:78px!important}}
 @media print{.print-preview-sheet .pp-meal-photo{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 
+/* KYC v2026.11.02.01：食品主檔照片→本次餐點獨立附圖／不附圖決策 */
+.master-meal-photo-panel{border:1px solid #c9dbef;background:#f6faff;border-radius:13px;padding:12px;margin:8px 0 3px}
+.master-meal-photo-title{font-weight:800;font-size:13px;color:#21466d}
+.master-meal-photo-tip{font-size:12px;color:#4f6680;line-height:1.6;margin-top:5px}
+.master-meal-photo-options{display:flex;flex-wrap:wrap;gap:9px;margin:10px 0 8px}
+.master-meal-photo-option{display:flex;flex-direction:column;gap:4px;align-items:center;padding:6px;border:2px solid #d6e4f3;border-radius:11px;background:#fff;color:#1e4976;cursor:pointer;font-size:12px;min-width:96px}
+.master-meal-photo-option img{width:92px;height:78px;object-fit:contain;background:#fff;border-radius:7px}
+.master-meal-photo-option.is-selected{border-color:#1765bf;background:#e7f1ff;font-weight:750}
+.master-meal-photo-result{font-size:12px;color:#345a7a;line-height:1.55;margin-top:8px}
+.master-meal-photo-none{border:1px solid #d8e3ee;background:#fff;border-radius:9px;padding:9px 11px;color:#385c7f;font-size:12px;cursor:pointer}
+.master-meal-photo-none.is-selected{border-color:#1765bf;background:#e7f1ff;font-weight:800}
+/* A4 / PDF 餐點照片放大，使用 contain 避免裁掉實際餐點 */
+.print-preview-sheet .pp-meal-photo-cell{width:138px!important;min-width:138px!important;text-align:center}
+.print-preview-sheet .pp-meal-photo{width:128px!important;height:112px!important;max-width:128px!important;max-height:112px!important;object-fit:contain!important;background:#fff}
+
 /* v2026.10.16.03: iPhone 固定底部分頁不可遮住體徵儲存按鈕。 */
 #bodyEntry{overflow:visible}
 .body-save-actions{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));z-index:76;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:14px 0 0;padding:9px 10px;background:rgba(255,255,255,.97);border:1px solid #dbe3ed;border-radius:14px;box-shadow:0 5px 18px rgba(15,23,42,.12);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -602,6 +617,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     onclick="document.getElementById('photoLibraryInput').click()">
     🖼️ 從圖庫選餐點照片
   </button>
+  <button class="secondary" type="button" onclick="chooseNoMealPhoto()">🚫 本次不附照片</button>
 </div>
 <!-- 拍照：保留 capture -->
 <input
@@ -666,6 +682,13 @@ img,svg,video,canvas{max-width:100%;height:auto}
 </div>
 <div id="masterDropdown" class="master-dropdown"></div>
 <div class="note" style="margin-top:6px">食品主檔只用來方便重複記錄。便當每次菜色不同，可不選主檔，直接填餐點名稱和本次營養估算；例如「便當（雞腿、青菜、滷蛋）」。</div>
+</div>
+<div id="masterMealPhotoPanel" class="full master-meal-photo-panel" style="display:none">
+  <div class="master-meal-photo-title">🖼️ 食品庫照片（當餐可自行決定是否附圖）</div>
+  <div id="masterMealPhotoTip" class="master-meal-photo-tip" role="status" aria-live="polite"></div>
+  <div id="masterMealPhotoOptions" class="master-meal-photo-options"></div>
+  <button id="masterMealPhotoNoneBtn" class="master-meal-photo-none" type="button" onclick="chooseNoMealPhoto()">🚫 本次不附照片</button>
+  <div id="masterMealPhotoResult" class="master-meal-photo-result"></div>
 </div>
 <div class="full">
 <details class="fold">
@@ -748,7 +771,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <textarea id="fNote"></textarea>
 </div>
 </div>
-<div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若食品主檔曾修正，可按「依目前食品主檔重新計算」更新本次營養值。若不重新選照片，會保留原照片。</div>
+<div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若食品主檔曾修正，可按「依目前食品主檔重新計算」更新本次營養值。若不重新選照片，會保留原照片；也可改選食品庫照片或本次不附圖。</div>
 <div id="foodSaveFeedback" role="status"></div>
 <div class="btnrow food-save-actions" style="margin-top:10px">
 <button id="saveFoodBtn" class="primary" onclick="saveFood()">儲存這一餐</button>
@@ -1340,6 +1363,12 @@ homeSelectedDate=dn(),
 editingBodyId='',
 photo=null,
 photoURL=null,
+mealPhotoMode='none',
+mealPhotoRemoveRequested=false,
+mealMasterPhotoChoiceIndex=-1,
+mealMasterPhotoLoadVersion=0,
+mealMasterPhotoCandidates=[],
+mealMasterPhotoLoadPromise=null,
 exercisePhotoFile=null,
 exercisePhotoFiles=[],
 exercisePhotoURLs=[],
@@ -2063,16 +2092,103 @@ if(b && await uploadPhotoBlob(photoStoragePath('master',x.id,i+1),b,false))uploa
 }
 return {uploaded,failed,message:last};
 }
+/* === v2026.11.02.01：食品庫照片帶入與當餐附圖選擇（不共用照片 ID）=== */
+function clearMealMasterPhotoCandidates(){
+  mealMasterPhotoLoadVersion++;
+  for(const item of mealMasterPhotoCandidates){if(item.url)URL.revokeObjectURL(item.url)}
+  mealMasterPhotoCandidates=[];
+  mealMasterPhotoChoiceIndex=-1;
+  mealMasterPhotoLoadPromise=null;
+  const panel=document.getElementById('masterMealPhotoPanel');
+  if(panel)panel.style.display='none';
+  const list=document.getElementById('masterMealPhotoOptions');if(list)list.innerHTML='';
+}
+function renderMealMasterPhotoOptions(){
+  const panel=document.getElementById('masterMealPhotoPanel');
+  if(!panel || panel.style.display==='none')return;
+  const options=document.getElementById('masterMealPhotoOptions');
+  const result=document.getElementById('masterMealPhotoResult');
+  const none=document.getElementById('masterMealPhotoNoneBtn');
+  options.innerHTML=mealMasterPhotoCandidates.map((x,i)=>`<button class="master-meal-photo-option ${mealPhotoMode==='master'&&mealMasterPhotoChoiceIndex===i?'is-selected':''}" type="button" onclick="chooseMasterMealPhoto(${i})"><img src="${x.url}" alt="食品庫第 ${x.slot} 張照片"><span>${mealPhotoMode==='master'&&mealMasterPhotoChoiceIndex===i?'✓ ':''}使用第 ${x.slot} 張</span></button>`).join('');
+  none.classList.toggle('is-selected',mealPhotoMode==='none-user');
+  if(mealPhotoMode==='master'&&mealMasterPhotoChoiceIndex>=0){
+    result.textContent=`✓ 已選用食品庫第 ${mealMasterPhotoCandidates[mealMasterPhotoChoiceIndex]?.slot||1} 張照片，儲存時將複製成這筆餐點的獨立照片。`;
+  }else if(mealPhotoMode==='none-user'){
+    result.textContent='✓ 這筆餐點不附照片，既有飲食資料與食品庫照片都不會被刪除。';
+  }else if(mealPhotoMode==='upload'){
+    result.textContent='✓ 已使用本次自行拍攝／從相簿選取的照片，食品庫圖片不會覆蓋它。';
+  }else if(mealPhotoMode==='existing'){
+    result.textContent='✓ 保留這筆餐點原本的照片；也可以改選食品庫照片或不附圖。';
+  }else{
+    result.textContent=mealMasterPhotoCandidates.length?'可以點選要附上的食品庫照片，也可不附圖或自行拍照。':'可直接在上方拍照或從相簿加入本次餐點照片。';
+  }
+}
+function setMealPhotoPreviewBlob(blob){
+  if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null}
+  photoPreview.removeAttribute('src');photoPreview.style.display='none';
+  if(blob){photoURL=URL.createObjectURL(blob);photoPreview.src=photoURL;photoPreview.style.display='block'}
+}
+function chooseMasterMealPhoto(index){
+  const candidate=mealMasterPhotoCandidates[index];
+  if(!candidate?.blob)return;
+  mealMasterPhotoChoiceIndex=index;
+  mealPhotoMode='master';
+  mealPhotoRemoveRequested=false;
+  photo=null;
+  photoCameraInput.value='';photoLibraryInput.value='';
+  setMealPhotoPreviewBlob(candidate.blob);
+  renderMealMasterPhotoOptions();
+}
+function chooseNoMealPhoto(){
+  mealPhotoMode='none-user';
+  mealPhotoRemoveRequested=true;
+  mealMasterPhotoChoiceIndex=-1;
+  photo=null;
+  photoCameraInput.value='';photoLibraryInput.value='';
+  setMealPhotoPreviewBlob(null);
+  renderMealMasterPhotoOptions();
+}
+async function loadMasterMealPhotoChoices(master){
+  clearMealMasterPhotoCandidates();
+  const panel=document.getElementById('masterMealPhotoPanel');
+  const tip=document.getElementById('masterMealPhotoTip');
+  if(!master||!panel)return;
+  const token=mealMasterPhotoLoadVersion;
+  const masterId=String(master.id);
+  panel.style.display='';tip.textContent='正在讀取食品庫照片…';
+  const task=(async()=>{
+    const candidates=[];
+    // 即使此裝置尚未建立 photoIds，仍可從已登入的雲端取得原始食品庫照片。
+    for(let i=0;i<2;i++){
+      let blob=null;
+      try{blob=await getMasterPhotoBlob(master,i)}catch(e){console.warn('無法讀取食品庫照片',e)}
+      if(token!==mealMasterPhotoLoadVersion || String(selectedMasterId)!==masterId)return;
+      if(blob)candidates.push({blob,slot:i+1,url:URL.createObjectURL(blob)});
+    }
+    if(token!==mealMasterPhotoLoadVersion || String(selectedMasterId)!==masterId){
+      candidates.forEach(x=>URL.revokeObjectURL(x.url));return;
+    }
+    mealMasterPhotoCandidates=candidates;
+    tip.textContent=candidates.length?`食品庫有 ${candidates.length} 張照片；首次新增預設使用第一張，仍可選擇其他照片或不附圖。`:'此食品庫尚無可讀取的照片，仍可自行拍照或從相簿加入。';
+    // 新增餐點且尚未自行拍照／要求不附圖時，自動帶入第一張。
+    // 修改舊紀錄時始終保留原照片，避免選擇食品主檔時意外覆蓋舊照。
+    if(candidates.length && !editingFoodId && (mealPhotoMode==='none'||mealPhotoMode==='master'))chooseMasterMealPhoto(0);
+    else renderMealMasterPhotoOptions();
+  })();
+  mealMasterPhotoLoadPromise=task;
+  try{await task}finally{if(mealMasterPhotoLoadPromise===task)mealMasterPhotoLoadPromise=null}
+}
+
 async function handlePhoto(e){
 photo=e.target.files[0];
 if(!photo)return;
-if(photoURL)
-URL.revokeObjectURL(photoURL);
-photoURL=URL.createObjectURL(photo);
-photoPreview.src=photoURL;
-photoPreview.style.display='block';
+mealPhotoMode='upload';mealPhotoRemoveRequested=false;mealMasterPhotoChoiceIndex=-1;
+setMealPhotoPreviewBlob(photo);
+renderMealMasterPhotoOptions();
 }
 function clearFoodEntryForm(){
+clearMealMasterPhotoCandidates();
+mealPhotoMode='none';mealPhotoRemoveRequested=false;
 selectedMasterId='';
 editingFoodId='';
 closeMasterDropdown();
@@ -2111,6 +2227,7 @@ const name=pick(['品名','餐點名稱','食物／餐點','食物/餐點','餐�
 if(name!==undefined)fFood.value=name;
 selectedMasterId='';
 fMasterName.value='';
+clearMealMasterPhotoCandidates();
 closeMasterDropdown();
 const fields=[
 [['熱量','熱量kcal','kcal'],fKcal],
@@ -2141,18 +2258,44 @@ async function saveFood(){
 if(!fFood.value.trim()){alert('請輸入食物／餐點');return;}
 let existing=editingFoodId?db.foods.find(x=>String(x.id)===String(editingFoodId)):null;
 const recordId=existing?.id||uid();
-let photoId=existing?.photoId||'';
-let compressed=null,photoCloudWarning='';
-if(photo){
-compressed=await compressPhotoBlob(photo);
-photoId=`p_${safePhotoPart(recordId)}_1`;
-await putP(photoId,compressed);
-}
-const values={photoRemoved:photo?false:!!existing?.photoRemoved,date:fDate.value||dn(),time:fTime.value||tn(),meal:fMeal.value.trim()||mealFromClock(fTime.value),status:fStatus.value==='planned'?'planned':'actual',updatedAt:Date.now(),masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
+// 點選食品庫後若照片還在下載，先等帶入完成，再決定該餐的照片。
+if(mealMasterPhotoLoadPromise)await mealMasterPhotoLoadPromise;
+const oldPhotoId=existing?.photoId||'';
+let photoId=oldPhotoId,compressed=null,photoCloudWarning='';
+try{
+  if(photo){compressed=await compressPhotoBlob(photo);}
+  else if(mealPhotoMode==='master'&&mealMasterPhotoChoiceIndex>=0){
+    const source=mealMasterPhotoCandidates[mealMasterPhotoChoiceIndex]?.blob;
+    if(!source)throw new Error('食品庫照片尚未準備好，請重新選擇');
+    compressed=await compressPhotoBlob(source,1200,.82);
+  }
+  if(compressed){
+    // 每筆飲食複製自己的圖片，絕不共用食品主檔的 photoId。
+    photoId=`p_${safePhotoPart(recordId)}_1`;
+    await putP(photoId,compressed);
+  }else if(mealPhotoRemoveRequested){photoId='';}
+}catch(e){alert('餐點照片無法儲存：'+(e?.message||e));return;}
+const values={photoRemoved:compressed?false:(mealPhotoRemoveRequested?true:!!existing?.photoRemoved),date:fDate.value||dn(),time:fTime.value||tn(),meal:fMeal.value.trim()||mealFromClock(fTime.value),status:fStatus.value==='planned'?'planned':'actual',updatedAt:Date.now(),masterId:selectedMasterId,food:fFood.value.trim(),qty:fQty.value,unit:fUnit.value,kcal:fKcal.value,protein:fProtein.value,carb:fCarb.value,sugar:fSugar.value,fat:fFat.value,fiber:fFiber.value,sodium:fSodium.value,note:fNote.value,photoId};
 if(existing){Object.assign(existing,values);}else{db.foods.push({id:recordId,...values});}
-save();
-if(compressed&&cloudSession?.user){
-try{await uploadPhotoBlob(photoStoragePath('food',recordId,1),compressed,true)}catch(e){photoCloudWarning=e?.message||String(e)}
+if(!save()){alert('本次紀錄尚未成功儲存，請確認空間後重試。');return;}
+if(compressed||mealPhotoRemoveRequested){
+  foodRecordPhotoUrlReset(recordId);
+  if(mealPhotoRemoveRequested){
+    try{
+      if(oldPhotoId)await delP(oldPhotoId);
+      await delP(localPhotoCacheId('food',recordId,1));
+    }catch(e){console.warn('移除本機餐點照片失敗',e)}
+  }else{
+    try{await delP(localPhotoCacheId('food',recordId,1))}catch{}
+  }
+  if(cloudSession?.user){
+    const path=photoStoragePath('food',recordId,1);
+    try{
+      forgetFoodPhotoUploadState(path);
+      if(compressed)await uploadPhotoBlob(path,compressed,true);
+      else await deletePhotoBlob(path);
+    }catch(e){photoCloudWarning=e?.message||String(e)}
+  }
 }
 const wasEdit=!!existing;
 const keep={date:fDate.value,time:fTime.value,meal:fMeal.value,status:fStatus.value};
@@ -2174,9 +2317,10 @@ const m=db.masters.find(v=>String(v.id)===String(x.masterId||''));
 fMasterName.value=m?((m.brand?m.brand+' ':'')+m.name):'';
 fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';updateFoodQtyLabel();
 fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
-photo=null;
-if(photoURL){URL.revokeObjectURL(photoURL);photoURL=null;}
-{const b=await getFoodPhotoBlob(x);if(b){photoURL=URL.createObjectURL(b);photoPreview.src=photoURL;photoPreview.style.display='block';}else{photoPreview.style.display='none';}}
+photo=null;mealPhotoMode='existing';mealPhotoRemoveRequested=false;
+clearMealMasterPhotoCandidates();
+{const b=await getFoodPhotoBlob(x);setMealPhotoPreviewBlob(b);}
+if(m)void loadMasterMealPhotoChoices(m);
 if(saveFoodBtn)saveFoodBtn.textContent=isFoodPlanned(x)?'更新預排餐點':'更新這一餐';
 if(document.getElementById('recalcFoodFromMasterBtn'))recalcFoodFromMasterBtn.style.display=m?'':'none';
 if(cancelFoodEditBtn)cancelFoodEditBtn.style.display='';
@@ -3420,6 +3564,8 @@ const current=db.masters.find(v=>String(v.id)===String(selectedMasterId));
 if(current && fMasterName.value.trim()!==masterDisplayName(current)){
 const oldName=masterDisplayName(current);
 selectedMasterId='';
+if(mealPhotoMode==='master'){mealPhotoMode='none';setMealPhotoPreviewBlob(null)}
+clearMealMasterPhotoCandidates();
 if(fFood.value.trim()===oldName)fFood.value='';
 clearCalculatedNutrition();
 const hint=document.getElementById('fCalcHint');
@@ -3507,6 +3653,8 @@ const x=db.masters.find(v=>String(v.id)===String(id));
 if(!x)return;
 
 selectedMasterId=String(id);
+// 切換食品主檔時，舊主檔的候選照不可當成新食品的照片。
+if(mealPhotoMode==='master'){mealPhotoMode='none';setMealPhotoPreviewBlob(null)}
 fMasterName.value=masterDisplayName(x);
 fFood.value=fMasterName.value;
 
@@ -3534,6 +3682,7 @@ recalcMaster();
 closeMasterDropdown();
 closePicker();
 goTab('add');
+void loadMasterMealPhotoChoices(x);
 }
 function normalizeFoodUnit(u){
 const raw=String(u||'').trim();
