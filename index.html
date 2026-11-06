@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="飲食紀錄">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.PNG">
-<title>KYC 飲食與運動紀錄 v2026.11.05.01 食品庫備註自動帶入完整版 · Tool Center</title>
+<title>KYC 飲食與運動紀錄 v2026.11.06.01 列印預覽按鈕安全距離修復版 · Tool Center</title>
 <!-- KYC_PRINT_DAY_PER_PAGE_V2_20261001 -->
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#111827;--soft:#eef2f7;--danger:#b91c1c}
@@ -330,6 +330,18 @@ img,svg,video,canvas{max-width:100%;height:auto}
 #printPreviewOverlay{display:none;position:fixed;inset:0;z-index:10000;background:#f3f4f6;overflow:auto;-webkit-overflow-scrolling:touch;color:#111827}
 #printPreviewOverlay.show{display:block}
 .print-preview-toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px max(10px,env(safe-area-inset-right)) 10px max(10px,env(safe-area-inset-left));background:rgba(255,255,255,.97);border-bottom:1px solid #e5e7eb}
+/* v2026.11.06.01: iPhone PWA 列印預覽工具列避開動態島與狀態列。
+   不修改 A4 列印內容，列印媒體查詢原本會隱藏工具列。 */
+#printPreviewOverlay.kyc-ios-pwa .print-preview-toolbar{
+  padding-top:max(70px,calc(env(safe-area-inset-top, 0px) + 12px));
+  padding-left:max(12px,env(safe-area-inset-left, 0px));
+  padding-right:max(12px,env(safe-area-inset-right, 0px));
+}
+#printPreviewOverlay.kyc-ios-pwa .print-preview-toolbar button{
+  min-height:44px;
+  position:relative;
+  z-index:3;
+}
 .print-preview-toolbar button{border:0;border-radius:11px;padding:11px 14px;font:inherit;font-weight:750;touch-action:manipulation}
 .print-preview-do{background:#111827;color:#fff}
 .print-preview-back{background:#eef2f7;color:#111827}
@@ -460,7 +472,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
 @media(max-width:420px){.food-record-photo{flex-basis:92px;width:92px}.food-photo-thumb,.food-photo-empty{width:78px!important}}
 @media print{.print-preview-sheet .pp-meal-photo{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 
-/* KYC v2026.11.02.01：食品主檔照片→本次餐點獨立附圖／不附圖決策 */
+/* KYC v2026.11.06.01：食品主檔照片→本次餐點獨立附圖／不附圖決策 */
 .master-meal-photo-panel{border:1px solid #c9dbef;background:#f6faff;border-radius:13px;padding:12px;margin:8px 0 3px}
 .master-meal-photo-title{font-weight:800;font-size:13px;color:#21466d}
 .master-meal-photo-tip{font-size:12px;color:#4f6680;line-height:1.6;margin-top:5px}
@@ -530,7 +542,7 @@ img,svg,video,canvas{max-width:100%;height:auto}
     <div class="kyc-brand-title">飲食與運動紀錄</div>
   </div>
   <div class="note">跨裝置同步・飲食紀錄・運動追蹤</div>
-  <div class="note" style="margin-top:3px">版本 v2026.10.16.03</div>
+  <div class="note" style="margin-top:3px">版本 v2026.11.06.01</div>
 </div>
 <section id="today" class="section active">
 <div id="homePinnedDateNav" class="pinned-date-nav no-print" aria-label="固定日期切換">
@@ -769,7 +781,6 @@ img,svg,video,canvas{max-width:100%;height:auto}
 <div class="full">
 <label>備註</label>
 <textarea id="fNote"></textarea>
-<div class="small" style="margin-top:5px">從食品庫選擇食品時，將自動帶入食品庫備註；此處可補充或修改當餐內容，不會更動食品庫原始資料。</div>
 </div>
 </div>
 <div id="foodEditNotice" class="editing-note">目前正在修改既有飲食紀錄；若食品主檔曾修正，可按「依目前食品主檔重新計算」更新本次營養值。若不重新選照片，會保留原照片；也可改選食品庫照片或本次不附圖。</div>
@@ -999,7 +1010,7 @@ style="margin-top:10px">
 </section>
 
 <section id="knowledge" class="section">
-  <div class="card">
+<div class="card">
     <div class="itemtitle">🧠 飲食知識庫</div>
     <div class="note" style="margin-top:6px">
       以前和 ChatGPT 討論過的飲食建議可直接貼進來。保留完整原文，同時整理成「摘要／情境／適用條件／注意事項」，之後搜尋會比較快。
@@ -1376,7 +1387,6 @@ exercisePhotoURLs=[],
 exercisePhotoURL=null,
 exercisePhotoRemove=false,
 selectedMasterId='',
-foodMasterNoteApplied='',
 editingFoodId='',
 editingExerciseId='',
 masterPhoto=null,
@@ -2094,7 +2104,7 @@ if(b && await uploadPhotoBlob(photoStoragePath('master',x.id,i+1),b,false))uploa
 }
 return {uploaded,failed,message:last};
 }
-/* === v2026.11.02.01：食品庫照片帶入與當餐附圖選擇（不共用照片 ID）=== */
+/* === v2026.11.06.01：食品庫照片帶入與當餐附圖選擇（不共用照片 ID）=== */
 function clearMealMasterPhotoCandidates(){
   mealMasterPhotoLoadVersion++;
   for(const item of mealMasterPhotoCandidates){if(item.url)URL.revokeObjectURL(item.url)}
@@ -2192,7 +2202,6 @@ function clearFoodEntryForm(){
 clearMealMasterPhotoCandidates();
 mealPhotoMode='none';mealPhotoRemoveRequested=false;
 selectedMasterId='';
-foodMasterNoteApplied='';
 editingFoodId='';
 closeMasterDropdown();
 fMasterName.value='';
@@ -2229,7 +2238,6 @@ const num=(v)=>{if(v===undefined)return undefined;const m=String(v).replace(/,/g
 const name=pick(['品名','餐點名稱','食物／餐點','食物/餐點','餐點','品項','名稱']);
 if(name!==undefined)fFood.value=name;
 selectedMasterId='';
-foodMasterNoteApplied='';
 fMasterName.value='';
 clearMealMasterPhotoCandidates();
 closeMasterDropdown();
@@ -2321,10 +2329,6 @@ const m=db.masters.find(v=>String(v.id)===String(x.masterId||''));
 fMasterName.value=m?((m.brand?m.brand+' ':'')+m.name):'';
 fFood.value=x.food||'';fQty.value=x.qty||'1';fUnit.value=x.unit||'份';updateFoodQtyLabel();
 fKcal.value=x.kcal||'';fProtein.value=x.protein||'';fCarb.value=x.carb||'';fSugar.value=x.sugar||'';fFat.value=x.fat||'';fFiber.value=x.fiber||'';fSodium.value=x.sodium||'';fNote.value=x.note||'';
-// 修改既有餐點保留當時的備註，不用最新食品庫備註覆寫。只有能明確辨識為自動帶入的前綴才在切換食品時替換。
-const originalMasterNote=String(m?.note||'').trim();
-const currentMealNote=String(x.note||'').trim();
-foodMasterNoteApplied=originalMasterNote && (currentMealNote===originalMasterNote || currentMealNote.startsWith(originalMasterNote+'\n')) ? originalMasterNote : '';
 photo=null;mealPhotoMode='existing';mealPhotoRemoveRequested=false;
 clearMealMasterPhotoCandidates();
 {const b=await getFoodPhotoBlob(x);setMealPhotoPreviewBlob(b);}
@@ -3571,8 +3575,6 @@ function onMasterSearchInput(){
 const current=db.masters.find(v=>String(v.id)===String(selectedMasterId));
 if(current && fMasterName.value.trim()!==masterDisplayName(current)){
 const oldName=masterDisplayName(current);
-// 手動改掉食品主檔搜尋文字時，移除先前自動帶入的食品庫備註，保留自行追加的備註。
-applyFoodMasterNote(null);
 selectedMasterId='';
 if(mealPhotoMode==='master'){mealPhotoMode='none';setMealPhotoPreviewBlob(null)}
 clearMealMasterPhotoCandidates();
@@ -3658,33 +3660,11 @@ ${esc(x.kcal||'—')} kcal/份
 `).join('')
 :'<div class="empty">找不到食品</div>';
 }
-/* KYC v2026.11.05.01：食品庫備註 → 新增飲食備註；切換主檔時不殘留舊主檔內容。 */
-function applyFoodMasterNote(master){
-  const incoming=String(master?.note||'').trim();
-  const oldAuto=String(foodMasterNoteApplied||'').trim();
-  let personal=String(fNote.value||'').trim();
-  // 只移除能完整辨識的舊自動備註，其他已編輯內容一律保留。
-  if(oldAuto){
-    if(personal===oldAuto){
-      personal='';
-    }else if(personal.startsWith(oldAuto+'\n')){
-      personal=personal.slice(oldAuto.length+1).replace(/^\n+/,'').trim();
-    }
-  }
-  // 避免重複選取同一食品而重複加入相同備註。
-  if(incoming && !(personal===incoming || personal.startsWith(incoming+'\n'))){
-    fNote.value=personal ? incoming+'\n'+personal : incoming;
-  }else{
-    fNote.value=personal;
-  }
-  foodMasterNoteApplied=incoming;
-}
 function useMaster(id){
 const x=db.masters.find(v=>String(v.id)===String(id));
 if(!x)return;
 
 selectedMasterId=String(id);
-applyFoodMasterNote(x);
 // 切換食品主檔時，舊主檔的候選照不可當成新食品的照片。
 if(mealPhotoMode==='master'){mealPhotoMode='none';setMealPhotoPreviewBlob(null)}
 fMasterName.value=masterDisplayName(x);
@@ -4030,7 +4010,7 @@ function clearKnowledgeForm(){
 }
 
 function saveKnowledge(){
-  const title=(kTitle.value||'').trim();
+const title=(kTitle.value||'').trim();
   const raw=(kRaw.value||'').trim();
   if(!title && !raw){alert('至少要有標題或原始聊天內容');return;}
   const now=Date.now();
@@ -4435,9 +4415,14 @@ foodRecordPhotoPlaceholders(historyList);
 */
 function ensurePrintPreviewOverlay(){
   let overlay=document.getElementById('printPreviewOverlay');
-  if(overlay)return overlay;
+  const iosPwa=isIOSDevice() && isStandalonePWA();
+  if(overlay){
+    overlay.classList.toggle('kyc-ios-pwa',iosPwa);
+    return overlay;
+  }
   overlay=document.createElement('div');
   overlay.id='printPreviewOverlay';
+  overlay.classList.toggle('kyc-ios-pwa',iosPwa);
   overlay.setAttribute('role','dialog');
   overlay.setAttribute('aria-modal','true');
   overlay.innerHTML=`<div class="print-preview-toolbar"><button class="print-preview-do" type="button" onclick="runPrintPreview()">🖨️ 列印／存成 PDF</button><button class="print-preview-back" type="button" onclick="closePrintPreview()">← 返回紀錄</button><div class="print-preview-help">iPhone 主畫面模式：按「列印／存成 PDF」會產生 PDF，接著在分享選單選「列印」或「儲存到檔案」。</div></div><main id="printPreviewSheet" class="print-preview-sheet"></main>`;
@@ -5030,7 +5015,7 @@ init();
   }
 
   async function enableFaceId() {
-    if (!supported()) {
+if (!supported()) {
       alert('目前這個瀏覽器無法使用 Face ID／Passkey。請使用 iPhone Safari 或從主畫面開啟此網站。');
       return;
     }
